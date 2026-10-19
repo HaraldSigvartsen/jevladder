@@ -1,0 +1,29 @@
+{
+  "name": "jev",
+  "version": "0.1.0",
+  "description": "Clef-gate for AI agents: deterministic rules first, an AI judge for the grey zone, and a hard human fallback.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "jev": "dist/src/cli.js"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "dist/src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "eval": "echo 'jev eval: not implemented yet (planned for a later step)'"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^3.0.0"
+  }
+}
