@@ -36,8 +36,8 @@ diff *types* and synthetic equivalents used in tests.
 
 ## Fixes
 
-- **A** — Unquoted secret values must be a **single** token (no whitespace), length ≥ 8, charset `[A-Za-z0-9_\-./+=]`, not a known type/keyword, not starting with `(`, `{`, or `<`, not containing `|<>{}()[];,`, and not a member/call expression. Quoted-literal and token-prefix branches unchanged.
-- **B** — `isProtected` excludes env template basenames; secrets-in-diff still scans their contents.
+- **A** — Unquoted secret values must be a **single** token (no whitespace), length ≥ 8, charset `[A-Za-z0-9_\-./+=]`, not a known type/keyword, not a PascalCase type id (`JwtPayload`), not an ALL_CAPS constant ref without digits (`ACCESS_TOKEN_DEFAULT`; digit-bearing ALL_CAPS like `FAKE_EXAMPLE_ONLY_998273` still blocks), not starting with `(`, `{`, or `<`, and not a member/call expression. Trailing `;`/`,` stripped before analysis. Quoted-literal and token-prefix branches unchanged.
+- **B** — `isProtected` excludes env template basenames only (basename-only rule: a directory named `.env.example` does not exempt children such as `.env.example/payments/x.ts`); secrets-in-diff still scans their contents.
 - **C** — Default protected globs extended with narrow file patterns: `**/auth-*.*`, `**/*-auth.*`, `**/auth.*`, `**/middleware.*`, `**/session-*.*`, `**/*-session.*`, `**/csrf*.*` (not `**/*auth*`, which would hit `author.ts`).
 
 ## After-fix expected outcomes (synthetic)

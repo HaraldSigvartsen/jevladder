@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildPluginFiles, writePluginFiles } from '../src/plugin.js';
+import {
+  buildPluginFiles,
+  DEFAULT_LOG_FILE,
+  sanitizeLogFileName,
+  writePluginFiles,
+} from '../src/plugin.js';
 import { runCli } from '../src/cli.js';
 import type { CliIO } from '../src/cli.js';
 
@@ -79,6 +84,40 @@ describe('buildPluginFiles', () => {
     expect(hooks).toContain('UserPromptSubmit');
     expect(hooks).toContain('"type": "command"');
     expect(hooks).toContain('"timeout": 5');
+  });
+
+  it('logFileName is embedded in the observe script, config, and README', () => {
+    const files = buildPluginFiles({ logFileName: 'custom.jsonl' });
+    const script = files['scripts/jev-observe.mjs'] as string;
+    expect(script).toContain('custom.jsonl');
+    expect(script).toContain('DEFAULT_LOG_BASENAME = "custom.jsonl"');
+    expect(script).not.toMatch(/DEFAULT_LOG_BASENAME = "observe\.jsonl"/);
+
+    const config = JSON.parse(files['config.json'] as string) as { logFileName: string };
+    expect(config.logFileName).toBe('custom.jsonl');
+    expect(files['README.md']).toContain('~/.jev/custom.jsonl');
+    expect(files['README.md']).toContain('JEV_OBSERVE_LOG');
+    expect(files['README.md']).toMatch(/env.*wins|always takes priority/i);
+  });
+
+  it('sanitizeLogFileName strips path segments and falls back on weird input', () => {
+    expect(sanitizeLogFileName(undefined)).toBe(DEFAULT_LOG_FILE);
+    expect(sanitizeLogFileName('')).toBe(DEFAULT_LOG_FILE);
+    expect(sanitizeLogFileName('  ')).toBe(DEFAULT_LOG_FILE);
+    expect(sanitizeLogFileName('custom.jsonl')).toBe('custom.jsonl');
+    expect(sanitizeLogFileName('/tmp/evil/custom.jsonl')).toBe('custom.jsonl');
+    expect(sanitizeLogFileName('..\\..\\custom.jsonl')).toBe('custom.jsonl');
+    expect(sanitizeLogFileName('..')).toBe(DEFAULT_LOG_FILE);
+    expect(sanitizeLogFileName('.')).toBe(DEFAULT_LOG_FILE);
+    expect(sanitizeLogFileName('weird name with spaces.jsonl')).toBe(DEFAULT_LOG_FILE);
+    expect(sanitizeLogFileName('has\0null.jsonl')).toBe(DEFAULT_LOG_FILE);
+
+    const weird = buildPluginFiles({ logFileName: '../nope/../x.jsonl' });
+    expect(weird['scripts/jev-observe.mjs']).toContain('DEFAULT_LOG_BASENAME = "x.jsonl"');
+    const fallback = buildPluginFiles({ logFileName: 'not a file!!!' });
+    expect(fallback['scripts/jev-observe.mjs']).toContain(
+      `DEFAULT_LOG_BASENAME = "${DEFAULT_LOG_FILE}"`,
+    );
   });
 });
 
@@ -164,6 +203,26 @@ describe('jev-observe.mjs integration', () => {
       hookSpecificOutput: { additionalContext: string };
     };
     expect(out.hookSpecificOutput.additionalContext).toMatch(/tier=(cheap|mid)/);
+  });
+
+  it('JEV_OBSERVE_LOG env override wins over configured logFileName', () => {
+    const dir = tempDir('jev-plugin-log-');
+    writePluginFiles(dir, { logFileName: 'custom.jsonl' });
+    const script = join(dir, 'scripts', 'jev-observe.mjs');
+    const overrideLog = join(dir, 'override-wins.jsonl');
+    const result = spawnSync(process.execPath, [script], {
+      input: JSON.stringify({
+        prompt: 'rename helper greet to sayHello please now',
+        cwd: '/tmp',
+        session_id: 'env-win',
+      }),
+      encoding: 'utf8',
+      env: { ...process.env, JEV_OBSERVE_LOG: overrideLog },
+    });
+    expect(result.status).toBe(0);
+    const logLine = readFileSync(overrideLog, 'utf8').trim();
+    expect(logLine.length).toBeGreaterThan(0);
+    expect(JSON.parse(logLine).session_id).toBe('env-win');
   });
 });
 

@@ -3,6 +3,7 @@ import {
   DEFAULT_PROTECTED_GLOBS,
   defineGate,
   globMatch,
+  isEnvTemplatePath,
   isProtected,
   makeMergeRules,
   type GateInput,
@@ -123,6 +124,26 @@ describe('isProtected', () => {
     expect(isProtected('.env')).toBe(true);
     expect(isProtected('.env.local')).toBe(true);
     expect(isProtected('infra/.env.production')).toBe(true);
+  });
+
+  it('env-template exclusion is basename-only (directory named .env.example does not exempt children)', () => {
+    // Basename-only rule: only the file's own name can be a template exemption.
+    expect(isEnvTemplatePath('.env.example')).toBe(true);
+    expect(isEnvTemplatePath('config/.env.example')).toBe(true);
+    expect(isEnvTemplatePath('.env.example/secret.key')).toBe(false);
+    expect(isEnvTemplatePath('.env.example/payments/x.ts')).toBe(false);
+
+    // Nested payments under a template-named dir must still path-protect.
+    expect(isProtected('.env.example/payments/x.ts')).toBe(true);
+    expect(isProtected('.env.sample/auth/session.ts')).toBe(true);
+    expect(isProtected('.env.example/db/migrations/001.sql')).toBe(true);
+
+    // Arbitrary child names are not exempted by the parent dir; unprotected
+    // unless a glob matches (secret.key matches neither *.env* nor payments).
+    expect(isProtected('.env.example/secret.key')).toBe(false);
+    // Real env files nested under a template-named dir still match *.env*.
+    expect(isProtected('.env.example/.env')).toBe(true);
+    expect(isProtected('.env.example/.env.local')).toBe(true);
   });
 
   it('leaves ordinary paths alone', () => {
@@ -286,6 +307,26 @@ describe('rule: secrets-in-diff', () => {
     expect(
       rule.evaluate({ action: 'merge', diff: '+  token: { nested: true };' }),
     ).toBeNull();
+  });
+
+  it('does not flag PascalCase type ids or ALL_CAPS constant refs (no digits)', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+  token: JwtPayload;' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  password: PasswordHash;' })).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  const token = ACCESS_TOKEN_DEFAULT;' }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  secret: SERVICE_PASSWORD,' }),
+    ).toBeNull();
+  });
+
+  it('still blocks ALL_CAPS unquoted values that contain digits (credential-shaped)', () => {
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+DB_PASSWORD=FAKE_EXAMPLE_ONLY_998273' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  password: FAKE_EXAMPLE_ONLY_pw998273' }),
+    ).toMatchObject({ outcome: 'block' });
   });
 
   it('still blocks real-looking unquoted/quoted secrets and token prefixes (field-test A)', () => {

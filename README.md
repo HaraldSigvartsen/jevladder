@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-98492c.svg)](LICENSE)
 [![Node: >=20](https://img.shields.io/badge/node-%3E%3D20-334155.svg)](#quick-start)
-[![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-334155.svg)](docs/PLAN.md)
+[![Version: 0.2.0](https://img.shields.io/badge/version-0.2.0-334155.svg)](docs/PLAN.md)
 
 ## The problem
 
@@ -340,9 +340,9 @@ More: [examples/config/](examples/config/) for a typed configuration example,
 
 ## Roadmap
 
-- **v0.1 (this)** — library core, merge rule pack, deterministic router,
-  CLI, synthetic eval, docs.
-- **v0.2 (started)** — Claude Code **observe-only** plugin (UserPromptSubmit
+- **v0.1** — library core, merge rule pack, deterministic router, CLI,
+  synthetic eval, docs.
+- **v0.2 (this)** — Claude Code **observe-only** plugin (UserPromptSubmit
   annotation + local decision log). Still ahead: MCP `decide` / `route` /
   `explain`, blocking/merge hooks, cost report from the decision log.
 - **v0.3 — "EverythingJevCan"** — multi-host adapters (Claude Code, Codex,
@@ -353,7 +353,7 @@ More: [examples/config/](examples/config/) for a typed configuration example,
 ## Contributing / development
 
 ```bash
-npm test          # vitest (174 tests)
+npm test          # vitest (180 tests)
 npm run typecheck # tsc --noEmit
 npm run build     # tsc → dist/
 npm run eval              # build + consistency eval (heuristic-aligned labels)

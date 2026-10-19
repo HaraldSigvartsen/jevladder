@@ -39,8 +39,10 @@ On `UserPromptSubmit`, runs `scripts/jev-observe.mjs`:
 
 ## Log location and privacy
 
-- Default: `~/.jev/observe.jsonl`
-- Override: set env `JEV_OBSERVE_LOG` to any file path.
+- Default: `~/.jev/observe.jsonl` (configured basename; path segments and
+  weird names are sanitized to `observe.jsonl`).
+- Override (wins): set env `JEV_OBSERVE_LOG` to any file path — the env
+  value always takes priority over the configured basename.
 - Each line is `{ts, session_id, cwd, tier, signals, promptChars}` —
   **no prompt text** is written.
 

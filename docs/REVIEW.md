@@ -122,3 +122,52 @@ RESULTS (supervisor-verified 2026-10-19, after fixes):
   exit 0; risky payments sample → block / exit 2.
 - Verdict after fixes: ready for v0.1 publish pending final grep/pack
   checks.
+
+## Round 3 — 2026-10-19 — Cursor auto review of post-v0.1 diff — verdict: CHANGES
+
+Read-only review of the post-v0.1 / observe-plugin diff. **No blockers.**
+Two SHOULD-FIX items plus a type-identifier false-positive class on
+unquoted secrets; fixes applied in this pass.
+
+### Should-fixes (fixed)
+
+- **Env-template nested path escape.** Template exclusion is
+  **basename-only**: a directory named `.env.example` must not exempt
+  children. `.env.example/payments/x.ts` stays protected via
+  `**/payments/**`; `.env.example/secret.key` is not path-protected
+  (no matching glob — not a fail-open via template exemption). Documented
+  on `isEnvTemplatePath` / `isProtected`; regression tests added.
+- **`JevPluginConfig.logFileName` unwired.** Observe script now embeds the
+  sanitized basename (`~/.jev/<logFileName>`); basename-only, slash-strip,
+  fallback to `observe.jsonl` on weird input. Config + README stay
+  consistent. `JEV_OBSERVE_LOG` env override always wins (documented).
+- **Unquoted secret FPs on type ids / constant refs.**
+  `token: JwtPayload;`, `password: PasswordHash;`,
+  `const token = ACCESS_TOKEN_DEFAULT;` no longer block (PascalCase type
+  identifier; ALL_CAPS without digits = constant ref). Trailing `;`/`,`
+  stripped before analysis. Digit-bearing ALL_CAPS
+  (`FAKE_EXAMPLE_ONLY_998273`) still blocks.
+
+### Version coherence
+
+- package.json / package-lock / CLI `--version` fallback bumped to
+  **0.2.0** (plugin section already advertised 0.2).
+
+### Plugin validation (supervisor fact)
+
+Supervisor live-validated with:
+
+`claude plugin validate plugin` = Validation passed
+
+### Rejected / accepted nits (brief)
+
+- **Rejected:** inventing path protection for arbitrary names under a
+  template-named directory (e.g. forcing `.env.example/secret.key` to
+  block without a matching glob) — would broaden globs without a
+  security rationale; children are evaluated normally.
+- **Accepted:** basename-only template rule + payments-under-template-dir
+  regression; wire `logFileName`; PascalCase / digit-free ALL_CAPS skip;
+  version bump to 0.2.0; regenerate checked-in `plugin/`.
+- **Deferred (label hygiene, not this pass):** independent-eval M1/M3
+  label stretches noted in prior review — out of scope for these
+  SHOULD-FIXes.

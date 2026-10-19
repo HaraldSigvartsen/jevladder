@@ -41,14 +41,23 @@ export const DEFAULT_PROTECTED_GLOBS: readonly string[] = [
   '**/secrets/**',
 ];
 
-/** Basenames that look like env *templates* (safe to commit) — never path-protected. */
+/**
+ * Basenames that look like env *templates* (safe to commit) — never path-protected.
+ * Basename-only: a directory named `.env.example` must NOT exempt children
+ * (e.g. `.env.example/payments/x.ts` is still protected via the payments glob).
+ */
 const ENV_TEMPLATE_BASENAME_RE =
   /^(\.env\.(example|sample|template)|\.env\..+\.(example|sample|template))$/i;
 
-function isEnvTemplatePath(file: string): boolean {
-  const normalized = normalizeDiffPath(file);
+/**
+ * True only when the file's own basename is an env template name.
+ * Ancestor path segments are ignored — nested files are evaluated normally.
+ */
+export function isEnvTemplatePath(file: string): boolean {
+  const normalized = normalizeDiffPath(file).replace(/\/+$/, '');
   if (normalized === '') return false;
   const base = normalized.split('/').pop() ?? normalized;
+  if (base === '') return false;
   return ENV_TEMPLATE_BASENAME_RE.test(base);
 }
 
@@ -119,13 +128,20 @@ export function globMatch(pattern: string, path: string): boolean {
   return matchSegments(normalizedPattern.split('/'), pathParts);
 }
 
-/** True when `file` matches any of `globs` (defaults to the protected set). */
+/**
+ * True when `file` matches any of `globs` (defaults to the protected set).
+ * Env-template exclusion is basename-only ({@link isEnvTemplatePath}): a
+ * directory named `.env.example` does not exempt children. Nested files are
+ * matched against globs on their own path (e.g. a payments path under a
+ * template-named dir still blocks). Arbitrary names like
+ * `.env.example/secret.key` stay unprotected unless a glob matches.
+ */
 export function isProtected(
   file: string,
   globs: readonly string[] = DEFAULT_PROTECTED_GLOBS,
 ): boolean {
-  // Env templates are commit-safe scaffolding; secret *content* is still
-  // scanned by secrets-in-diff. Never fail-closed on path alone.
+  // Env template *files* are commit-safe scaffolding; secret *content* is
+  // still scanned by secrets-in-diff. Basename-only — never exempt children.
   if (isEnvTemplatePath(file)) return false;
   return globs.some((glob) => globMatch(glob, file));
 }
@@ -197,6 +213,25 @@ const NON_SECRET_UNQUOTED_TOKENS = new Set(
 /** `foo.bar.baz` member chains (credential charset allows `.`, so reject these). */
 const MEMBER_EXPRESSION_RE = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)+$/;
 
+/** PascalCase type identifier (single word, has a lowercase letter). */
+const PASCAL_CASE_TYPE_RE = /^[A-Z][a-zA-Z]*$/;
+
+/** ALL_CAPS constant reference (letters/underscores only — no digits). */
+const ALL_CAPS_CONSTANT_RE = /^[A-Z][A-Z_]*$/;
+
+/** True for `JwtPayload` / `PasswordHash`-style type names (not credentials). */
+function isPascalCaseTypeIdentifier(token: string): boolean {
+  return PASCAL_CASE_TYPE_RE.test(token) && /[a-z]/.test(token);
+}
+
+/**
+ * True for `ACCESS_TOKEN_DEFAULT`-style constant refs (ALL_CAPS, no digits).
+ * Tokens with digits (`FAKE_EXAMPLE_ONLY_998273`) stay credential-shaped.
+ */
+function isAllCapsConstantReference(token: string): boolean {
+  return ALL_CAPS_CONSTANT_RE.test(token);
+}
+
 function isUnquotedSecretLiteral(body: string): boolean {
   UNQUOTED_SECRET_KEY_RE.lastIndex = 0;
   let keyMatch: RegExpExecArray | null;
@@ -210,10 +245,16 @@ function isUnquotedSecretLiteral(body: string): boolean {
 
     const tokenMatch = after.match(UNQUOTED_LITERAL_TOKEN_RE);
     if (!tokenMatch) continue;
-    const token = tokenMatch[0];
+    // Strip trailing `;` / `,` if present on the matched span (statement /
+    // property punctuation) so `token: JwtPayload;` analyses the identifier.
+    const token = tokenMatch[0].replace(/[;,]+$/, '');
+    if (token.length < 8) continue;
     if (NON_SECRET_UNQUOTED_TOKENS.has(token.toLowerCase())) continue;
+    if (isPascalCaseTypeIdentifier(token)) continue;
+    // ALL_CAPS without digits → constant ref (skip); with digits → credential.
+    if (isAllCapsConstantReference(token)) continue;
 
-    const rest = after.slice(token.length);
+    const rest = after.slice(tokenMatch[0].length).replace(/^[ \t]*[;,]/, '');
     // Call expression: `token = getSecret(` / member then call.
     if (rest.startsWith('(')) continue;
     if (MEMBER_EXPRESSION_RE.test(token)) continue;
