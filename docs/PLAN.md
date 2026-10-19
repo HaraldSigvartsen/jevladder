@@ -1,0 +1,74 @@
+# Jev — plan
+
+Working plan for the jev repository. Dates are ISO; "done" means implemented
+and verified with `npm test` / `npm run typecheck` / `npm run build` /
+`npm run eval`.
+
+## Phases
+
+### v0.1 — core library + CLI + eval (this) — DONE 2026-10-19
+
+- [x] Gate core (`src/gate.ts`): `defineGate` — deterministic rules first
+      (first hit decides, judge skipped), strict judge-output validation
+      (`parseJudgeVerdict`: verdict enum + finite score in [0,1] + non-empty
+      evidence, no coercion), threshold default 0.7, abstain / below-threshold
+      / invalid output → human, irreversible + judge allow → always human,
+      `onUncertain` callback, structured `DecisionLogEntry` audit log.
+      `decide()` never throws; config errors throw at `defineGate` time.
+- [x] Judges: `MockJudge` / `makeMockJudge` (deterministic, no key, can
+      abstain on TODO / protected-sounding paths) and
+      `OpenAICompatibleJudge` (any OpenAI-compatible API, key from env —
+      default `JEV_JUDGE_API_KEY`, 15 s timeout, never throws, operational
+      failures surface as abstain-like raw objects).
+- [x] Merge rule pack (`src/rules/merge-rules.ts`): `makeMergeRules` ordered
+      [tests-not-green, protected-paths, secrets-in-diff, new-dependencies,
+      diff-too-large]; `block` = stop-for-human; hand-rolled glob matching
+      (`*`, `**`, matchBase so `*.env*` covers nested `.env` files); secrets
+      rule scans added lines only and never echoes the matched secret;
+      diff text is data — injection can neither bypass nor mask detection.
+- [x] Deterministic router (`src/route.ts`): `scoreRoute` — keyword signals
+      on difficulty / consequence / verifiability, score 0.6·difficulty +
+      0.4·consequence, tiers cheap / mid / frontier, low-confidence input
+      raises one tier and sets `abstained=true`.
+- [x] CLI (`src/cli.ts`): `jev check` (diff from file/stdin, exit 0/2/3) and
+      `jev route --explain` (exit 0), `--help` / `--version`, `--json` for
+      both commands; unspecified test status counts as not green.
+- [x] Eval (`eval/`): 32 labelled synthetic tasks (21 merge, 11 route),
+      two arms — JEV vs ALL-FRONTIER baseline simulation (same rules +
+      permissive frontier mock) — mock price model, metrics (accuracy,
+      parity, cost per approved, false-block rate, escalation precision),
+      deterministic `eval/report.json` (gitignored).
+- [x] Examples: `examples/merge-gate/` (safe + risky demo diffs),
+      `examples/config/` (typed example config + field mapping).
+- [x] Docs: README, `docs/assets/architecture.svg`,
+      `docs/assets/terminal-demo.svg` (outputs captured from the real CLI),
+      LICENSE (MIT).
+
+### v0.2 — Claude Code plugin hooks + MCP + cost report
+
+- [ ] Claude Code plugin: hooks wrapping merge-gate checks around agent
+      write/merge actions (PreToolUse-style integration).
+- [ ] MCP server exposing `decide` / `route` / `explain` tools so any
+      MCP-capable host can consult the gate.
+- [ ] Cost report: cumulative spend by tier from the decision log
+      (rule / cheap / mid / frontier / human proxies).
+
+### v0.3 — "EverythingJevCan" multi-host adapters
+
+- [ ] Host adapters (Claude Code, Codex, Cursor, OpenCode, …) sharing one
+      gate/route core — routing stays advisory (dispatch/subagent level),
+      never a mid-session model swap.
+- [ ] Weekly config-proposal PRs generated from the eval/decision log
+      (protected globs, thresholds, ladder tweaks). Human approves every PR;
+      nothing auto-merges.
+
+## Decision log
+
+| Date | Decision |
+| --- | --- |
+| 2026-10-19 | Rules first: deterministic, free, first hit decides; the judge is only consulted in the grey zone; humans get everything uncertain. |
+| 2026-10-19 | `MockJudge` is the default judge everywhere (tests, CLI, eval) — no key, no network, deterministic; swap in `OpenAICompatibleJudge` for real judging. |
+| 2026-10-19 | No gateway/proxy build now; if one is ever needed later, build on LiteLLM / claude-code-router rather than reinventing routing infrastructure. |
+| 2026-10-19 | Eval starts synthetic (32 labelled mock tasks, mock prices, permissive-frontier baseline simulation) — directional numbers first, real-model benchmarks later. |
+| 2026-10-19 | Irreversible actions always go to a human; a judge allow can never approve them alone (a judge block still blocks — safe direction). |
+| 2026-10-19 | Measure daily via the decision log; propose config changes weekly via PRs a human approves — never auto-merge. |

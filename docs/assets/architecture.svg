@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="440" viewBox="0 0 960 440" role="img" aria-label="Jev decision flow: rules first, cheap judge for the grey zone, humans for the irreversible">
+  <defs>
+    <marker id="arrow-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6e7781"/>
+    </marker>
+    <marker id="arrow-terracotta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#98492c"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="960" height="440" fill="#ffffff"/>
+
+  <!-- irreversible -> always human (dashed, over the top) -->
+  <path d="M 84,180 C 84,64 880,64 880,168" fill="none" stroke="#98492c" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrow-terracotta)"/>
+  <text x="482" y="42" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#98492c">irreversible &#8594; always human</text>
+  <text x="482" y="58" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#8b949e">a judge allow is never enough on its own</text>
+
+  <!-- Agent change / task -->
+  <rect x="24" y="180" width="120" height="88" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-width="1.4"/>
+  <text x="84" y="218" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2328">Agent</text>
+  <text x="84" y="238" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#6e7781">change / task</text>
+
+  <!-- 1. Rules -->
+  <rect x="196" y="156" width="160" height="136" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-width="1.4"/>
+  <text x="276" y="192" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1f2328">1. Rules</text>
+  <text x="276" y="214" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#6e7781">deterministic &#183; free</text>
+  <text x="276" y="232" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#6e7781">first hit decides</text>
+  <text x="276" y="250" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#6e7781">code, not prompts</text>
+
+  <!-- Rules exits -->
+  <path d="M 246,156 V 108" fill="none" stroke="#1a7f37" stroke-width="1.6" marker-end="url(#arrow-grey)"/>
+  <text x="256" y="120" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#1a7f37">allow &#183; exit 0</text>
+  <path d="M 246,292 V 344" fill="none" stroke="#98492c" stroke-width="1.6" marker-end="url(#arrow-terracotta)"/>
+  <text x="256" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#98492c">block &#183; exit 2</text>
+
+  <!-- Grey zone? diamond -->
+  <polygon points="462,176 512,224 462,272 412,224" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.4"/>
+  <text x="462" y="228" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328">Grey zone?</text>
+
+  <!-- 2. Cheap judge -->
+  <rect x="556" y="156" width="188" height="136" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-width="1.4"/>
+  <text x="650" y="192" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1f2328">2. Cheap judge</text>
+  <text x="650" y="214" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#6e7781">verdict &#183; score &#183; evidence</text>
+  <text x="650" y="232" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#6e7781">strictly validated</text>
+  <text x="650" y="250" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#6e7781">can ABSTAIN</text>
+
+  <!-- Judge exits -->
+  <path d="M 650,156 V 108" fill="none" stroke="#6e7781" stroke-width="1.6" marker-end="url(#arrow-grey)"/>
+  <text x="660" y="112" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#1f2328">allow / block &#183; exit 0 / 2</text>
+  <text x="660" y="128" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#6e7781">(only at score &#8805; threshold)</text>
+
+  <!-- 3. Human -->
+  <rect x="832" y="168" width="104" height="112" rx="8" fill="#faf7f5" stroke="#98492c" stroke-width="1.8"/>
+  <text x="884" y="202" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#98492c">3. Human</text>
+  <text x="884" y="222" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10" fill="#6e7781">abstain &#183; low score</text>
+  <text x="884" y="237" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10" fill="#6e7781">invalid output</text>
+  <text x="884" y="252" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10" fill="#6e7781">irreversible</text>
+  <text x="884" y="270" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#98492c">exit 3</text>
+
+  <!-- Main flow arrows -->
+  <path d="M 144,224 H 191" fill="none" stroke="#6e7781" stroke-width="1.6" marker-end="url(#arrow-grey)"/>
+  <path d="M 356,224 H 407" fill="none" stroke="#6e7781" stroke-width="1.6" marker-end="url(#arrow-grey)"/>
+  <text x="382" y="212" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#6e7781">no rule hit</text>
+  <path d="M 512,224 H 551" fill="none" stroke="#6e7781" stroke-width="1.6" marker-end="url(#arrow-grey)"/>
+  <text x="532" y="212" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#6e7781">yes</text>
+  <path d="M 744,224 H 827" fill="none" stroke="#98492c" stroke-width="1.6" marker-end="url(#arrow-terracotta)"/>
+  <text x="786" y="212" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#98492c">uncertain</text>
+
+  <!-- Caption -->
+  <text x="24" y="416" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#6e7781">Every decision appends a structured, timestamped decision log &#8212; outcomes are measurable, not vibes. The gate never guesses and never fails open.</text>
+</svg>
