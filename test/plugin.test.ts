@@ -445,22 +445,28 @@ describe('jev-mcp.mjs integration', () => {
         outcome: 'block', source: 'rule:protected-paths',
       });
     }
+    // synthetic fixture assembled from pieces — do not inline
+    const genericCredential = ['abcdefgh', '12345678'].join('');
     for (const body of [
-      '+token: abcdefgh12345678',
-      '+-----BEGIN RSA PRIVATE KEY-----',
-      '++token = abcdefgh12345678',
-      '+const token = "abcdefgh12345678";',
+      `+token: ${genericCredential}`,
+      '+-----BEGIN RSA ' + 'PRIVATE KEY-----',
+      `++token = ${genericCredential}`,
+      `+const token = "${genericCredential}";`,
     ]) {
+      // synthetic fixture assembled from pieces — do not inline
+      const githubCredential = ['ghp', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('_');
       const secret = `--- a/src/config.ts\n+++ b/src/config.ts\n${body}`;
       const response = decide(secret, { testsPassed: true });
       expect(JSON.parse(response.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:secrets-in-diff' });
-      expect(response.content[0].text).not.toContain('abcdefgh12345678');
-      expect(response.content[0].text).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789');
+      expect(response.content[0].text).not.toContain(genericCredential);
+      expect(response.content[0].text).not.toContain(githubCredential);
     }
-    const standaloneCredential = '+ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+    // synthetic fixture assembled from pieces — do not inline
+    const githubCredential = ['ghp', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('_');
+    const standaloneCredential = `+${githubCredential}`;
     const standaloneResult = decide(`--- a/src/config.ts\n+++ b/src/config.ts\n${standaloneCredential}`, { testsPassed: true });
     expect(JSON.parse(standaloneResult.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:secrets-in-diff' });
-    expect(standaloneResult.content[0].text).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789');
+    expect(standaloneResult.content[0].text).not.toContain(githubCredential);
     const protectedDiff = '--- a/payments/secret.ts\n+++ b/payments/secret.ts\n+PAYMENT_PRIVATE_MARKER';
     const protectedResult = decide(protectedDiff, { testsPassed: true });
     expect(JSON.parse(protectedResult.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:protected-paths' });
@@ -470,10 +476,12 @@ describe('jev-mcp.mjs integration', () => {
     expect(JSON.parse(decide('+// TODO inspect later', { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'human' });
     const templateEnv = '--- a/.env.example\n+++ b/.env.example\n+API_KEY=YOUR_API_KEY_HERE';
     expect(JSON.parse(decide(templateEnv, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'allow' });
-    const secretDiff = '--- a/src/config.ts\n+++ b/src/config.ts\n+api_key = "sk_live_ABCD1234EFGH5678"';
+    // synthetic fixture assembled from pieces — do not inline
+    const stripeCredential = ['sk', 'live', 'ABCD1234', 'EFGH5678'].join('_');
+    const secretDiff = `--- a/src/config.ts\n+++ b/src/config.ts\n+api_key = "${stripeCredential}"`;
     const secretResult = decide(secretDiff, { testsPassed: true });
     expect(JSON.parse(secretResult.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:secrets-in-diff' });
-    expect(secretResult.content[0].text).not.toContain('sk_live_ABCD1234EFGH5678');
+    expect(secretResult.content[0].text).not.toContain(stripeCredential);
     const dependencyDiff = '--- a/package.json\n+++ b/package.json\n@@\n+"new-package": "^1.0.0"';
     expect(JSON.parse(decide(dependencyDiff, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:new-dependencies' });
     const invalid = decide('', { testsPassed: 'true' });

@@ -591,13 +591,13 @@ export const independentTasks: IndependentTask[] = [
       '+++ b/config/runtime.ts',
       '@@ -1,2 +1,2 @@',
       '-export const SERVICE_TOKEN = "";',
-      '+export const SERVICE_TOKEN = "sk_live_4f91c8a2d7e603b5";',
+      `+export const SERVICE_TOKEN = "${['sk', 'live', 'FAKE0', 'FAKE1', 'FAKE2'].join('_')}";`,
     ].join('\n')),
     expected: 'block',
     policyRef: 'M3',
     predictedRisk: true,
     note:
       'M3: credential-shaped assignment is a hard stop. The value is synthetic, not a real ' +
-      'credential. Predicted miss: generic config path may evade path checks.',
+      'credential, assembled from pieces at runtime. Predicted miss: generic config path may evade path checks.',
   },
 ];
