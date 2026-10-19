@@ -1,0 +1,23 @@
+diff --git a/src/greeting.ts b/src/greeting.ts
+index 1a2b3c4..5d6e7f8 100644
+--- a/src/greeting.ts
++++ b/src/greeting.ts
+@@ -1,6 +1,6 @@
+ export const GREETING = 'Hello';
+
+ export function greet(name: string): string {
+-  return `${GREETING}, ${name}!`;
++  return `${GREETING}, ${name}! Welcome back.`;
+ }
+
+diff --git a/test/greeting.test.ts b/test/greeting.test.ts
+index 9a8b7c6..4d3e2f1 100644
+--- a/test/greeting.test.ts
++++ b/test/greeting.test.ts
+@@ -3,5 +3,5 @@ import { greet } from '../src/greeting.js';
+
+ describe('greet', () => {
+   it('greets by name', () => {
+-    expect(greet('Ada')).toBe('Hello, Ada!');
++    expect(greet('Ada')).toBe('Hello, Ada! Welcome back.');
+   });

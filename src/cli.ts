@@ -1,30 +1,261 @@
 #!/usr/bin/env node
 /**
- * `jev` CLI entry point. Minimal stub for step 1: version and usage only.
- * Real commands (decide, eval, …) arrive in later steps.
+ * `jev` CLI: merge-gate checks and deterministic task routing.
+ *
+ * Commands:
+ *   jev check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
+ *   jev route --explain "<task text>" [--json]
+ *   jev --help | --version
+ *
+ * Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.
+ * Unspecified test status counts as not green (never fail open).
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { defineGate } from './gate.js';
+import { makeMergeRules } from './rules/merge-rules.js';
+import { MockJudge } from './judge/mock.js';
+import { scoreRoute } from './route.js';
+
+/** Output/input seams so tests can capture everything the CLI emits. */
+export interface CliIO {
+  stdout(text: string): void;
+  stderr(text: string): void;
+  readStdin?(): string;
+}
+
+const VERSION_FALLBACK = '0.1.0';
 
 function readVersion(): string {
   try {
     const manifest = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
     const version = (JSON.parse(readFileSync(manifest, 'utf8')) as { version?: string }).version;
-    return typeof version === 'string' && version !== '' ? version : '0.1.0';
+    return typeof version === 'string' && version !== '' ? version : VERSION_FALLBACK;
   } catch {
-    return '0.1.0';
+    return VERSION_FALLBACK;
   }
 }
 
-const args = process.argv.slice(2);
-const version = readVersion();
+const USAGE = `jev — clef-gate for AI agents
 
-if (args[0] === '--version' || args[0] === '-v') {
-  console.log(version);
-} else {
-  console.log(`jev ${version} — clef-gate for AI agents`);
-  console.log('Usage:');
-  console.log('  jev --version    Print the installed version.');
-  console.log('  (decide/eval commands arrive in a later step)');
+Usage:
+  jev check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
+  jev route --explain "<task text>" [--json]
+  jev --help | --version
+
+check — run the merge gate over a unified diff
+  --diff <file>     Path to a unified diff, or "-" to read stdin (default stdin).
+  --tests-passed    Test suite is green.
+  --tests-failed    Test suite is red (also the default when unspecified).
+  --irreversible    The merge cannot be undone once applied.
+  --json            Print the decision as JSON.
+
+route — score a task description deterministically (no model calls)
+  --explain <text>  Task text to score (required).
+  --json            Print the routing result as JSON.
+
+Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.`;
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function defaultIO(): CliIO {
+  return {
+    stdout: (text) => {
+      process.stdout.write(text);
+    },
+    stderr: (text) => {
+      process.stderr.write(text);
+    },
+    readStdin: () => {
+      try {
+        return readFileSync(0, 'utf8');
+      } catch {
+        return '';
+      }
+    },
+  };
+}
+
+const DIFF_FILE_HEADER_RE = /^\+\+\+\s+(?:b\/)?(.+?)(?:\s.*)?$/;
+
+/** Extract changed file paths from a unified diff's `+++ b/...` headers. */
+function extractDiffFiles(diff: string): string[] {
+  const files: string[] = [];
+  for (const rawLine of diff.split(/\r?\n/)) {
+    const header = rawLine.match(DIFF_FILE_HEADER_RE);
+    const file = header?.[1];
+    if (file && file !== '/dev/null' && !files.includes(file)) files.push(file);
+  }
+  return files;
+}
+
+function usageError(io: CliIO, message: string): number {
+  io.stderr(`jev: ${message}\n`);
+  io.stderr(`Run "jev --help" for usage.\n`);
+  return 1;
+}
+
+async function runCheck(args: string[], io: CliIO): Promise<number> {
+  let diffArg: string | null = null;
+  let sawPassed = false;
+  let sawFailed = false;
+  let irreversible = false;
+  let json = false;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] as string;
+    if (arg === '--diff') {
+      const value: string | undefined = args[++i];
+      if (value === undefined) return usageError(io, 'check: --diff requires a value');
+      diffArg = value;
+    } else if (arg === '--tests-passed') {
+      sawPassed = true;
+    } else if (arg === '--tests-failed') {
+      sawFailed = true;
+    } else if (arg === '--irreversible') {
+      irreversible = true;
+    } else if (arg === '--json') {
+      json = true;
+    } else {
+      return usageError(io, `check: unknown option "${arg}"`);
+    }
+  }
+  if (sawPassed && sawFailed) {
+    return usageError(io, 'check: --tests-passed and --tests-failed are mutually exclusive');
+  }
+
+  let diff: string;
+  if (diffArg !== null && diffArg !== '-') {
+    try {
+      diff = readFileSync(diffArg, 'utf8');
+    } catch (error) {
+      io.stderr(`jev: cannot read diff "${diffArg}": ${errorMessage(error)}\n`);
+      return 1;
+    }
+  } else {
+    if (!io.readStdin) return usageError(io, 'check: no --diff given and stdin is not available');
+    diff = io.readStdin();
+  }
+
+  const gate = defineGate({ rules: makeMergeRules(), judge: new MockJudge() });
+  const decision = await gate.decide({
+    action: 'merge',
+    diff,
+    files: extractDiffFiles(diff),
+    irreversible,
+    context: { testsPassed: sawPassed },
+  });
+
+  if (json) {
+    io.stdout(
+      `${JSON.stringify(
+        {
+          outcome: decision.outcome,
+          source: decision.source,
+          ruleId: decision.ruleId,
+          judgeVerdict: decision.judgeVerdict,
+          reason: decision.reason,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  } else {
+    io.stdout(`outcome: ${decision.outcome}\n`);
+    io.stdout(`source:  ${decision.source}${decision.ruleId ? ` (${decision.ruleId})` : ''}\n`);
+    io.stdout(`reason:  ${decision.reason}\n`);
+    if (decision.judgeVerdict) {
+      const { verdict, score, evidence } = decision.judgeVerdict;
+      io.stdout(`judge:   ${verdict} ${score} — ${evidence}\n`);
+    }
+  }
+
+  if (decision.outcome === 'allow') return 0;
+  if (decision.outcome === 'block') return 2;
+  return 3;
+}
+
+function runRoute(args: string[], io: CliIO): number {
+  let explain: string | undefined;
+  let json = false;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] as string;
+    if (arg === '--explain') {
+      const value: string | undefined = args[++i];
+      if (value === undefined) return usageError(io, 'route: --explain requires a value');
+      explain = value;
+    } else if (arg === '--json') {
+      json = true;
+    } else {
+      return usageError(io, `route: unknown option "${arg}"`);
+    }
+  }
+  if (explain === undefined) return usageError(io, 'route: --explain <text> is required');
+
+  const result = scoreRoute(explain);
+  if (json) {
+    io.stdout(`${JSON.stringify(result, null, 2)}\n`);
+    return 0;
+  }
+
+  io.stdout(`tier:          ${result.tier}\n`);
+  io.stdout(`abstained:     ${result.abstained}\n`);
+  io.stdout(`difficulty:    ${result.axes.difficulty.toFixed(3)}\n`);
+  io.stdout(`consequence:   ${result.axes.consequence.toFixed(3)}\n`);
+  io.stdout(`verifiability: ${result.axes.verifiability.toFixed(3)}\n`);
+  if (result.signals.length === 0) {
+    io.stdout('signals:       none\n');
+  } else {
+    io.stdout('signals:\n');
+    for (const signal of result.signals) {
+      io.stdout(`  - ${signal.signal} (+${signal.weight}) ${signal.detail}\n`);
+    }
+  }
+  io.stdout(`explanation:   ${result.explanation}\n`);
+  return 0;
+}
+
+/** Run the CLI against explicit arguments and IO; returns the process exit code. */
+export async function runCli(args: string[], io?: CliIO): Promise<number> {
+  const channels = io ?? defaultIO();
+  const command: string | undefined = args[0];
+
+  if (command === undefined) {
+    channels.stderr(`${USAGE}\n`);
+    return 1;
+  }
+  if (command === '--help' || command === '-h') {
+    channels.stdout(`${USAGE}\n`);
+    return 0;
+  }
+  if (command === '--version' || command === '-v') {
+    channels.stdout(`${readVersion()}\n`);
+    return 0;
+  }
+  if (command === 'check') return runCheck(args.slice(1), channels);
+  if (command === 'route') return runRoute(args.slice(1), channels);
+
+  channels.stderr(`jev: unknown command "${command}"\n\n${USAGE}\n`);
+  return 1;
+}
+
+const invokedAsScript = (() => {
+  try {
+    const entry = process.argv[1];
+    return (
+      typeof entry === 'string' && import.meta.url === pathToFileURL(realpathSync(entry)).href
+    );
+  } catch {
+    return false;
+  }
+})();
+
+if (invokedAsScript) {
+  runCli(process.argv.slice(2)).then((code) => {
+    process.exitCode = code;
+  });
 }

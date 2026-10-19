@@ -1,0 +1,12 @@
+diff --git a/src/payments/charge.ts b/src/payments/charge.ts
+index 2f3a4b5..6c7d8e9 100644
+--- a/src/payments/charge.ts
++++ b/src/payments/charge.ts
+@@ -2,7 +2,9 @@ import { computeFee } from './fees.js';
+
+ export function charge(amountCents: number): number {
+   const feeCents = computeFee(amountCents);
++  // demo only: obviously fake placeholder, never a real credential
++  password = "FAKE_EXAMPLE_ONLY_123";
+   return submitCharge(amountCents + feeCents);
+ }
