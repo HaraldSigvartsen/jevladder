@@ -72,3 +72,9 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 | 2026-10-19 | Eval starts synthetic (32 labelled mock tasks, mock prices, permissive-frontier baseline simulation) — directional numbers first, real-model benchmarks later. |
 | 2026-10-19 | Irreversible actions always go to a human; a judge allow can never approve them alone (a judge block still blocks — safe direction). |
 | 2026-10-19 | Measure daily via the decision log; propose config changes weekly via PRs a human approves — never auto-merge. |
+
+## Continuation log
+
+| Date | Entry |
+| --- | --- |
+| 2026-10-19 | Field test (docs/FIELDTEST.md): corrected outcomes — large feature diffs blocked by protected migration path; large content diffs blocked by `diff-too-large` (>2000); both sensible (not “judge grey”). After env-template path fix, `.env.example` path is unprotected but content remains secret-scanned (placeholder/token FP class). Independent policy-labelled eval added under `eval/independent/` (`policy.md`, `tasks.ts`, `run.ts`, `npm run eval:independent`); numbers: see README eval section / generated reports — do not invent figures here. |

@@ -16,21 +16,22 @@ diff *types* and synthetic equivalents used in tests.
 
 ## Diff types exercised
 
-| Diff type | Outcome before fix | Sensible? |
+| Diff type | Outcome (as recorded) | Sensible? |
 | --- | --- | --- |
-| Small type-fix / annotation-only change | False positive: `secrets-in-diff` blocked on TypeScript types / casts / prose mentioning token | No |
-| Large feature change | Judge grey zone (expected when no rule hits) | Yes |
-| Large content / assistant-feature change | Judge grey zone or size-aware path (no hard block under 2000) | Yes |
-| Auth / security fix | Miss: files like `auth-guard` / `middleware` escaped `**/auth/**` dir-only globs | No |
+| Small type-fix / annotation-only change | False positive: `secrets-in-diff` blocked on TypeScript types / casts / prose mentioning token (before fix A) | No |
+| Large feature change | **Blocked by protected migration path** (`**/migrations/**` / similar) — not “judge grey” | Yes |
+| Large content / assistant-feature change | **Blocked by `diff-too-large` (>2000 lines)** — not “judge grey” | Yes |
+| Auth / security fix | Miss: files like `auth-guard` / `middleware` escaped `**/auth/**` dir-only globs (before fix C) | No |
 | Binary asset change | Paths extracted; no secret false positive on binary notices | Yes |
-| Uncommitted working tree (incl. env template) | False block: `.env.example` tripped `protected-paths` via `*.env*` | No |
+| Uncommitted working tree (incl. env template) | Before fix B: `.env.example` tripped `protected-paths` via `*.env*`. After fix B: **path no longer protected**, but **content still secret-scanned** — a re-run still blocked via `secrets-in-diff` on a token placeholder / prose-style assignment. Remaining debatable fail-closed false-positive class (template placeholders look credential-shaped). | Path fix yes; content FP debatable |
 
 ## Findings (generic)
 
 | ID | Kind | Description |
 | --- | --- | --- |
 | **A** | False positive | `secrets-in-diff` unquoted branch accepted TypeScript type annotations and expressions (e.g. `Token: string \| null`, `Secret: Uint8Array`, casts with `API_TOKEN: string`, prose with spaces after `token`). Root cause: unquoted values were not restricted to a single credential-shaped token. |
-| **B** | False block | `protected-paths` treated env *templates* (`.env.example` / `.sample` / `.template`, including `.env.*.example`) as protected because of `*.env*`. |
+| **B** | False block (path) | `protected-paths` treated env *templates* (`.env.example` / `.sample` / `.template`, including `.env.*.example`) as protected because of `*.env*`. |
+| **B′** | Remaining FP class (content) | After B, `.env.example` path alone is not protected, but secrets-in-diff still scans contents. Placeholder / token-shaped assignments in templates can still hard-block — fail-closed, debatable as false positive for commit-safe templates. |
 | **C** | Miss | Security-sensitive *filenames* (`auth-guard.ts`, `middleware.ts`, session/csrf helpers) escaped defaults that only matched `**/auth/**` directories. |
 
 ## Fixes
@@ -45,5 +46,7 @@ diff *types* and synthetic equivalents used in tests.
 | --- | --- |
 | Small type-fix style diff | No secrets rule hit → judge / human grey zone |
 | Auth-guard / middleware path | `protected-paths` block |
+| Large feature touching migrations | `protected-paths` block (migration path) |
+| Large content diff >2000 lines | `diff-too-large` block |
 | Working tree `.env.example` path alone | Not protected |
-| `.env.example` **content** with fake `DB_PASSWORD=…` | `secrets-in-diff` block |
+| `.env.example` **content** with fake `DB_PASSWORD=…` / long placeholder tokens | `secrets-in-diff` block (remaining debatable FP for templates) |

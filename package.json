@@ -29,7 +29,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "eval": "npm run build && node dist/eval/run.js"
+    "eval": "npm run build && node dist/eval/run.js",
+    "eval:independent": "npm run build && node dist/eval/independent/run.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

@@ -154,7 +154,10 @@ network, no API keys, ~seconds):
 
 ```bash
 npm run eval
+npm run eval:independent
 ```
+
+### Consistency eval (`npm run eval`)
 
 **Real numbers from the run on 2026-10-19** (32 synthetic tasks: 21 merge,
 11 route; output also written to `eval/report.json`, which is gitignored):
@@ -186,12 +189,33 @@ The four metrics, and what they actually mean:
 - **Escalation precision** — fraction of human escalations that were
   warranted. Low values mean the judge abstains on boring work.
 
+### Independent eval (`npm run eval:independent`)
+
+Policy-first labels (`eval/independent/policy.md` M1–M5 / R1–R4) assigned from
+prose scenarios **before** running jev — not from which rule or MockJudge
+marker fires. **Real numbers from the run on 2026-10-19** (25 tasks: 18 merge,
+7 route; `eval/independent/report.json`, gitignored):
+
+| Metric | Value |
+| --- | --- |
+| Overall accuracy | **72.00%** (18/25) |
+| Merge accuracy | 66.67% |
+| Route accuracy | 85.71% |
+
+All seven misses were `predictedRisk` cases (template-placeholder secrets FP;
+auth/session semantics outside protected globs; payments labelled `human` vs
+path `block`; underspecified Q&A labelled `mid` vs `cheap`; irreversible
+labelled `block` vs gate `human`). See the generated report for expected vs
+actual on every miss.
+
 > **Caveats — read before quoting any number above.**
-> - All tasks are **synthetic** (32 hand-labelled cases; every secret is a
->   fake `FAKE_EXAMPLE_ONLY_*` placeholder).
-> - **Eval labels were derived from the same rule/route heuristics under
->   test**, so the accuracy numbers measure consistency with the intended
->   policy, not external validity. v0.2 plans independently labelled tasks.
+> - Consistency-eval tasks are **synthetic** (32 hand-labelled cases; every
+>   secret is a fake `FAKE_EXAMPLE_ONLY_*` placeholder). Labels were derived
+>   from the same rule/route heuristics under test — that run measures
+>   *consistency*, not external validity.
+> - The **independent** set is still small, synthetic, and same-author as the
+>   heuristics; 72% with deliberate adversarial misses is more informative than
+>   100% on the consistency set, but neither generalises alone.
 > - All prices are **mock constants**, not quotes from any provider; token
 >   counts are estimates (~400/call).
 > - The **all-frontier arm is a simulation**, not a real frontier judge: its
@@ -305,7 +329,8 @@ More: [examples/config/](examples/config/) for a typed configuration example,
 npm test          # vitest (153 tests)
 npm run typecheck # tsc --noEmit
 npm run build     # tsc → dist/
-npm run eval      # build + run the deterministic eval
+npm run eval              # build + consistency eval (heuristic-aligned labels)
+npm run eval:independent  # build + policy-labelled independent eval
 ```
 
 License: [MIT](LICENSE) © 2026 Harald Sigvartsen.
