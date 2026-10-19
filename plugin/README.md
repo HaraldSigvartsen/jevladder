@@ -1,7 +1,8 @@
 # jev Claude Code plugin (observe-only)
 
 Version 0.2.0. Annotates prompts with a miniature route tier.
-Never blocks. Never changes models.
+Never blocks. Never changes the main session model. Offers advisory delegation
+to the tier subagents shipped under `agents/`.
 
 ## Install
 
@@ -17,6 +18,7 @@ Generate a fresh copy from the jev CLI:
 ```bash
 jev plugin --out ./my-jev-plugin
 # optional: jev plugin --out ./my-jev-plugin --protected '**/payments/**'
+# optional: jev plugin --out ./my-jev-plugin --config ./jev-plugin.json
 ```
 
 ## What it does
@@ -28,7 +30,25 @@ On `UserPromptSubmit`, runs `scripts/jev-observe.mjs`:
    `frontier`.
 2. Appends one JSON line to the observe log (tier, signals, prompt length —
    never the full prompt text).
-3. Prints `additionalContext` so the session can see the annotation.
+3. Prints `additionalContext` suggesting `jev:jev-cheap`, `jev:jev-mid`, or
+   `jev:jev-frontier` (plugin-scoped names) for the routed tier. The host decides whether to delegate;
+   the hook never invokes an agent.
+
+## Subagent models
+
+| Tier | Agent | Claude Code model alias |
+| --- | --- | --- |
+| cheap | jev-cheap | haiku |
+| mid | jev-mid | sonnet |
+| frontier | jev-frontier | inherit |
+
+Set `subagentModels` in the JSON passed to `--config` (or in
+`JevPluginConfig` passed to `buildPluginFiles` / `writePluginFiles`).
+Allowed aliases: `haiku`, `sonnet`, `opus`, `inherit`; omitted tiers default
+to haiku / sonnet / inherit. `inherit` uses the main session's model for the
+subagent; it does not guarantee a frontier-class model or a lower cost.
+Aliases are baked into agent frontmatter at generation time; regenerate after
+config changes. Editing the emitted `config.json` does not change agent models.
 
 ## What it does NOT do
 

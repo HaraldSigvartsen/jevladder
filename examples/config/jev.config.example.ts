@@ -8,6 +8,8 @@
  * concepts.
  */
 
+import type { JevPluginConfig } from '../../src/plugin.js';
+
 export type ModelTier = 'cheap' | 'mid' | 'frontier';
 
 export interface ModelLadderEntry {
@@ -22,6 +24,8 @@ export interface ModelLadderEntry {
 }
 
 export interface JevConfig {
+  /** Passed explicitly to buildPluginFiles/writePluginFiles; not auto-loaded. */
+  plugin?: JevPluginConfig;
   /**
    * Glob patterns (`*` within a segment, `**` across segments; slash-free
    * patterns also match basenames) for paths that always require human
@@ -52,6 +56,7 @@ export interface JevConfig {
 }
 
 export const config: JevConfig = {
+  plugin: { subagentModels: { cheap: 'haiku', mid: 'sonnet', frontier: 'inherit' } },
   protectedPaths: [
     '**/payments/**',
     '**/auth/**',

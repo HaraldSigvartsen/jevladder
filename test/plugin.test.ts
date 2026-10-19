@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -50,6 +50,9 @@ describe('buildPluginFiles', () => {
       [
         '.claude-plugin/plugin.json',
         'README.md',
+        'agents/jev-cheap.md',
+        'agents/jev-mid.md',
+        'agents/jev-frontier.md',
         'config.json',
         'hooks/hooks.json',
         'scripts/jev-observe.mjs',
@@ -76,6 +79,33 @@ describe('buildPluginFiles', () => {
     expect(config.irreversibleActions).toEqual(['deploy', 'migration', 'delete']);
     expect(config.observeOnly).toBe(true);
   });
+
+  it('emits tier agents with safe defaults and advisory instructions', () => {
+    const files = buildPluginFiles();
+    const models = { cheap: 'haiku', mid: 'sonnet', frontier: 'inherit' };
+    expect(JSON.parse(files['config.json']!).subagentModels).toEqual(models);
+    for (const [tier, model] of Object.entries(models)) {
+      const agent = files[`agents/jev-${tier}.md`];
+      expect(agent).toMatch(new RegExp(`^---\\nname: jev-${tier}\\ndescription: .+\\nmodel: ${model}\\n---\\n`));
+      expect(agent).toContain('advisory');
+      expect(agent).toContain('human');
+    }
+  });
+
+  it('applies partial model overrides without changing other tier defaults', () => {
+    const files = buildPluginFiles({ subagentModels: { frontier: 'opus', cheap: 'inherit' } });
+    expect(files['agents/jev-frontier.md']).toContain('model: opus');
+    expect(files['agents/jev-cheap.md']).toContain('model: inherit');
+    expect(files['agents/jev-mid.md']).toContain('model: sonnet');
+  });
+
+  it.each(['gpt-example', 'opus\npermissionMode: bypassPermissions', null, 42])(
+    'rejects invalid model alias %j before writing files', (alias) => {
+      // Simulates untyped config input without weakening the public type.
+      const config = { subagentModels: { cheap: alias } } as unknown as Parameters<typeof buildPluginFiles>[0];
+      expect(() => buildPluginFiles(config)).toThrow(/subagentModels/);
+    },
+  );
 
   it('hooks.json references the observe script via CLAUDE_PLUGIN_ROOT', () => {
     const files = buildPluginFiles();
@@ -187,6 +217,32 @@ describe('jev-observe.mjs integration', () => {
     expect(result.stdout.trim()).toBe('');
   });
 
+  it.each([
+    ['rename the helper function greet to sayHello in greeting.ts', 'cheap'],
+    ['fix', 'mid'],
+    ['migrate payments in production and delete old table', 'frontier'],
+  ])('suggests the routed agent for %s without blocking or leaking text', (prompt, tier) => {
+    const { script, log } = writePlugin();
+    const result = runObserve(script, log, JSON.stringify({ prompt }));
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(Object.keys(output)).toEqual(['hookSpecificOutput']);
+    expect(output.hookSpecificOutput.hookEventName).toBe('UserPromptSubmit');
+    expect(output.hookSpecificOutput.additionalContext).toContain(`suggested subagent=jev:jev-${tier}`);
+    expect(output.hookSpecificOutput.additionalContext).toContain('advisory delegation only');
+    expect(result.stdout).not.toContain(prompt);
+    const entry = JSON.parse(readFileSync(log, 'utf8'));
+    expect(Object.keys(entry).sort()).toEqual(['ts', 'session_id', 'cwd', 'tier', 'signals', 'promptChars'].sort());
+    expect(readFileSync(log, 'utf8')).not.toContain(prompt);
+  });
+
+  it('still suggests an agent when the log cannot be written', () => {
+    const { script, dir } = writePlugin();
+    const result = runObserve(script, dir, JSON.stringify({ prompt: 'fix' }));
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain('suggested subagent=jev:jev-mid');
+  });
+
   it('safe prompt → cheap or mid', () => {
     const { script, log } = writePlugin();
     const result = runObserve(
@@ -227,6 +283,32 @@ describe('jev-observe.mjs integration', () => {
 });
 
 describe('jev plugin CLI', () => {
+  it('loads plugin JSON config and lets --protected override its globs', async () => {
+    const dir = tempDir('jev-cli-config-');
+    const configPath = join(dir, 'input.json');
+    writeFileSync(configPath, JSON.stringify({ protectedPaths: ['**/auth/**'], logFileName: 'custom.jsonl', subagentModels: { frontier: 'opus' } }));
+    const { io, err } = captureIO();
+    expect(await runCli(['plugin', '--out', join(dir, 'plugin'), '--config', configPath, '--protected', '*.lock'], io)).toBe(0);
+    expect(err()).toBe('');
+    const config = JSON.parse(readFileSync(join(dir, 'plugin/config.json'), 'utf8'));
+    expect(config.protectedPaths).toEqual(['*.lock']);
+    expect(config.logFileName).toBe('custom.jsonl');
+    expect(readFileSync(join(dir, 'plugin/agents/jev-frontier.md'), 'utf8')).toContain('model: opus');
+  });
+
+  it.each(['null', '[]', '{', '{"subagentModels":{"cheap":"invalid"}}', '{"protectedPaths":42}', '{"logFileName":42}', '{"subagentModels":[]}'])('rejects malformed config %s', async (raw) => {
+    const dir = tempDir('jev-cli-bad-config-');
+    const configPath = join(dir, 'input.json');
+    writeFileSync(configPath, raw);
+    const { io, out } = captureIO();
+    expect(await runCli(['plugin', '--out', join(dir, 'plugin'), '--config', configPath], io)).toBe(1);
+    expect(out()).toBe('');
+  });
+
+  it.each([['--config'], ['--config', '--out'], ['--config', '/missing-jev-config.json']])('rejects unusable config arguments %j', async (...args) => {
+    const { io } = captureIO();
+    expect(await runCli(['plugin', '--out', tempDir('jev-cli-missing-'), ...args], io)).toBe(1);
+  });
   it('writes files and prints paths when --out is set', async () => {
     const dir = tempDir('jev-cli-plugin-');
     const { io, out, err } = captureIO();

@@ -117,7 +117,9 @@ function main() {
         tier +
         ' signals=' +
         signalList +
-        ' (observe-only, no action taken)';
+        ' suggested subagent=jev:jev-' +
+        tier +
+        ' (advisory delegation only; observe-only, no action taken; main session model unchanged)';
       process.stdout.write(
         JSON.stringify({
           hookSpecificOutput: {

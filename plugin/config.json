@@ -5,5 +5,10 @@
     "migration",
     "delete"
   ],
-  "observeOnly": true
+  "observeOnly": true,
+  "subagentModels": {
+    "cheap": "haiku",
+    "mid": "sonnet",
+    "frontier": "inherit"
+  }
 }

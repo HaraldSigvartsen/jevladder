@@ -23,7 +23,7 @@ import { defineGate } from './gate.js';
 import { isStructuredDiff, parseDiffFilePaths } from './diff-parse.js';
 import { makeMergeRules } from './rules/merge-rules.js';
 import { MockJudge } from './judge/mock.js';
-import { writePluginFiles } from './plugin.js';
+import { parseJevPluginConfig, writePluginFiles } from './plugin.js';
 import { scoreRoute } from './route.js';
 
 /** Output/input seams so tests can capture everything the CLI emits. */
@@ -50,7 +50,7 @@ const USAGE = `jev — clef-gate for AI agents
 Usage:
   jev check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
   jev route --explain "<task text>" [--json]
-  jev plugin --out <dir> [--protected <glob> ...]
+  jev plugin --out <dir> [--config <json>] [--protected <glob> ...]
   jev --help | --version
 
 check — run the merge gate over a unified diff
@@ -65,6 +65,7 @@ route — score a task description deterministically (no model calls)
   --json            Print the routing result as JSON.
 
 plugin — write the observe-only Claude Code plugin files (never blocks)
+  --config <json>   Plugin JSON config (subagentModels, protectedPaths, logFileName).
   --out <dir>       Output directory (required).
   --protected <g>   Protected-path glob embedded in config.json (repeatable).
 
@@ -247,6 +248,7 @@ function runRoute(args: string[], io: CliIO): number {
 
 function runPlugin(args: string[], io: CliIO): number {
   let outDir: string | undefined;
+  let configPath: string | undefined;
   const protectedPaths: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -258,6 +260,12 @@ function runPlugin(args: string[], io: CliIO): number {
         return usageError(io, `plugin: --out requires a directory, got "${value}"`);
       }
       outDir = value;
+    } else if (arg === '--config') {
+      const value = args[++i];
+      if (value === undefined || value.startsWith('--')) {
+        return usageError(io, 'plugin: --config requires a JSON file');
+      }
+      configPath = value;
     } else if (arg === '--protected') {
       const value: string | undefined = args[++i];
       if (value === undefined) return usageError(io, 'plugin: --protected requires a glob');
@@ -273,9 +281,13 @@ function runPlugin(args: string[], io: CliIO): number {
   if (outDir === undefined) return usageError(io, 'plugin: --out <dir> is required');
 
   try {
+    const config = configPath === undefined
+      ? {}
+      : parseJevPluginConfig(JSON.parse(readFileSync(configPath, 'utf8')));
     const abs = resolve(outDir);
     const written = writePluginFiles(abs, {
-      protectedPaths: protectedPaths.length > 0 ? protectedPaths : undefined,
+      ...config,
+      ...(protectedPaths.length > 0 ? { protectedPaths } : {}),
     });
     for (const path of written) {
       io.stdout(`${path}\n`);

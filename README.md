@@ -280,7 +280,8 @@ const gate = defineGate({
 
 ## 3. Config
 
-There is **no auto-loaded config file**. The CLI does not read `jev.config.ts`.
+There is **no auto-loaded config file**. The CLI does not read `jev.config.ts`;
+`jev plugin --config <json>` explicitly reads a plugin-only JSON config.
 The typed example is for you to copy fields into `defineGate` /
 `makeMergeRules({ protectedGlobs })` / your own wiring. See
 [examples/config/README.md](examples/config/README.md) and
@@ -290,6 +291,7 @@ The typed example is for you to copy fields into `defineGate` /
 | --- | --- | --- |
 | `protectedPaths` | Globs for paths that always stop for human review (`makeMergeRules({ protectedGlobs })`). | Wired when you pass them into `makeMergeRules`. |
 | `modelLadder` | `tier` / `model` / placeholder `inputPer1M` / `outputPer1M` per `cheap` \| `mid` \| `frontier`. | Illustrative prices; `scoreRoute` only returns a tier — you map model yourself. |
+| `plugin.subagentModels` | Claude Code aliases per route tier. | Pass `config.plugin` into the plugin generator API, or its contents as `plugin --config <json>`; baked into generated agent files. |
 | `irreversibleActions` | Example phrases (`deploy production`, `run migration`, `delete *`). | **Informational** — the engine does **not** match this list yet. The gate keys off `input.irreversible` (CLI: `--irreversible`). |
 | `skillsByTaskType` | Planned mapping of task type → skill/policy docs. | **Informational** — the gate ignores it today. |
 | `judge.threshold` | Minimum judge score to act on allow/block (default `0.7`). | Pass into `defineGate({ threshold })`. |
@@ -305,16 +307,7 @@ npm run build
 node dist/src/cli.js plugin --out ./my-jev-plugin
 ```
 
-`--out` prints **resolved absolute paths** (one per line). Example from
-`plugin --out ./my-jev-plugin` run under `/tmp/jev-readme-demo`:
-
-```text
-/private/tmp/jev-readme-demo/my-jev-plugin/.claude-plugin/plugin.json
-/private/tmp/jev-readme-demo/my-jev-plugin/hooks/hooks.json
-/private/tmp/jev-readme-demo/my-jev-plugin/scripts/jev-observe.mjs
-/private/tmp/jev-readme-demo/my-jev-plugin/config.json
-/private/tmp/jev-readme-demo/my-jev-plugin/README.md
-```
+`--out` prints **resolved absolute paths** (one per generated file).
 
 Tree (relative to the out dir):
 
@@ -323,6 +316,9 @@ my-jev-plugin/
   .claude-plugin/plugin.json
   hooks/hooks.json
   scripts/jev-observe.mjs
+  agents/jev-cheap.md
+  agents/jev-mid.md
+  agents/jev-frontier.md
   config.json
   README.md
 ```
@@ -333,6 +329,31 @@ today — informational until blocking hooks land):
 ```bash
 node dist/src/cli.js plugin --out ./my-jev-plugin --protected '**/payments/**' --protected '*.lock'
 ```
+
+The agents use Claude Code model aliases, configurable through
+`JevPluginConfig.subagentModels` or an explicit plugin JSON file:
+
+```json
+{
+  "subagentModels": { "cheap": "haiku", "mid": "sonnet", "frontier": "inherit" }
+}
+```
+
+Save as `jev-plugin.json`, then generate with:
+
+```bash
+node dist/src/cli.js plugin --out ./my-jev-plugin --config ./jev-plugin.json
+```
+
+Omitted tiers use the defaults shown. Allowed values are `haiku`, `sonnet`,
+`opus`, and `inherit`; invalid aliases are rejected before files are written.
+`inherit` uses the main session's model for the subagent, so the frontier tier
+does not guarantee frontier capability or a lower cost. Choose `opus` explicitly
+if wanted. The JSON also accepts `protectedPaths` and `logFileName`;
+`--protected` replaces configured globs. Regenerate after config changes:
+editing the emitted `config.json` does not change agent frontmatter.
+See [Claude Code's subagent docs](https://code.claude.com/docs/en/sub-agents)
+for the host format and model selection behavior.
 
 ### Load / validate
 
@@ -357,7 +378,7 @@ A checked-in dogfood copy lives under [`plugin/`](plugin/).
 ### What it does / does not do
 
 On `UserPromptSubmit` it scores the prompt with miniature route signals,
-prints `additionalContext` with the tier, and appends **one JSON line** to
+prints `additionalContext` with the tier and suggested subagent, and appends **one JSON line** to
 `~/.jev/observe.jsonl` (or `JEV_OBSERVE_LOG`):
 
 ```json
@@ -366,6 +387,14 @@ prints `additionalContext` with the tier, and appends **one JSON line** to
 
 Fields: `ts`, `session_id`, `cwd`, `tier`, `signals`, `promptChars` only —
 **never the prompt text**. It never blocks and never swaps the host model.
+
+For example, a frontier annotation suggests `jev:jev-frontier` (the plugin-scoped
+name of `jev-frontier`). This is **advisory
+delegation only**: the hook never spawns an agent, and the host decides whether
+to delegate when subagents are available. Agent files carry YAML frontmatter
+(`name`, `description`, `model`) and instructions to follow host permissions
+and return uncertain or irreversible actions for human review. The observe
+hook still uses its existing miniature scorer, not the full `scoreRoute` API.
 
 ```bash
 tail -f ~/.jev/observe.jsonl
@@ -484,7 +513,7 @@ npm run eval:independent # policy-labelled independent eval
 
 ### Roadmap (short)
 
-- **v0.2 (this):** observe-only Claude Code plugin done. Still ahead in v0.2:
+- **v0.2 (this):** observe-only Claude Code plugin and advisory tier subagents done. Still ahead in v0.2:
   blocking/merge hooks, MCP `decide` / `route` / `explain`, cost report,
   marketplace packaging.
 - **v0.3 — EverythingJevCan:** multi-host adapters; weekly config-proposal PRs

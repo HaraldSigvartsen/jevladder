@@ -7,6 +7,9 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { RouteTier } from './route.js';
+
+export type ClaudeCodeModelAlias = 'haiku' | 'sonnet' | 'opus' | 'inherit';
 
 export interface JevPluginConfig {
   /** Glob patterns copied into generated config.json (informational for now). */
@@ -18,6 +21,43 @@ export interface JevPluginConfig {
    * this default at hook runtime.
    */
   logFileName?: string;
+  /** Claude Code aliases for delegated subagents; omitted tiers use safe defaults. */
+  subagentModels?: Partial<Record<RouteTier, ClaudeCodeModelAlias>>;
+}
+
+const DEFAULT_SUBAGENT_MODELS: Record<RouteTier, ClaudeCodeModelAlias> = {
+  cheap: 'haiku',
+  mid: 'sonnet',
+  frontier: 'inherit',
+};
+
+/** Validate external JSON before it can reach generated YAML or scripts. */
+export function parseJevPluginConfig(raw: unknown): JevPluginConfig {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new TypeError('plugin config must be an object');
+  }
+  const config = raw as Record<string, unknown>;
+  if (config.protectedPaths !== undefined &&
+      (!Array.isArray(config.protectedPaths) || config.protectedPaths.some((p) => typeof p !== 'string'))) {
+    throw new TypeError('protectedPaths must be an array of strings');
+  }
+  if (config.logFileName !== undefined && typeof config.logFileName !== 'string') {
+    throw new TypeError('logFileName must be a string');
+  }
+  if (config.subagentModels !== undefined) {
+    const models = config.subagentModels;
+    if (models === null || typeof models !== 'object' || Array.isArray(models) ||
+        Object.entries(models).some(([tier, model]) =>
+          !Object.hasOwn(DEFAULT_SUBAGENT_MODELS, tier) ||
+          !['haiku', 'sonnet', 'opus', 'inherit'].includes(model as string))) {
+      throw new TypeError('subagentModels must map cheap/mid/frontier to haiku/sonnet/opus/inherit');
+    }
+  }
+  return {
+    protectedPaths: config.protectedPaths as string[] | undefined,
+    logFileName: config.logFileName as string | undefined,
+    subagentModels: config.subagentModels as JevPluginConfig['subagentModels'],
+  };
 }
 
 const PLUGIN_VERSION = '0.2.0';
@@ -171,7 +211,9 @@ function main() {
         tier +
         ' signals=' +
         signalList +
-        ' (observe-only, no action taken)';
+        ' suggested subagent=jev:jev-' +
+        tier +
+        ' (advisory delegation only; observe-only, no action taken; main session model unchanged)';
       process.stdout.write(
         JSON.stringify({
           hookSpecificOutput: {
@@ -190,11 +232,12 @@ main();
 `;
 }
 
-function pluginReadme(logFileName: string): string {
+function pluginReadme(logFileName: string, models: Record<RouteTier, ClaudeCodeModelAlias>): string {
   return `# jev Claude Code plugin (observe-only)
 
 Version ${PLUGIN_VERSION}. Annotates prompts with a miniature route tier.
-Never blocks. Never changes models.
+Never blocks. Never changes the main session model. Offers advisory delegation
+to the tier subagents shipped under \`agents/\`.
 
 ## Install
 
@@ -210,6 +253,7 @@ Generate a fresh copy from the jev CLI:
 \`\`\`bash
 jev plugin --out ./my-jev-plugin
 # optional: jev plugin --out ./my-jev-plugin --protected '**/payments/**'
+# optional: jev plugin --out ./my-jev-plugin --config ./jev-plugin.json
 \`\`\`
 
 ## What it does
@@ -221,7 +265,25 @@ On \`UserPromptSubmit\`, runs \`scripts/jev-observe.mjs\`:
    \`frontier\`.
 2. Appends one JSON line to the observe log (tier, signals, prompt length —
    never the full prompt text).
-3. Prints \`additionalContext\` so the session can see the annotation.
+3. Prints \`additionalContext\` suggesting \`jev:jev-cheap\`, \`jev:jev-mid\`, or
+   \`jev:jev-frontier\` (plugin-scoped names) for the routed tier. The host decides whether to delegate;
+   the hook never invokes an agent.
+
+## Subagent models
+
+| Tier | Agent | Claude Code model alias |
+| --- | --- | --- |
+| cheap | jev-cheap | ${models.cheap} |
+| mid | jev-mid | ${models.mid} |
+| frontier | jev-frontier | ${models.frontier} |
+
+Set \`subagentModels\` in the JSON passed to \`--config\` (or in
+\`JevPluginConfig\` passed to \`buildPluginFiles\` / \`writePluginFiles\`).
+Allowed aliases: \`haiku\`, \`sonnet\`, \`opus\`, \`inherit\`; omitted tiers default
+to haiku / sonnet / inherit. \`inherit\` uses the main session's model for the
+subagent; it does not guarantee a frontier-class model or a lower cost.
+Aliases are baked into agent frontmatter at generation time; regenerate after
+config changes. Editing the emitted \`config.json\` does not change agent models.
 
 ## What it does NOT do
 
@@ -251,14 +313,16 @@ observe logs.
 export function buildPluginFiles(
   config: JevPluginConfig = {},
 ): Record<string, string> {
+  config = parseJevPluginConfig(config);
   const protectedPaths = config.protectedPaths ?? [];
   const logFileName = sanitizeLogFileName(config.logFileName);
+  const subagentModels = { ...DEFAULT_SUBAGENT_MODELS, ...config.subagentModels };
 
   const pluginJson = {
     name: 'jev',
     version: PLUGIN_VERSION,
     description:
-      'Jev observe-only decision log for coding agents. Annotates prompts, never blocks, never changes models.',
+      'Jev observe-only decision log and advisory subagent routing. Never blocks or changes the main session model.',
     author: { name: 'Harald Sigvartsen' },
   };
 
@@ -282,6 +346,7 @@ export function buildPluginFiles(
     protectedPaths,
     irreversibleActions: [...IRREVERSIBLE_ACTIONS],
     observeOnly: true as const,
+    subagentModels,
     ...(config.logFileName !== undefined ? { logFileName } : {}),
   };
 
@@ -292,7 +357,25 @@ export function buildPluginFiles(
     'hooks/hooks.json': `${JSON.stringify(hooksJson, null, 2)}\n`,
     'scripts/jev-observe.mjs': script.endsWith('\n') ? script : `${script}\n`,
     'config.json': `${JSON.stringify(configJson, null, 2)}\n`,
-    'README.md': pluginReadme(logFileName),
+    'README.md': pluginReadme(logFileName, subagentModels),
+    ...Object.fromEntries(
+      (Object.keys(subagentModels) as RouteTier[]).map((tier) => [
+        `agents/jev-${tier}.md`,
+        `---
+name: jev-${tier}
+description: Handles delegated ${tier}-tier tasks when Jev suggests jev-${tier}. Advisory only; the host decides whether to delegate.
+model: ${subagentModels[tier]}
+---
+
+You are Jev's ${tier}-tier subagent. Work only on the task delegated by the host.
+Jev routing is advisory; a tier is not permission to perform an action.
+Follow the host's instructions, permission rules, and project policies.
+If the task exceeds your capability or involves uncertain or irreversible
+actions, report the concern to the host for human review. Do not treat the
+route suggestion as approval. Return a concise result and what you verified.
+`,
+      ]),
+    ),
   };
 }
 

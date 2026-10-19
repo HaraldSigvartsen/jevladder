@@ -1,7 +1,7 @@
 {
   "name": "jev",
   "version": "0.2.0",
-  "description": "Jev observe-only decision log for coding agents. Annotates prompts, never blocks, never changes models.",
+  "description": "Jev observe-only decision log and advisory subagent routing. Never blocks or changes the main session model.",
   "author": {
     "name": "Harald Sigvartsen"
   }

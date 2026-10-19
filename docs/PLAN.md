@@ -52,6 +52,11 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
       README. Annotates prompts with a miniature route tier; never blocks;
       never changes models; log is privacy-safe (no prompt text). Checked-in
       tree under `plugin/` via dogfooded CLI.
+- [x] Subagent routing where the host allows it (2026-10-19): generated
+      `agents/jev-cheap.md`, `jev-mid.md`, `jev-frontier.md` with configurable
+      Claude Code model aliases (defaults haiku / sonnet / inherit).
+      UserPromptSubmit suggests the tier's agent; advisory delegation only,
+      never blocks or swaps the main session model.
 - [ ] Claude Code plugin: hooks wrapping merge-gate checks around agent
       write/merge actions (PreToolUse-style integration) — later in v0.2.
 - [ ] MCP server exposing `decide` / `route` / `explain` tools so any
@@ -85,3 +90,4 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 | --- | --- |
 | 2026-10-19 | Field test (docs/FIELDTEST.md): corrected outcomes — large feature diffs blocked by protected migration path; large content diffs blocked by `diff-too-large` (>2000); both sensible (not “judge grey”). After env-template path fix, `.env.example` path is unprotected but content remains secret-scanned (placeholder/token FP class). Independent policy-labelled eval added under `eval/independent/` (`policy.md`, `tasks.ts`, `run.ts`, `npm run eval:independent`); numbers: see README eval section / generated reports — do not invent figures here. |
 | 2026-10-19 | v0.2 observe plugin: `src/plugin.ts` + `jev plugin --out` emit Claude Code plugin files; `plugin/` dogfooded from built CLI; UserPromptSubmit observe-only (no block / no model swap); log `~/.jev/observe.jsonl` or `JEV_OBSERVE_LOG` without prompt text. MCP and blocking hooks remain later. |
+| 2026-10-19 | Added advisory tier subagents to the generated Claude Code plugin, with YAML frontmatter and config-driven host aliases (haiku / sonnet / inherit defaults; explicit plugin JSON via `--config`). The existing miniature observe scorer suggests an agent; the host decides whether to delegate. No main-session model swap, blocking decision, prompt text in logs, or measured cost-savings claim. Added generation/config/annotation tests and regenerated `plugin/` with the built CLI. |
