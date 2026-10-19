@@ -164,4 +164,9 @@ describe('OpenAICompatibleJudge', () => {
     expect(() => new OpenAICompatibleJudge({ baseUrl: '', model: 'm' })).toThrow(TypeError);
     expect(() => new OpenAICompatibleJudge({ baseUrl: 'https://x', model: '' })).toThrow(TypeError);
   });
+
+  it('has no implicit vendor model; empty or missing configuration is rejected', () => {
+    expect(() => new OpenAICompatibleJudge({ baseUrl: 'https://judge.example/v1', model: '' })).toThrow(/model is required/);
+    expect(() => new OpenAICompatibleJudge({ baseUrl: 'https://judge.example/v1' } as never)).toThrow(/model is required/);
+  });
 });

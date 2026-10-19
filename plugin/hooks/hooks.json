@@ -1,11 +1,22 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/jev-hook.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/jev-observe.mjs\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/jev-hook.sh\"",
             "timeout": 5
           }
         ]

@@ -1,27 +1,27 @@
 # jev Claude Code plugin (observe-only)
 
-Version 0.2.0. Annotates prompts with a miniature route tier.
-Never blocks. Never changes the main session model. Offers advisory delegation
-to the tier subagents shipped under `agents/`.
+Version 0.3.0. Jev is active automatically with sensible defaults;
+no setup or CLI commands are needed after installation. SessionStart provides
+automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
+Never blocks or changes the main session model.
 
 ## Install
 
-Load as a local plugin / copy into your plugins directory — see Claude Code
-plugin docs. Typical options:
-
-- Copy or symlink this directory into your Claude Code plugins location, or
-- Pass `--plugin-dir` pointing at this directory if your Claude Code build
-  supports loading a local plugin from a path.
-
-Generate a fresh copy from the jev CLI:
+Install from the Jev marketplace:
 
 ```bash
-jev plugin --out ./my-jev-plugin
-# optional: jev plugin --out ./my-jev-plugin --protected '**/payments/**'
-# optional: jev plugin --out ./my-jev-plugin --config ./jev-plugin.json
+/plugin marketplace add HaraldSigvartsen/jev
+/plugin install jev@jev
 ```
 
 ## What it does
+
+On `SessionStart`, supplies concise routing guidance: automatically delegate
+specific, well-scoped coding tasks to `jev:jev-cheap` first; keep error output
+and escalate one tier at a time to mid then frontier when work fails or
+verification is weak. Reserve frontier for cross-cutting, unclear-cause, or
+orchestration work. A tier is never permission; irreversible or uncertain work
+goes to a human, and the main session model is never swapped.
 
 On `UserPromptSubmit`, runs `scripts/jev-observe.mjs`:
 
@@ -30,9 +30,11 @@ On `UserPromptSubmit`, runs `scripts/jev-observe.mjs`:
    `frontier`.
 2. Appends one JSON line to the observe log (tier, signals, prompt length —
    never the full prompt text).
-3. Prints `additionalContext` suggesting `jev:jev-cheap`, `jev:jev-mid`, or
-   `jev:jev-frontier` (plugin-scoped names) for the routed tier. The host decides whether to delegate;
-   the hook never invokes an agent.
+3. Prints advisory routing context; the host performs any delegation.
+
+The hook launcher checks for Node and exits silently with status 0 when Node is
+unavailable, so plugin loading remains fail-open. The CLI is not needed for
+normal use.
 
 ## Subagent models
 

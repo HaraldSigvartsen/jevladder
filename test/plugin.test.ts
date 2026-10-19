@@ -56,6 +56,8 @@ describe('buildPluginFiles', () => {
         'config.json',
         'hooks/hooks.json',
         'scripts/jev-observe.mjs',
+        'scripts/jev-hook.sh',
+        'skills/jev-routing/SKILL.md',
       ].sort(),
     );
 
@@ -66,7 +68,7 @@ describe('buildPluginFiles', () => {
       author: { name: string };
     };
     expect(manifest.name).toBe('jev');
-    expect(manifest.version).toBe('0.2.0');
+    expect(manifest.version).toBe('0.3.0');
     expect(manifest.description).toContain('observe-only');
     expect(manifest.author.name).toBe('Harald Sigvartsen');
 
@@ -110,7 +112,8 @@ describe('buildPluginFiles', () => {
   it('hooks.json references the observe script via CLAUDE_PLUGIN_ROOT', () => {
     const files = buildPluginFiles();
     const hooks = files['hooks/hooks.json'] as string;
-    expect(hooks).toContain('${CLAUDE_PLUGIN_ROOT}/scripts/jev-observe.mjs');
+    expect(hooks.match(/sh \\\"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/jev-hook\.sh\\\"/g)).toHaveLength(2);
+    expect(hooks).toContain('SessionStart');
     expect(hooks).toContain('UserPromptSubmit');
     expect(hooks).toContain('"type": "command"');
     expect(hooks).toContain('"timeout": 5');
@@ -128,6 +131,17 @@ describe('buildPluginFiles', () => {
     expect(files['README.md']).toContain('~/.jev/custom.jsonl');
     expect(files['README.md']).toContain('JEV_OBSERVE_LOG');
     expect(files['README.md']).toMatch(/env.*wins|always takes priority/i);
+  });
+
+  it('emits automatic routing skill with advisory safety rules', () => {
+    const skill = buildPluginFiles()['skills/jev-routing/SKILL.md'] as string;
+    expect(skill).toMatch(/^---\nname: jev-routing\ndescription: .*automatically.*coding tasks.*\n---/i);
+    expect(skill).toContain('jev:jev-cheap');
+    expect(skill).toContain('jev:jev-mid');
+    expect(skill).toContain('jev:jev-frontier');
+    expect(skill).toContain('uncertainty');
+    expect(skill).toContain('irreversible');
+    expect(skill).toContain('CI/merge');
   });
 
   it('sanitizeLogFileName strips path segments and falls back on weird input', () => {
@@ -215,6 +229,34 @@ describe('jev-observe.mjs integration', () => {
     const result = runObserve(script, log, 'not-json{{{');
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe('');
+  });
+
+  it('SessionStart gives automatic delegation guidance without creating a log', () => {
+    const { script, log } = writePlugin();
+    const result = runObserve(
+      script,
+      log,
+      JSON.stringify({ hook_event_name: 'SessionStart' }),
+    );
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(output.hookSpecificOutput.hookEventName).toBe('SessionStart');
+    expect(output.hookSpecificOutput.additionalContext).toContain('automatically delegate');
+    expect(output.hookSpecificOutput.additionalContext).toContain('jev:jev-cheap');
+    expect(output.hookSpecificOutput.additionalContext).toContain('jev:jev-mid');
+    expect(output.hookSpecificOutput.additionalContext).toContain('jev:jev-frontier');
+    expect(() => readFileSync(log, 'utf8')).toThrow();
+  });
+
+  it('launcher exits silently when node is missing from PATH', () => {
+    const { dir } = writePlugin();
+    const result = spawnSync('/bin/sh', [join(dir, 'scripts', 'jev-hook.sh')], {
+      input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'fix' }),
+      encoding: 'utf8',
+      env: { PATH: '/nonexistent' },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
   });
 
   it.each([

@@ -6,6 +6,19 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 ## Phases
 
+### v0.3 — Claude Code marketplace + automatic advisory layer — DONE 2026-10-19
+
+- [x] Marketplace metadata at `.claude-plugin/marketplace.json` points to the
+      existing generated plugin at `./plugin`; names and version are tested.
+- [x] Automatic SessionStart delegation guidance and auto-discovered
+      `jev-routing` skill; well-scoped tasks start at cheap and escalate one
+      tier at a time when verification is weak.
+- [x] Fail-open POSIX launcher for both hooks; observe log remains limited to
+      privacy-safe UserPromptSubmit metadata.
+- [x] Automatic behavior is advisory; irreversible or uncertain work goes to
+      a human, and the main session model is never swapped.
+- [ ] Voluntary MCP `decide` / `route` / `explain` layer follows this phase.
+
 ### v0.1 — core library + CLI + eval (this) — DONE 2026-10-19
 
 - [x] Gate core (`src/gate.ts`): `defineGate` — deterministic rules first
@@ -88,6 +101,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-19 | v0.3 marketplace distribution and automatic advisory layer: root marketplace points to `./plugin`; SessionStart supplies automatic routing guidance, `jev-routing` is auto-discovered, and both hook events use the fail-open shell launcher. Verified through strict plugin validation and simulation/integration tests; this is not a claim of a real Claude Code session run. MCP is a voluntary layer after this phase. |
 | 2026-10-19 | Field test (docs/FIELDTEST.md): corrected outcomes — large feature diffs blocked by protected migration path; large content diffs blocked by `diff-too-large` (>2000); both sensible (not “judge grey”). After env-template path fix, `.env.example` path is unprotected but content remains secret-scanned (placeholder/token FP class). Independent policy-labelled eval added under `eval/independent/` (`policy.md`, `tasks.ts`, `run.ts`, `npm run eval:independent`); numbers: see README eval section / generated reports — do not invent figures here. |
 | 2026-10-19 | v0.2 observe plugin: `src/plugin.ts` + `jev plugin --out` emit Claude Code plugin files; `plugin/` dogfooded from built CLI; UserPromptSubmit observe-only (no block / no model swap); log `~/.jev/observe.jsonl` or `JEV_OBSERVE_LOG` without prompt text. MCP and blocking hooks remain later. |
 | 2026-10-19 | Added advisory tier subagents to the generated Claude Code plugin, with YAML frontmatter and config-driven host aliases (haiku / sonnet / inherit defaults; explicit plugin JSON via `--config`). The existing miniature observe scorer suggests an agent; the host decides whether to delegate. No main-session model swap, blocking decision, prompt text in logs, or measured cost-savings claim. Added generation/config/annotation tests and regenerated `plugin/` with the built CLI. |

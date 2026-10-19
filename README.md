@@ -1,6 +1,6 @@
 # Jev
 
-**Jev — rules first, a cheap judge only when in doubt, humans for the irreversible. Measurable model routing and merge gates for coding agents.**
+**Jev — rules first, a judge only when in doubt, humans for the irreversible. Measurable model routing and merge gates for coding agents.**
 
 Jev is a small decision authority for coding agents: deterministic rules run
 first (free, auditable), a cheap judge covers only the grey zone, and every
@@ -11,34 +11,59 @@ library, a CLI merge gate / router, or an observe-only Claude Code plugin.
 agent workflow who wants measurable exits (`allow` / `block` / `human`) instead
 of free-text "LGTM".
 
-[1. Quickstart](#1-quickstart-5-minutes) ·
-[2. Use in your own project](#2-use-in-your-own-project) ·
-[3. Config](#3-config) ·
-[4. Claude Code plugin](#4-claude-code-plugin-observe-only) ·
-[5. How it works](#5-how-it-works) ·
-[6. FAQ](#6-faq--troubleshooting) ·
-[7. Docs / contributing / roadmap](#7-docs-contributing-roadmap)
+[Install](#install-end-users) ·
+[Advanced CLI / CI](#advanced-cli--ci) ·
+[Config](#config) ·
+[Claude Code plugin](#claude-code-plugin-automatic-observe-only) ·
+[How it works](#how-it-works) ·
+[FAQ](#6-faq--troubleshooting) ·
+[Contributors](#contributors)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-98492c.svg)](LICENSE)
-[![Node: >=20](https://img.shields.io/badge/node-%3E%3D20-334155.svg)](#1-quickstart-5-minutes)
-[![Version: 0.2.0](https://img.shields.io/badge/version-0.2.0-334155.svg)](docs/PLAN.md)
+[![Node: >=20](https://img.shields.io/badge/node-%3E%3D20-334155.svg)](#advanced-cli--ci)
+[![Version: 0.3.0](https://img.shields.io/badge/version-0.3.0-334155.svg)](docs/PLAN.md)
 
 ---
 
-## 1. Quickstart (5 minutes)
+## Install (end users)
+
+In Claude Code, run:
+
+```text
+/plugin marketplace add HaraldSigvartsen/jev
+/plugin install jev@jev
+```
+
+Shell equivalents:
+
+```bash
+claude plugin marketplace add HaraldSigvartsen/jev
+claude plugin install jev@jev
+```
+
+Then just use Claude Code normally — Jev runs automatically. At session start,
+Jev guides automatic delegation of specific, well-scoped coding tasks to the
+cheap tier first, escalating one tier at a time when a tier fails or
+verification is weak. Prompt submission adds advisory route context and a
+privacy-safe observe log. No clone, npm install, build, CLI command, or API key
+is needed for end-user use.
+
+Before: ask for a small, specific coding change and the main session does the
+work itself. After: Claude Code can automatically delegate that task to
+`jev:jev-cheap`, keeping the main session model unchanged. Cross-cutting,
+unclear-cause, or orchestration work is reserved for frontier. A tier is never
+permission; uncertain or irreversible actions go to a human.
+
+## Advanced: CLI / CI
+
+### Clone and build
 
 **Prerequisites:** Node `>=20` (`package.json` `engines.node`).
-
-This package is **not published to npm as this project**. `package.json` has no
-`"private": true`, but Harald’s `jev@0.2.0` is not on the registry — the bare
-name `jev` on npm is an unrelated empty stub (`0.0.0` from 2021). Do **not**
-`npm install jev`. Clone, build, and run the binary at `dist/src/cli.js`.
 
 ```bash
 git clone https://github.com/HaraldSigvartsen/jev.git && cd jev
 npm install
 npm run build
-npm test   # optional sanity — expect 180 tests passing
 ```
 
 ### Demo: merge gate
@@ -132,7 +157,7 @@ claims green). Empty or non-diff input is exit `1`, never an implicit allow.
 
 ---
 
-## 2. Use in your own project
+### Use in your own project
 
 ### a) Library
 
@@ -169,7 +194,15 @@ const decision: Decision = await gate.decide({
 // decision.log:     structured audit trail
 ```
 
-Real judge (key from env only; missing key → abstain → human):
+The judge is Jev's type-safe contract: the TypeScript `Judge` interface is
+validated at runtime by `parseJudgeVerdict` (verdict must be `allow`, `block`,
+or `abstain`; score must be finite and in `[0,1]`; evidence must be
+non-empty). Invalid output abstains and goes to a human. The default documented
+path remains `MockJudge` with no API key; a missing key also abstains to a
+human.
+
+Advanced example (use a model selected from your own configured model ladder,
+starting with its cheap tier; Jev does not recommend a vendor model):
 
 ```ts
 import { defineGate, makeMergeRules, OpenAICompatibleJudge } from 'jev';
@@ -177,8 +210,8 @@ import { defineGate, makeMergeRules, OpenAICompatibleJudge } from 'jev';
 const gate = defineGate({
   rules: makeMergeRules(),
   judge: new OpenAICompatibleJudge({
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-4o-mini',
+    baseUrl: process.env.JEV_JUDGE_BASE_URL ?? 'https://provider.example/v1',
+    model: process.env.JEV_JUDGE_MODEL ?? '', // Empty/missing throws; no key → abstain → human.
     apiKeyEnv: 'JEV_JUDGE_API_KEY', // default if omitted
   }),
   threshold: 0.7,
@@ -278,7 +311,7 @@ const gate = defineGate({
 
 ---
 
-## 3. Config
+### Config
 
 There is **no auto-loaded config file**. The CLI does not read `jev.config.ts`;
 `jev plugin --config <json>` explicitly reads a plugin-only JSON config.
@@ -298,16 +331,22 @@ The typed example is for you to copy fields into `defineGate` /
 
 ---
 
-## 4. Claude Code plugin (observe-only)
+### Claude Code plugin (automatic, observe-only)
 
-### Generate
+Install end users from the marketplace:
 
-```bash
-npm run build
-node dist/src/cli.js plugin --out ./my-jev-plugin
+```text
+/plugin marketplace add HaraldSigvartsen/jev
+/plugin install jev@jev
 ```
 
-`--out` prints **resolved absolute paths** (one per generated file).
+The plugin runs automatically with sensible defaults. SessionStart provides
+delegation guidance; UserPromptSubmit adds advisory routing and logs only tier,
+signals, prompt character count, and session metadata (never prompt text). The
+shell launcher exits silently with status 0 if Node is unavailable. The CLI is
+not needed for normal use.
+
+For contributors who need a generated copy, see the CLI commands below.
 
 Tree (relative to the out dir):
 
@@ -315,7 +354,9 @@ Tree (relative to the out dir):
 my-jev-plugin/
   .claude-plugin/plugin.json
   hooks/hooks.json
+  scripts/jev-hook.sh
   scripts/jev-observe.mjs
+  skills/jev-routing/SKILL.md
   agents/jev-cheap.md
   agents/jev-mid.md
   agents/jev-frontier.md
@@ -355,23 +396,19 @@ editing the emitted `config.json` does not change agent frontmatter.
 See [Claude Code's subagent docs](https://code.claude.com/docs/en/sub-agents)
 for the host format and model selection behavior.
 
-### Load / validate
+### Generate / validate (contributors)
 
 What is verified today:
 
 ```bash
-claude --plugin-dir ./my-jev-plugin          # per session
-claude plugin validate ./my-jev-plugin       # ✔ Validation passed
+npm run build
+node dist/src/cli.js plugin --out ./my-jev-plugin
+claude plugin validate ./my-jev-plugin
 ```
 
-(`claude plugin validate` may print **advice** about adding a marketplace
-install line — that does not fail validation.)
-
-**Marketplace install is not available yet** — there is no `marketplace.json`
-in this repo; that is a later roadmap step. Do not document `/plugin install`
-as working for jev today. Persistent install via copy/symlink into a Claude
-Code plugins directory may work depending on your Claude Code build; the
-commands we treat as certain are `--plugin-dir` (session) and `plugin validate`.
+The repository marketplace points at the checked-in generated plugin under
+`plugin/`. Marketplace metadata and plugin manifest are validated together by
+the test suite.
 
 A checked-in dogfood copy lives under [`plugin/`](plugin/).
 
@@ -407,7 +444,7 @@ optionally `rm -rf ~/.jev` if you no longer want local observe logs.
 
 ---
 
-## 5. How it works
+## How it works
 
 ![Jev architecture: rules first, cheap judge for the grey zone, humans for the irreversible](docs/assets/architecture.svg)
 
@@ -480,7 +517,7 @@ calls. Network only happens if **you** configure `OpenAICompatibleJudge` to
 your endpoint. The observe plugin writes locally only.
 
 **Which hosts today?** Library + CLI anywhere Node runs. Plugin: Claude Code
-only. Codex / Cursor / OpenCode adapters are roadmap (v0.3).
+only. Codex / Cursor / OpenCode adapters are planned for a later phase.
 
 **Empty diff → exit 1?** By design — refusing to run on no input (never fail
 open).
@@ -490,7 +527,7 @@ open).
 
 ---
 
-## 7. Docs, contributing, roadmap
+## Contributors
 
 | Doc | What |
 | --- | --- |
@@ -504,7 +541,7 @@ open).
 ### Contributing
 
 ```bash
-npm test                 # vitest (180 tests)
+npm test                   # vitest
 npm run typecheck        # tsc --noEmit
 npm run build            # tsc → dist/
 npm run eval             # consistency eval (heuristic-aligned labels)
@@ -513,10 +550,10 @@ npm run eval:independent # policy-labelled independent eval
 
 ### Roadmap (short)
 
-- **v0.2 (this):** observe-only Claude Code plugin and advisory tier subagents done. Still ahead in v0.2:
-  blocking/merge hooks, MCP `decide` / `route` / `explain`, cost report,
-  marketplace packaging.
-- **v0.3 — EverythingJevCan:** multi-host adapters; weekly config-proposal PRs
+- **v0.3 (this):** Claude Code marketplace distribution and automatic advisory
+  layer done. MCP `decide` / `route` / `explain` remains a voluntary layer after
+  this; merge/action hooks and cost report are also ahead.
+- **Later:** multi-host adapters; weekly config-proposal PRs
   from the decision log (human approves; never auto-merge).
 
 License: [MIT](LICENSE) © 2026 Harald Sigvartsen.

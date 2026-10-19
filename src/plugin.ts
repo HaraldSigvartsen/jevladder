@@ -1,5 +1,5 @@
 /**
- * Claude Code observe-only plugin generator (v0.2 small).
+ * Claude Code observe-only plugin generator (v0.3 automatic advisory layer).
  *
  * Emits a loadable plugin directory: manifest, UserPromptSubmit hook,
  * standalone observe script, config, and README. The hook annotates prompts
@@ -60,7 +60,7 @@ export function parseJevPluginConfig(raw: unknown): JevPluginConfig {
   };
 }
 
-const PLUGIN_VERSION = '0.2.0';
+const PLUGIN_VERSION = '0.3.0';
 export const DEFAULT_LOG_FILE = 'observe.jsonl';
 const IRREVERSIBLE_ACTIONS = ['deploy', 'migration', 'delete'] as const;
 
@@ -178,6 +178,30 @@ function main() {
       }
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
 
+      const hookEventName =
+        typeof parsed.hook_event_name === 'string'
+          ? parsed.hook_event_name
+          : typeof parsed.hookEventName === 'string'
+            ? parsed.hookEventName
+            : '';
+
+      if (hookEventName === 'SessionStart') {
+        process.stdout.write(
+          JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: 'SessionStart',
+              additionalContext:
+                'Jev is active automatically with sensible defaults; no setup or commands are needed. For specific, well-scoped coding tasks (such as fixing a test, adding a field, or writing a function that follows a neighbouring pattern), automatically delegate to jev:jev-cheap first without asking the user. If that tier fails or verification is weak, keep the error output and escalate one tier at a time to jev:jev-mid, then jev:jev-frontier. Reserve frontier for cross-cutting work, unclear causes, or orchestration. A tier is never permission: irreversible or uncertain actions go to a human. The main session model is never swapped.',
+            },
+          }) + '\\n',
+        );
+        return;
+      }
+
+      // Claude hook input includes hook_event_name; eventless legacy payloads
+      // remain UserPromptSubmit-compatible for existing callers/tests.
+      if (hookEventName !== '' && hookEventName !== 'UserPromptSubmit') return;
+
       const prompt = typeof parsed.prompt === 'string' ? parsed.prompt : '';
       const cwd = typeof parsed.cwd === 'string' ? parsed.cwd : '';
       const sessionId =
@@ -235,28 +259,28 @@ main();
 function pluginReadme(logFileName: string, models: Record<RouteTier, ClaudeCodeModelAlias>): string {
   return `# jev Claude Code plugin (observe-only)
 
-Version ${PLUGIN_VERSION}. Annotates prompts with a miniature route tier.
-Never blocks. Never changes the main session model. Offers advisory delegation
-to the tier subagents shipped under \`agents/\`.
+Version ${PLUGIN_VERSION}. Jev is active automatically with sensible defaults;
+no setup or CLI commands are needed after installation. SessionStart provides
+automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
+Never blocks or changes the main session model.
 
 ## Install
 
-Load as a local plugin / copy into your plugins directory — see Claude Code
-plugin docs. Typical options:
-
-- Copy or symlink this directory into your Claude Code plugins location, or
-- Pass \`--plugin-dir\` pointing at this directory if your Claude Code build
-  supports loading a local plugin from a path.
-
-Generate a fresh copy from the jev CLI:
+Install from the Jev marketplace:
 
 \`\`\`bash
-jev plugin --out ./my-jev-plugin
-# optional: jev plugin --out ./my-jev-plugin --protected '**/payments/**'
-# optional: jev plugin --out ./my-jev-plugin --config ./jev-plugin.json
+/plugin marketplace add HaraldSigvartsen/jev
+/plugin install jev@jev
 \`\`\`
 
 ## What it does
+
+On \`SessionStart\`, supplies concise routing guidance: automatically delegate
+specific, well-scoped coding tasks to \`jev:jev-cheap\` first; keep error output
+and escalate one tier at a time to mid then frontier when work fails or
+verification is weak. Reserve frontier for cross-cutting, unclear-cause, or
+orchestration work. A tier is never permission; irreversible or uncertain work
+goes to a human, and the main session model is never swapped.
 
 On \`UserPromptSubmit\`, runs \`scripts/jev-observe.mjs\`:
 
@@ -265,9 +289,11 @@ On \`UserPromptSubmit\`, runs \`scripts/jev-observe.mjs\`:
    \`frontier\`.
 2. Appends one JSON line to the observe log (tier, signals, prompt length —
    never the full prompt text).
-3. Prints \`additionalContext\` suggesting \`jev:jev-cheap\`, \`jev:jev-mid\`, or
-   \`jev:jev-frontier\` (plugin-scoped names) for the routed tier. The host decides whether to delegate;
-   the hook never invokes an agent.
+3. Prints advisory routing context; the host performs any delegation.
+
+The hook launcher checks for Node and exits silently with status 0 when Node is
+unavailable, so plugin loading remains fail-open. The CLI is not needed for
+normal use.
 
 ## Subagent models
 
@@ -328,12 +354,23 @@ export function buildPluginFiles(
 
   const hooksJson = {
     hooks: {
+      SessionStart: [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/jev-hook.sh"',
+              timeout: 5,
+            },
+          ],
+        },
+      ],
       UserPromptSubmit: [
         {
           hooks: [
             {
               type: 'command',
-              command: 'node "${CLAUDE_PLUGIN_ROOT}/scripts/jev-observe.mjs"',
+              command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/jev-hook.sh"',
               timeout: 5,
             },
           ],
@@ -355,7 +392,30 @@ export function buildPluginFiles(
   return {
     '.claude-plugin/plugin.json': `${JSON.stringify(pluginJson, null, 2)}\n`,
     'hooks/hooks.json': `${JSON.stringify(hooksJson, null, 2)}\n`,
+    'scripts/jev-hook.sh': '#!/bin/sh\nif ! command -v node >/dev/null 2>&1; then\n  exit 0\nfi\nDIR=$(dirname "$0")\nexec node "$DIR/jev-observe.mjs"\n',
     'scripts/jev-observe.mjs': script.endsWith('\n') ? script : `${script}\n`,
+    'skills/jev-routing/SKILL.md': `---
+name: jev-routing
+description: Applies automatically when delegating or choosing effort for coding tasks.
+---
+
+# Jev routing
+
+Jev is advisory routing guidance with sensible defaults. No setup or commands
+are needed. Automatically delegate specific, well-scoped coding tasks (for
+example, fixing a test, adding a field, or writing a function that follows a
+neighbouring pattern) to \`jev:jev-cheap\` first; do not ask the user before
+delegating these tasks.
+
+If a tier fails or verification is weak, preserve the error output and escalate
+one tier at a time: \`jev:jev-mid\`, then \`jev:jev-frontier\`. Asymmetric
+uncertainty escalates up. Reserve frontier for cross-cutting work, unclear
+causes, or orchestration.
+
+A tier is never permission. Irreversible or uncertain actions go to a human;
+the judge never solely approves irreversible actions. Enforcement belongs in
+CI/merge outside this session. The main session model is never swapped.
+`,
     'config.json': `${JSON.stringify(configJson, null, 2)}\n`,
     'README.md': pluginReadme(logFileName, subagentModels),
     ...Object.fromEntries(

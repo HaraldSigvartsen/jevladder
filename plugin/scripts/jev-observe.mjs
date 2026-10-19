@@ -84,6 +84,30 @@ function main() {
       }
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
 
+      const hookEventName =
+        typeof parsed.hook_event_name === 'string'
+          ? parsed.hook_event_name
+          : typeof parsed.hookEventName === 'string'
+            ? parsed.hookEventName
+            : '';
+
+      if (hookEventName === 'SessionStart') {
+        process.stdout.write(
+          JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: 'SessionStart',
+              additionalContext:
+                'Jev is active automatically with sensible defaults; no setup or commands are needed. For specific, well-scoped coding tasks (such as fixing a test, adding a field, or writing a function that follows a neighbouring pattern), automatically delegate to jev:jev-cheap first without asking the user. If that tier fails or verification is weak, keep the error output and escalate one tier at a time to jev:jev-mid, then jev:jev-frontier. Reserve frontier for cross-cutting work, unclear causes, or orchestration. A tier is never permission: irreversible or uncertain actions go to a human. The main session model is never swapped.',
+            },
+          }) + '\n',
+        );
+        return;
+      }
+
+      // Claude hook input includes hook_event_name; eventless legacy payloads
+      // remain UserPromptSubmit-compatible for existing callers/tests.
+      if (hookEventName !== '' && hookEventName !== 'UserPromptSubmit') return;
+
       const prompt = typeof parsed.prompt === 'string' ? parsed.prompt : '';
       const cwd = typeof parsed.cwd === 'string' ? parsed.cwd : '';
       const sessionId =

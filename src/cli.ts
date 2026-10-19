@@ -33,7 +33,7 @@ export interface CliIO {
   readStdin?(): string;
 }
 
-const VERSION_FALLBACK = '0.2.0';
+const VERSION_FALLBACK = '0.3.0';
 
 function readVersion(): string {
   try {
