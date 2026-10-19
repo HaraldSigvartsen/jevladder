@@ -55,6 +55,13 @@ export const config: JevConfig = {
   protectedPaths: [
     '**/payments/**',
     '**/auth/**',
+    '**/auth-*.*',
+    '**/*-auth.*',
+    '**/auth.*',
+    '**/middleware.*',
+    '**/session-*.*',
+    '**/*-session.*',
+    '**/csrf*.*',
     '**/migrations/**',
     '*.env*',
     '**/secrets/**',

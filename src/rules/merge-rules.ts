@@ -29,10 +29,28 @@ export interface MergeRulesConfig {
 export const DEFAULT_PROTECTED_GLOBS: readonly string[] = [
   '**/payments/**',
   '**/auth/**',
+  '**/auth-*.*',
+  '**/*-auth.*',
+  '**/auth.*',
+  '**/middleware.*',
+  '**/session-*.*',
+  '**/*-session.*',
+  '**/csrf*.*',
   '**/migrations/**',
   '*.env*',
   '**/secrets/**',
 ];
+
+/** Basenames that look like env *templates* (safe to commit) — never path-protected. */
+const ENV_TEMPLATE_BASENAME_RE =
+  /^(\.env\.(example|sample|template)|\.env\..+\.(example|sample|template))$/i;
+
+function isEnvTemplatePath(file: string): boolean {
+  const normalized = normalizeDiffPath(file);
+  if (normalized === '') return false;
+  const base = normalized.split('/').pop() ?? normalized;
+  return ENV_TEMPLATE_BASENAME_RE.test(base);
+}
 
 export const DEFAULT_MAX_DIFF_LINES_HARD = 2000;
 
@@ -106,6 +124,9 @@ export function isProtected(
   file: string,
   globs: readonly string[] = DEFAULT_PROTECTED_GLOBS,
 ): boolean {
+  // Env templates are commit-safe scaffolding; secret *content* is still
+  // scanned by secrets-in-diff. Never fail-closed on path alone.
+  if (isEnvTemplatePath(file)) return false;
   return globs.some((glob) => globMatch(glob, file));
 }
 
@@ -113,22 +134,119 @@ export function isProtected(
  * Diff helpers
  * ------------------------------------------------------------------ */
 
-const SECRET_MATCHERS: ReadonlyArray<{ name: string; re: RegExp }> = [
+const QUOTED_SECRET_RE =
+  /(api[_-]?key|secret|password|token)\s*[:=]\s*['"][^'"]{8,}/i;
+
+/** Key + separator for unquoted env/YAML-style assignments; value checked separately. */
+const UNQUOTED_SECRET_KEY_RE = /(api[_-]?key|secret|password|token)\s*[:=]\s*/gi;
+
+/** Single-token credential-shaped literal (no whitespace). */
+const UNQUOTED_LITERAL_TOKEN_RE = /^[A-Za-z0-9_\-./+=]{8,}/;
+
+/**
+ * Types/keywords/placeholders that look long enough to trip a naive unquoted
+ * matcher but are never credentials (TypeScript annotations, JS literals, etc.).
+ */
+const NON_SECRET_UNQUOTED_TOKENS = new Set(
+  [
+    'undefined',
+    'null',
+    'true',
+    'false',
+    'string',
+    'number',
+    'boolean',
+    'bigint',
+    'symbol',
+    'object',
+    'any',
+    'unknown',
+    'never',
+    'void',
+    'uint8array',
+    'int8array',
+    'uint16array',
+    'int16array',
+    'uint32array',
+    'int32array',
+    'float32array',
+    'float64array',
+    'biguint64array',
+    'bigint64array',
+    'arraybuffer',
+    'sharedarraybuffer',
+    'dataview',
+    'promise',
+    'array',
+    'record',
+    'readonly',
+    'partial',
+    'required',
+    'pick',
+    'omit',
+    'exclude',
+    'extract',
+    'nonnullable',
+    'returntype',
+    'parameters',
+    'instanceof',
+    'typeof',
+  ].map((t) => t.toLowerCase()),
+);
+
+/** `foo.bar.baz` member chains (credential charset allows `.`, so reject these). */
+const MEMBER_EXPRESSION_RE = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)+$/;
+
+function isUnquotedSecretLiteral(body: string): boolean {
+  UNQUOTED_SECRET_KEY_RE.lastIndex = 0;
+  let keyMatch: RegExpExecArray | null;
+  while ((keyMatch = UNQUOTED_SECRET_KEY_RE.exec(body)) !== null) {
+    const after = body.slice(keyMatch.index + keyMatch[0].length);
+    // Quoted branch owns quote-delimited values; skip so we do not double-hit.
+    const first = after[0];
+    if (first === "'" || first === '"' || first === '`') continue;
+    // Not a literal: type/cast/object/generic punctuation.
+    if (first === '(' || first === '{' || first === '<') continue;
+
+    const tokenMatch = after.match(UNQUOTED_LITERAL_TOKEN_RE);
+    if (!tokenMatch) continue;
+    const token = tokenMatch[0];
+    if (NON_SECRET_UNQUOTED_TOKENS.has(token.toLowerCase())) continue;
+
+    const rest = after.slice(token.length);
+    // Call expression: `token = getSecret(` / member then call.
+    if (rest.startsWith('(')) continue;
+    if (MEMBER_EXPRESSION_RE.test(token)) continue;
+    // `process.env.` / `foo.` incomplete member continuing past the charset stop.
+    if (
+      /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(token) &&
+      /^\.[A-Za-z_$]/.test(rest)
+    ) {
+      continue;
+    }
+
+    return true;
+  }
+  return false;
+}
+
+const SECRET_MATCHERS: ReadonlyArray<{ name: string; test: (body: string) => boolean }> = [
   {
     name: 'key-like assignment (api key / secret / password / token with a long quoted value)',
-    re: /(api[_-]?key|secret|password|token)\s*[:=]\s*['"][^'"]{8,}/i,
+    test: (body) => QUOTED_SECRET_RE.test(body),
   },
   {
     name: 'key-like assignment with a long unquoted value (env style DB_PASSWORD=… / YAML password: …)',
-    re: /(api[_-]?key|secret|password|token)\s*[:=]\s*(?!undefined\b|null\b|true\b|false\b|process\.env\.|os\.environ\b|env\.|this\.|[A-Za-z_$][\w$.]*\(|\$\{|\{\{)(?=[^\s'"`]*[0-9]|[^\s'"`]*[^A-Za-z0-9.])[^\s'"`]{8,}/i,
+    test: isUnquotedSecretLiteral,
   },
   {
     name: 'private key block header',
-    re: /BEGIN\s+[A-Z ]*PRIVATE KEY/,
+    test: (body) => /BEGIN\s+[A-Z ]*PRIVATE KEY/.test(body),
   },
   {
     name: 'known token prefix (sk- / ghp_ / xoxb- / glpat-) with long payload, or an AWS access key id (AKIA…)',
-    re: /\b(?:sk-|ghp_|xoxb-|glpat-)[A-Za-z0-9_-]{8,}|\bAKIA[0-9A-Z]{16}\b/,
+    test: (body) =>
+      /\b(?:sk-|ghp_|xoxb-|glpat-)[A-Za-z0-9_-]{8,}|\bAKIA[0-9A-Z]{16}\b/.test(body),
   },
 ];
 
@@ -268,8 +386,8 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
         const line = lines[i];
         if (line === undefined || !isAddedDiffLine(line)) continue;
         const body = line.slice(1);
-        for (const { name, re } of SECRET_MATCHERS) {
-          if (re.test(body)) {
+        for (const { name, test } of SECRET_MATCHERS) {
+          if (test(body)) {
             return {
               outcome: 'block',
               reason: 'possible secret in diff',

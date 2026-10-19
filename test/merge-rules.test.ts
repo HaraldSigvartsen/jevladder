@@ -32,6 +32,21 @@ describe('globMatch', () => {
     expect(globMatch('**/auth/**', 'src/authorize/a.ts')).toBe(false);
   });
 
+  it('matches security-sensitive filename globs (field-test C)', () => {
+    expect(globMatch('**/auth-*.*', 'src/lib/auth-guard.ts')).toBe(true);
+    expect(globMatch('**/*-auth.*', 'lib/with-auth.ts')).toBe(true);
+    expect(globMatch('**/auth.*', 'src/auth.ts')).toBe(true);
+    expect(globMatch('**/middleware.*', 'src/middleware.ts')).toBe(true);
+    expect(globMatch('**/session-*.*', 'src/session-store.ts')).toBe(true);
+    expect(globMatch('**/*-session.*', 'src/user-session.ts')).toBe(true);
+    expect(globMatch('**/csrf*.*', 'src/csrf.ts')).toBe(true);
+    expect(globMatch('**/csrf*.*', 'src/csrf-token.ts')).toBe(true);
+    // Narrow patterns must not hit author.ts (unlike a naive **/*auth*).
+    expect(globMatch('**/auth-*.*', 'src/lib/author.ts')).toBe(false);
+    expect(globMatch('**/*-auth.*', 'src/lib/author.ts')).toBe(false);
+    expect(globMatch('**/auth.*', 'src/lib/author.ts')).toBe(false);
+  });
+
   it('matches slash-free patterns against the basename (matchBase)', () => {
     expect(globMatch('*.env*', '.env')).toBe(true);
     expect(globMatch('*.env*', 'app.env')).toBe(true);
@@ -83,6 +98,33 @@ describe('isProtected', () => {
     expect(isProtected('src/secrets/keys.json')).toBe(true);
   });
 
+  it('protects security-sensitive filenames outside **/auth/** dirs (field-test C)', () => {
+    expect(isProtected('src/lib/auth-guard.ts')).toBe(true);
+    expect(isProtected('src/middleware.ts')).toBe(true);
+    expect(isProtected('src/auth.ts')).toBe(true);
+    expect(isProtected('lib/with-auth.ts')).toBe(true);
+    expect(isProtected('src/session-store.ts')).toBe(true);
+    expect(isProtected('src/user-session.ts')).toBe(true);
+    expect(isProtected('src/csrf.ts')).toBe(true);
+    expect(isProtected('src/csrf-token.ts')).toBe(true);
+    // Do NOT use **/*auth* — author.ts must stay unprotected.
+    expect(isProtected('src/lib/author.ts')).toBe(false);
+  });
+
+  it('excludes env template basenames from protected matching (field-test B)', () => {
+    expect(isProtected('.env.example')).toBe(false);
+    expect(isProtected('.env.sample')).toBe(false);
+    expect(isProtected('.env.template')).toBe(false);
+    expect(isProtected('config/.env.example')).toBe(false);
+    expect(isProtected('.env.local.example')).toBe(false);
+    expect(isProtected('.env.production.sample')).toBe(false);
+    expect(isProtected('infra/.env.staging.template')).toBe(false);
+    // Real env files remain protected.
+    expect(isProtected('.env')).toBe(true);
+    expect(isProtected('.env.local')).toBe(true);
+    expect(isProtected('infra/.env.production')).toBe(true);
+  });
+
   it('leaves ordinary paths alone', () => {
     expect(isProtected('src/utils/format.ts')).toBe(false);
     expect(isProtected('README.md')).toBe(false);
@@ -93,6 +135,8 @@ describe('isProtected', () => {
     expect(isProtected('docs/x.md', ['docs/**'])).toBe(true);
     expect(isProtected('src/auth/a.ts', ['docs/**'])).toBe(false);
     expect(DEFAULT_PROTECTED_GLOBS).toContain('**/payments/**');
+    expect(DEFAULT_PROTECTED_GLOBS).toContain('**/auth-*.*');
+    expect(DEFAULT_PROTECTED_GLOBS).toContain('**/middleware.*');
   });
 });
 
@@ -153,6 +197,21 @@ describe('rule: protected-paths', () => {
     expect(customRule.evaluate({ action: 'merge', files: ['src/legacy/old.ts'] })?.outcome).toBe('block');
     expect(customRule.evaluate({ action: 'merge', files: ['src/auth/session.ts'] })).toBeNull();
   });
+
+  it('does not path-block env templates (field-test B)', () => {
+    expect(rule.evaluate({ action: 'merge', files: ['.env.example'] })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', files: ['config/.env.sample'] })).toBeNull();
+  });
+
+  it('path-blocks auth-guard and middleware filenames (field-test C)', () => {
+    expect(
+      rule.evaluate({ action: 'merge', files: ['src/lib/auth-guard.ts'] })?.outcome,
+    ).toBe('block');
+    expect(rule.evaluate({ action: 'merge', files: ['src/middleware.ts'] })?.outcome).toBe(
+      'block',
+    );
+    expect(rule.evaluate({ action: 'merge', files: ['src/lib/author.ts'] })).toBeNull();
+  });
 });
 
 describe('rule: secrets-in-diff', () => {
@@ -202,6 +261,58 @@ describe('rule: secrets-in-diff', () => {
     ).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+  apiKey = this.apiKey;' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+  secret?: string;' })).toBeNull();
+  });
+
+  it('does not flag TypeScript types/casts/prose as unquoted secrets (field-test A)', () => {
+    // Generic synthetic equivalents of real-world false positives — must NOT block.
+    expect(rule.evaluate({ action: 'merge', diff: '+  Token: string | null,' })).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+const x: { Secret: Uint8Array }' }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+(env as unknown as { API_TOKEN: string })',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+  // rotate the token when the deploy window opens',
+      }),
+    ).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  password: string;' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  secret: number | boolean;' })).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  token: { nested: true };' }),
+    ).toBeNull();
+  });
+
+  it('still blocks real-looking unquoted/quoted secrets and token prefixes (field-test A)', () => {
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+DB_PASSWORD=FAKE_EXAMPLE_ONLY_998273' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  password: FAKE_EXAMPLE_ONLY_pw998273' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  password = "FAKE_EXAMPLE_ONLY_123456";' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+const k = "sk-abc1234567890";' }),
+    ).toMatchObject({ outcome: 'block' });
+  });
+
+  it('secret-scans env template contents even when path is unprotected (field-test B)', () => {
+    // Path alone must not block; a real-looking fake assignment in the diff must.
+    expect(isProtected('.env.example')).toBe(false);
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: '+DB_PASSWORD=FAKE_EXAMPLE_ONLY_998273',
+      }),
+    ).toMatchObject({ outcome: 'block', reason: 'possible secret in diff' });
   });
 
   it('blocks AWS, Slack, and GitLab token prefixes (S3)', () => {

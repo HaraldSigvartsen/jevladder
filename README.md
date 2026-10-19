@@ -37,7 +37,8 @@ Three layers, strictly ordered:
 1. **Rules — deterministic, free.** Ordered checks; the first hit decides and
    the judge is never called. The shipped merge pack
    (`makeMergeRules()`) decides: tests not green → stop; protected paths
-   (`**/payments/**`, `**/auth/**`, `**/migrations/**`, `*.env*`,
+   (`**/payments/**`, `**/auth/**`, auth/middleware/session/csrf filename
+   globs, `**/migrations/**`, `*.env*` except `.env.example`/sample/template,
    `**/secrets/**`) → stop; possible secrets in added diff lines → stop; new
    dependencies → stop; diff over 2000 changed lines → stop. Rules are code,
    not prompts — diff text is data and can never alter an outcome.
