@@ -1,7 +1,7 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildPluginFiles,
@@ -71,7 +71,7 @@ describe('buildPluginFiles', () => {
       author: { name: string };
     };
     expect(manifest.name).toBe('tierclef');
-    expect(manifest.version).toBe('0.5.0');
+    expect(manifest.version).toBe('0.6.0');
     expect(manifest.description).toContain('observe-only');
     expect(manifest.author.name).toBe('Harald Sigvartsen');
 
@@ -235,6 +235,40 @@ describe('tierclef-observe.mjs integration', () => {
     const result = runObserve(script, log, 'not-json{{{');
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe('');
+  });
+
+  it('oversized and garbage input exits silently without echoing supplied text', () => {
+    const { script, log } = writePlugin();
+    const marker = 'HUGE_PRIVATE_PROMPT_MARKER';
+    const result = runObserve(script, log, JSON.stringify({ prompt: marker + 'x'.repeat(256 * 1024) }));
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toBe('');
+    expect(() => readFileSync(log)).toThrow();
+    const garbage = runObserve(script, log, marker + '{' + 'x'.repeat(256 * 1024));
+    expect(garbage.status).toBe(0);
+    expect(garbage.stdout + garbage.stderr).not.toContain(marker);
+  });
+
+  it('log opt-out keeps annotation and skips all log writing', () => {
+    const { script, log } = writePlugin();
+    const result = spawnSync(process.execPath, [script], {
+      input: JSON.stringify({ prompt: 'fix a small function' }), encoding: 'utf8',
+      env: { ...process.env, TIERCLEF_OBSERVE_LOG: log, TIERCLEF_NO_LOG: '1' },
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain('tier=');
+    expect(() => readFileSync(log)).toThrow();
+  });
+
+  it('rotates an observe log at or above 1 MB before appending', () => {
+    const { script, log } = writePlugin();
+    writeFileSync(log, 'x'.repeat(1024 * 1024));
+    writeFileSync(log + '.1', 'old rotation');
+    const result = runObserve(script, log, JSON.stringify({ prompt: 'fix a small function' }));
+    expect(result.status).toBe(0);
+    expect(statSync(log + '.1').size).toBe(1024 * 1024);
+    expect(readFileSync(log, 'utf8')).toContain('"promptChars"');
   });
 
   it('SessionStart gives automatic delegation guidance without creating a log', () => {
@@ -418,7 +452,7 @@ describe('tierclef-mcp.mjs integration', () => {
     expect(responses.every((r) => r.jsonrpc === '2.0')).toBe(true);
     expect(responses[0].result).toEqual({
       protocolVersion: '2025-03-26', capabilities: { tools: {} },
-      serverInfo: { name: 'tierclef', version: '0.5.0' },
+      serverInfo: { name: 'tierclef', version: '0.6.0' },
     });
     expect(responses[1].result.tools.map((tool: { name: string }) => tool.name)).toEqual(['tierclef_decide', 'tierclef_route', 'tierclef_explain']);
     expect(JSON.parse(responses[2].result.content[0].text)).toEqual({ tier: 'frontier', signals: ['payments', 'migration', 'delete', 'production'] });
@@ -430,11 +464,16 @@ describe('tierclef-mcp.mjs integration', () => {
   it('tierclef_decide applies miniature merge rules without returning diff content', () => {
     const decide = (diff: string, extra: Record<string, unknown> = {}) => {
       const [response] = runMcp([request(1, 'tools/call', { name: 'tierclef_decide', arguments: { diff, ...extra } })]);
-      return response.result;
+      return response.result ?? { isError: true, content: [{ text: response.error.message }] };
     };
     const safeDiff = '--- a/src/a.ts\n+++ b/src/a.ts\n@@\n-old\n+new';
     expect(JSON.parse(decide(safeDiff, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'allow', source: 'judge' });
     for (const malformed of ['', '   ', '+content without file headers', '--- weird\n+++ malformed']) {
+      if (malformed.trim() === '') {
+        const invalidDiff = decide(malformed, { testsPassed: true });
+        expect(JSON.parse(invalidDiff.content[0].text)).toMatchObject({ outcome: 'human' });
+        continue;
+      }
       expect(JSON.parse(decide(malformed, { testsPassed: true }).content[0].text)).toMatchObject({
         outcome: 'human', reason: 'empty or malformed diff — insufficient evidence',
       });
@@ -500,8 +539,83 @@ describe('tierclef-mcp.mjs integration', () => {
     ]);
     expect(responses[0].result.protocolVersion).toBe('2024-11-05');
     expect(responses[1].error.code).toBe(-32601);
-    for (const response of responses.slice(2, -1)) expect(response.result.isError).toBe(true);
-    expect(responses.at(-1).result).toEqual({});
+    expect(responses[2].result.isError).toBe(true);
+    expect(responses[3].result.isError).toBe(true);
+    expect(responses[4].result.isError).toBe(true);
+    expect(responses[5].result.isError).toBe(true);
+    expect(responses[6].result.isError).toBe(true);
+    expect(responses[7].result.isError).toBe(true);
+    expect(responses[8].result.content[0].text).toContain('"tier":"mid"');
+  });
+
+  it('strictly bounds MCP arguments and never echoes oversized secret material', () => {
+    const taskSecret = 'PRIVATE_TASK_SENTINEL';
+    const diffSecret = 'PRIVATE_DIFF_SENTINEL';
+    const responses = runMcp([
+      request(1, 'tools/call', { name: 'tierclef_route', arguments: { task: taskSecret + 'x'.repeat(20000) } }),
+      request(2, 'tools/call', { name: 'tierclef_explain', arguments: { task: taskSecret + 'x'.repeat(20000) } }),
+      request(3, 'tools/call', { name: 'tierclef_decide', arguments: { diff: diffSecret + 'x'.repeat(200000), testsPassed: true } }),
+      request(4, 'tools/call', { name: 'tierclef_decide', arguments: { diff: 'x', testsPassed: 'true' } }),
+      request(5, 'tools/call', { name: 'tierclef_decide', arguments: { diff: 'x', irreversible: 1 } }),
+    ]);
+    expect(responses.slice(0, 2).every((response) => response.result.isError)).toBe(true);
+    expect(responses.slice(2).every((response) => response.result.isError)).toBe(true);
+    expect(JSON.stringify(responses)).not.toContain(taskSecret);
+    expect(JSON.stringify(responses)).not.toContain(diffSecret);
+    expect(JSON.stringify(responses[2])).not.toContain('rule:');
+  });
+
+  it('discards an oversized MCP line and remains responsive to a following request', () => {
+    const dir = tempDir('tierclef-mcp-huge-');
+    writePluginFiles(dir);
+    const payload = 'x'.repeat(256 * 1024 + 1);
+    const result = spawnSync(process.execPath, [join(dir, 'scripts/tierclef-mcp.mjs')], {
+      input: payload + '\n' + JSON.stringify(request(1, 'ping')) + '\n',
+      encoding: 'utf8', timeout: 5000,
+    });
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout.trim().split('\n').map((line) => JSON.parse(line))).toEqual([
+      { jsonrpc: '2.0', id: 1, result: {} },
+    ]);
+  });
+
+  it('streams and discards an 8 MiB MCP line before serving later requests', () => {
+    const dir = tempDir('tierclef-mcp-stream-');
+    writePluginFiles(dir);
+    const child = spawn(process.execPath, [join(dir, 'scripts/tierclef-mcp.mjs')], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk; });
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk; });
+    const valid = [request(1, 'ping'), request(2, 'tools/list')]
+      .map((message) => JSON.stringify(message)).join('\n') + '\n';
+    const completion = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+      const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('MCP server hung')); }, 10000);
+      child.once('error', (error) => { clearTimeout(timer); reject(error); });
+      child.once('close', (code, signal) => { clearTimeout(timer); resolve({ code, signal }); });
+    });
+    const write = (data: string) => new Promise<void>((resolve, reject) => {
+      child.stdin.write(data, 'utf8', (error) => error ? reject(error) : resolve());
+    });
+    void (async () => {
+      for (let remaining = 8 * 1024 * 1024; remaining > 0; remaining -= 64 * 1024) {
+        await write('x'.repeat(Math.min(64 * 1024, remaining)));
+      }
+      await write('\n' + valid);
+      child.stdin.end();
+    })().catch((error: unknown) => { child.kill(); throw error; });
+    return completion.then(({ code, signal }) => {
+      expect(code).toBe(0);
+      expect(signal).toBeNull();
+      expect(stderr).toBe('');
+      const responses = stdout.trim().split('\n').map((line) => JSON.parse(line));
+      expect(responses).toHaveLength(2);
+      expect(responses[0]).toEqual({ jsonrpc: '2.0', id: 1, result: {} });
+      expect(responses[1]).toMatchObject({ jsonrpc: '2.0', id: 2, result: { tools: expect.any(Array) } });
+    });
   });
 
   it.each([

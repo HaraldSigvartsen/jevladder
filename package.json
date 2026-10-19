@@ -1,6 +1,6 @@
 {
   "name": "tierclef",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Clef-gate for AI agents: deterministic rules first, an AI judge for the grey zone, and a hard human fallback.",
   "type": "module",
   "license": "MIT",

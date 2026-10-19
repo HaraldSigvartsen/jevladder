@@ -17,10 +17,10 @@ describe('Claude Code marketplace metadata', () => {
     expect(marketplace.plugins).toHaveLength(1);
     expect(marketplace.plugins[0].name).toBe('tierclef');
     expect(marketplace.plugins[0].source).toBe('./plugin');
-    expect(marketplace.plugins[0].version).toBe('0.5.0');
+    expect(marketplace.plugins[0].version).toBe('0.6.0');
     expect(marketplace.plugins[0].author.name).toBeTruthy();
     expect(plugin.name).toBe(marketplace.plugins[0].name);
-    expect(plugin.version).toBe('0.5.0');
+    expect(plugin.version).toBe('0.6.0');
   });
 });
 
@@ -54,7 +54,7 @@ describe('Codex marketplace metadata', () => {
     expect(plugin).not.toHaveProperty('logo');
     const mcp = readJson(`plugin/${plugin.mcpServers}`);
     expect(mcp).toEqual({ mcpServers: { tierclef: { command: 'node', args: ['./scripts/tierclef-mcp.mjs'], cwd: '.' } } });
-    expect(readFileSync(resolve(root, 'plugin', mcp.mcpServers.tierclef.args[0]), 'utf8')).toContain('node:readline');
+    expect(readFileSync(resolve(root, 'plugin', mcp.mcpServers.tierclef.args[0]), 'utf8')).toContain('MAX_LINE_BYTES');
     expect(readJson(`plugin/${plugin.hooks}`).hooks.SessionStart).toBeTruthy();
   });
 });

@@ -1,0 +1,14 @@
+# Changelog
+
+## 0.6.0 — 2026-10-19
+
+- Renamed Jev to TierClef across package, CLI, plugin, and MCP surfaces.
+- Hardened observer input bounds, log controls, and MCP payload validation with privacy-safe errors.
+- Added adversarial coverage for diff injection, path handling, credentials, invalid judge/MCP inputs, and empty CLI/report inputs.
+- Documented security boundaries, troubleshooting, and verified plugin uninstall steps.
+
+## 0.5.0 - 2026-10-19
+
+- Added Codex marketplace distribution, automatic advisory hooks, routing skill, and bundled MCP tools.
+- Added privacy-safe observe-log cost reporting and independent policy-labelled evaluation.
+- Hardened the miniature MCP merge gate against empty/malformed diffs, protected paths, and credential-shaped additions.

@@ -1,6 +1,6 @@
 # TierClef — Codex-first advisory plugin
 
-Version 0.5.0. TierClef is active automatically with sensible defaults;
+Version 0.6.0. TierClef is active automatically with sensible defaults;
 no CLI commands are needed after installation and hook trust review.
 SessionStart provides automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
 Never blocks or changes the main session model.

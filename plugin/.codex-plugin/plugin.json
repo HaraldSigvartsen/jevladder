@@ -1,6 +1,6 @@
 {
   "name": "tierclef",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Codex-first automatic advisory routing, lifecycle guidance, and voluntary MCP decide/route/explain tools. Never blocks or swaps the main model.",
   "author": {
     "name": "Harald Sigvartsen"

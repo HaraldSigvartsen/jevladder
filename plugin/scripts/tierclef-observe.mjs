@@ -4,7 +4,7 @@
 // Observe-only: never exits non-zero, never prints a blocking decision.
 // Log path: TIERCLEF_OBSERVE_LOG (env) wins over ~/.tierclef/observe.jsonl.
 
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -12,8 +12,12 @@ const DEFAULT_LOG_BASENAME = "observe.jsonl";
 
 async function readAllStdin() {
   const chunks = [];
+  let bytes = 0;
   for await (const chunk of process.stdin) {
-    chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
+    const buffer = typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk);
+    bytes += buffer.length;
+    if (bytes > 256 * 1024) return null;
+    chunks.push(buffer.toString('utf8'));
   }
   return chunks.join('');
 }
@@ -79,6 +83,7 @@ function logPath() {
 function main() {
   return readAllStdin()
     .then((raw) => {
+      if (raw === null) return; // Oversized host payload: silent fail-open, no partial parse.
       let parsed;
       try {
         parsed = JSON.parse(raw);
@@ -131,9 +136,15 @@ function main() {
       };
 
       try {
-        const path = logPath();
-        mkdirSync(dirname(path), { recursive: true });
-        appendFileSync(path, JSON.stringify(entry) + '\n', 'utf8');
+        const optOut = process.env.TIERCLEF_NO_LOG;
+        if (optOut !== '1' && optOut !== 'true') {
+          const path = logPath();
+          mkdirSync(dirname(path), { recursive: true });
+          if (existsSync(path) && statSync(path).size >= 1024 * 1024) {
+            renameSync(path, path + '.1');
+          }
+          appendFileSync(path, JSON.stringify(entry) + '\n', 'utf8');
+        }
       } catch {
         // still annotate; never fail the hook
       }

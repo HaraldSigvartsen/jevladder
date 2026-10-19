@@ -35,7 +35,7 @@ export interface CliIO {
   readStdin?(): string;
 }
 
-const VERSION_FALLBACK = '0.5.0';
+const VERSION_FALLBACK = '0.6.0';
 
 function readVersion(): string {
   try {

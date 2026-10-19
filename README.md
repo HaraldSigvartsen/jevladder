@@ -22,7 +22,7 @@ of free-text "LGTM".
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-98492c.svg)](LICENSE)
 [![Node: >=20](https://img.shields.io/badge/node-%3E%3D20-334155.svg)](#advanced-cli--ci)
-[![Version: 0.5.0](https://img.shields.io/badge/version-0.5.0-334155.svg)](docs/PLAN.md)
+[![Version: 0.6.0](https://img.shields.io/badge/version-0.6.0-334155.svg)](docs/PLAN.md)
 
 ---
 
@@ -491,6 +491,9 @@ Every decision appends a structured log (`stage` / `detail`).
 tests/examples are fakes (`FAKE_EXAMPLE_ONLY_*`); judge key via env only
 (`TIERCLEF_JUDGE_API_KEY`).
 
+See [docs/SECURITY.md](docs/SECURITY.md) for the plugin/MCP threat model,
+privacy controls, bundled inventory, and disable/uninstall steps.
+
 **Honesty / limits:**
 
 - A plugin cannot swap the host’s main model mid-session.
@@ -552,6 +555,23 @@ open).
 
 **Forgot `--tests-passed`?** Treated as not green → `tests-not-green` blocks
 (exit `2`).
+
+**Where is the observe log?** By default it is `~/.tierclef/observe.jsonl`.
+Set `TIERCLEF_OBSERVE_LOG` to choose another path, or set `TIERCLEF_NO_LOG=1`
+to disable writes.
+
+**Hook not firing?** In Codex, complete the hook trust step and check `/hooks`
+to confirm the hook is enabled. In Claude Code, confirm the TierClef plugin is
+installed and enabled (`claude plugin list`); restart the host after changes.
+
+**Uninstalling:** In Codex, run `codex plugin remove tierclef` (add
+`--marketplace <name>` if needed), then `codex plugin marketplace remove <name>`
+to remove its marketplace. In Claude Code, run
+`claude plugin uninstall tierclef@<marketplace>`; remove the marketplace with
+`claude plugin marketplace remove <name>` if it is no longer used.
+
+**MCP tools not visible?** Restart Codex or Claude Code after installing or
+changing the plugin so the host reloads its MCP server configuration.
 
 ---
 
