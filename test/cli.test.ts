@@ -42,6 +42,21 @@ const RISKY_SECRET_DIFF = [
   '',
 ].join('\n');
 
+const BINARY_PAYMENTS_DIFF = [
+  'diff --git a/src/payments/logo.png b/src/payments/logo.png',
+  'index 1234567..89abcde 100644',
+  'Binary files a/src/payments/logo.png and b/src/payments/logo.png differ',
+  '',
+].join('\n');
+
+const RENAME_AWAY_FROM_PAYMENTS_DIFF = [
+  'diff --git a/src/payments/charge.ts b/src/billing/charge.ts',
+  'similarity index 100%',
+  'rename from src/payments/charge.ts',
+  'rename to src/billing/charge.ts',
+  '',
+].join('\n');
+
 const tempDirs: string[] = [];
 
 afterEach(() => {
@@ -174,6 +189,76 @@ describe('jev check', () => {
     expect(code).toBe(1);
     expect(err()).toContain('cannot read');
   });
+
+  it('fails closed on an empty diff file (B1: never an implicit allow)', async () => {
+    const file = writeTempDiff('empty.diff', '');
+    const { io, err } = captureIO();
+    const code = await runCli(['check', '--diff', file, '--tests-passed'], io);
+    expect(code).toBe(1);
+    expect(err()).toContain('diff is empty');
+  });
+
+  it('fails closed on non-diff garbage input (B1)', async () => {
+    const file = writeTempDiff('garbage.diff', 'just some text\nthat is not a diff at all\n');
+    const { io, err } = captureIO();
+    const code = await runCli(['check', '--diff', file, '--tests-passed'], io);
+    expect(code).toBe(1);
+    expect(err()).toContain('does not look like a unified diff');
+  });
+
+  it('fails closed on empty or garbage stdin (B1)', async () => {
+    const empty = captureIO('   \n');
+    expect(await runCli(['check', '--tests-passed'], empty.io)).toBe(1);
+    expect(empty.err()).toContain('diff is empty');
+
+    const garbage = captureIO('hello world, definitely not a diff');
+    expect(await runCli(['check', '--tests-passed'], garbage.io)).toBe(1);
+    expect(garbage.err()).toContain('does not look like a unified diff');
+  });
+
+  it('surfaces stdin read failures instead of coercing them to an empty diff (B1)', async () => {
+    const errLines: string[] = [];
+    const failing: CliIO = {
+      stdout: () => {},
+      stderr: (text) => {
+        errLines.push(text);
+      },
+      readStdin: () => {
+        throw new Error('EAGAIN: resource temporarily unavailable');
+      },
+    };
+    const code = await runCli(['check', '--tests-passed'], failing);
+    expect(code).toBe(1);
+    expect(errLines.join('')).toContain('cannot read diff from stdin');
+    expect(errLines.join('')).toContain('EAGAIN');
+  });
+
+  it('usage-errors when --diff value looks like another flag', async () => {
+    const { io, err } = captureIO();
+    const code = await runCli(['check', '--diff', '--tests-passed'], io);
+    expect(code).toBe(1);
+    expect(err()).toContain('--diff requires a value');
+  });
+
+  it('blocks a binary diff touching a protected path (B3: no +++ headers)', async () => {
+    const file = writeTempDiff('binary-payments.diff', BINARY_PAYMENTS_DIFF);
+    const { io, out } = captureIO();
+    const code = await runCli(['check', '--diff', file, '--tests-passed'], io);
+    expect(code).toBe(2);
+    expect(out()).toContain('block');
+    expect(out()).toContain('protected-paths');
+    expect(out()).toContain('src/payments/logo.png');
+  });
+
+  it('blocks a rename that moves a file OUT of a protected path (B3: old path kept)', async () => {
+    const file = writeTempDiff('rename-away.diff', RENAME_AWAY_FROM_PAYMENTS_DIFF);
+    const { io, out } = captureIO();
+    const code = await runCli(['check', '--diff', file, '--tests-passed'], io);
+    expect(code).toBe(2);
+    expect(out()).toContain('block');
+    expect(out()).toContain('protected-paths');
+    expect(out()).toContain('src/payments/charge.ts');
+  });
 });
 
 describe('jev route', () => {
@@ -202,6 +287,21 @@ describe('jev route', () => {
     const code = await runCli(['route'], io);
     expect(code).toBe(1);
     expect(err()).toContain('--explain');
+  });
+
+  it('usage-errors when --explain swallows another flag instead of text (S7)', async () => {
+    const { io, err } = captureIO();
+    const code = await runCli(['route', '--explain', '--json'], io);
+    expect(code).toBe(1);
+    expect(err()).toContain('--explain requires task text');
+  });
+
+  it('accepts --json in any position (S7)', async () => {
+    const { io, out } = captureIO();
+    const code = await runCli(['route', '--json', '--explain', 'Rename a typo in the docs'], io);
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out()) as { tier: string };
+    expect(parsed.tier).toBe('cheap');
   });
 });
 

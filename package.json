@@ -4,6 +4,16 @@
   "description": "Clef-gate for AI agents: deterministic rules first, an AI judge for the grey zone, and a hard human fallback.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaraldSigvartsen/jev.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
   "engines": {
     "node": ">=20"
   },

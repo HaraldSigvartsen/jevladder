@@ -9,11 +9,17 @@
  *
  * Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.
  * Unspecified test status counts as not green (never fail open).
+ *
+ * TRUST BOUNDARY: `jev check` expects an authoritative unified diff (e.g.
+ * `git diff` output piped or saved to a file), never agent-authored prose.
+ * File paths are parsed from the diff itself (`diff --git`, `+++` headers,
+ * `Binary files … differ` notices, including both sides of renames).
  */
 import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defineGate } from './gate.js';
+import { isStructuredDiff, parseDiffFilePaths } from './diff-parse.js';
 import { makeMergeRules } from './rules/merge-rules.js';
 import { MockJudge } from './judge/mock.js';
 import { scoreRoute } from './route.js';
@@ -45,7 +51,7 @@ Usage:
   jev --help | --version
 
 check — run the merge gate over a unified diff
-  --diff <file>     Path to a unified diff, or "-" to read stdin (default stdin).
+  --diff <file>     Path to a unified diff (e.g. git diff output), or "-" to read stdin (default stdin).
   --tests-passed    Test suite is green.
   --tests-failed    Test suite is red (also the default when unspecified).
   --irreversible    The merge cannot be undone once applied.
@@ -54,6 +60,9 @@ check — run the merge gate over a unified diff
 route — score a task description deterministically (no model calls)
   --explain <text>  Task text to score (required).
   --json            Print the routing result as JSON.
+
+The diff must be authoritative git diff output (not agent-authored text);
+empty or non-diff input is a usage error (exit 1), never an implicit allow.
 
 Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.`;
 
@@ -70,26 +79,12 @@ function defaultIO(): CliIO {
       process.stderr.write(text);
     },
     readStdin: () => {
-      try {
-        return readFileSync(0, 'utf8');
-      } catch {
-        return '';
+      if (process.stdin.isTTY) {
+        throw new Error('stdin is a terminal; pass --diff <file> or pipe a diff in');
       }
+      return readFileSync(0, 'utf8');
     },
   };
-}
-
-const DIFF_FILE_HEADER_RE = /^\+\+\+\s+(?:b\/)?(.+?)(?:\s.*)?$/;
-
-/** Extract changed file paths from a unified diff's `+++ b/...` headers. */
-function extractDiffFiles(diff: string): string[] {
-  const files: string[] = [];
-  for (const rawLine of diff.split(/\r?\n/)) {
-    const header = rawLine.match(DIFF_FILE_HEADER_RE);
-    const file = header?.[1];
-    if (file && file !== '/dev/null' && !files.includes(file)) files.push(file);
-  }
-  return files;
 }
 
 function usageError(io: CliIO, message: string): number {
@@ -110,6 +105,9 @@ async function runCheck(args: string[], io: CliIO): Promise<number> {
     if (arg === '--diff') {
       const value: string | undefined = args[++i];
       if (value === undefined) return usageError(io, 'check: --diff requires a value');
+      if (value.startsWith('--')) {
+        return usageError(io, `check: --diff requires a value, got "${value}"`);
+      }
       diffArg = value;
     } else if (arg === '--tests-passed') {
       sawPassed = true;
@@ -137,14 +135,32 @@ async function runCheck(args: string[], io: CliIO): Promise<number> {
     }
   } else {
     if (!io.readStdin) return usageError(io, 'check: no --diff given and stdin is not available');
-    diff = io.readStdin();
+    try {
+      diff = io.readStdin();
+    } catch (error) {
+      io.stderr(`jev: cannot read diff from stdin: ${errorMessage(error)}\n`);
+      return 1;
+    }
+  }
+
+  // Never fail open: empty or structure-less input is a usage error, not an
+  // implicit allow. A real unified diff always contains at least one
+  // `diff --git` line, `+++` header, or `@@` hunk marker.
+  if (diff.trim() === '') {
+    return usageError(io, 'check: diff is empty; refusing to run the gate on no input');
+  }
+  if (!isStructuredDiff(diff)) {
+    return usageError(
+      io,
+      'check: input does not look like a unified diff (no "diff --git", "+++", or "@@" line found); feed authoritative git diff output',
+    );
   }
 
   const gate = defineGate({ rules: makeMergeRules(), judge: new MockJudge() });
   const decision = await gate.decide({
     action: 'merge',
     diff,
-    files: extractDiffFiles(diff),
+    files: parseDiffFilePaths(diff),
     irreversible,
     context: { testsPassed: sawPassed },
   });
@@ -187,6 +203,9 @@ function runRoute(args: string[], io: CliIO): number {
     if (arg === '--explain') {
       const value: string | undefined = args[++i];
       if (value === undefined) return usageError(io, 'route: --explain requires a value');
+      if (value.startsWith('--')) {
+        return usageError(io, `route: --explain requires task text, got "${value}"`);
+      }
       explain = value;
     } else if (arg === '--json') {
       json = true;

@@ -31,9 +31,13 @@ export interface JevConfig {
   /** Right-sized model per route tier (scoreRoute assigns cheap/mid/frontier). */
   modelLadder: ModelLadderEntry[];
   /**
-   * Task phrases that mark an action irreversible. When an input is
-   * irreversible, a judge allow can never approve it alone — the gate always
-   * defers to a human. `delete *` uses the same glob-style wildcard.
+   * Task phrases that mark an action irreversible. INFORMATIONAL in v0.1:
+   * no engine matches these phrases yet — the gate's guard keys off
+   * GateInput.irreversible (set today by the CLI's --irreversible flag);
+   * v0.2 host hooks plan to map phrases like these automatically. When an
+   * input is irreversible, a judge allow can never approve it alone — the
+   * decision always defers to a human. `delete *` uses glob-style
+   * wildcards for the future matcher.
    */
   irreversibleActions: string[];
   /**

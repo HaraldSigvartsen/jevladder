@@ -14,13 +14,9 @@
  * by diff content.
  */
 import type { Rule } from '../gate.js';
+import { countChangedLines, isAddedDiffLine, isMinusFileHeader, isPlusFileHeader, isRemovedDiffLine, parsePlusHeaderPath } from '../diff-parse.js';
 
 export interface MergeRulesConfig {
-  /**
-   * Changed-line count where the grey zone starts (below the hard limit the
-   * diff is left to the judge). Default {@link DEFAULT_MAX_DIFF_LINES_SOFT}.
-   */
-  maxDiffLinesSoft?: number;
   /** Changed-line count that always blocks. Default {@link DEFAULT_MAX_DIFF_LINES_HARD}. */
   maxDiffLinesHard?: number;
   /**
@@ -38,7 +34,6 @@ export const DEFAULT_PROTECTED_GLOBS: readonly string[] = [
   '**/secrets/**',
 ];
 
-export const DEFAULT_MAX_DIFF_LINES_SOFT = 800;
 export const DEFAULT_MAX_DIFF_LINES_HARD = 2000;
 
 /* ------------------------------------------------------------------ *
@@ -48,11 +43,23 @@ export const DEFAULT_MAX_DIFF_LINES_HARD = 2000;
  * segment; `**` as a whole segment matches zero or more segments. Patterns
  * without a `/` are also matched against the file's basename (minimatch's
  * matchBase behavior), so `*.env*` protects nested `.env` files too.
- * Matching is case-sensitive.
+ *
+ * Normalization (never fail open on path spelling): backslashes are
+ * converted to `/`, leading `./` is stripped (repeatedly), and matching is
+ * CASE-INSENSITIVE (both sides lowercased) so `src/Payments`, `src\payments`,
+ * and `./src/payments` cannot dodge a protected glob.
  * ------------------------------------------------------------------ */
 
 function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeDiffPath(path: string): string {
+  let normalized = path.replace(/\\/g, '/');
+  while (normalized.startsWith('./')) {
+    normalized = normalized.slice(2);
+  }
+  return normalized.toLowerCase();
 }
 
 function wildcardMatchSegment(patternSegment: string, segment: string): boolean {
@@ -75,17 +82,23 @@ function matchSegments(pattern: string[], segments: string[]): boolean {
   );
 }
 
-/** Match a file path against a glob pattern (`*`, `**`; no `?`/classes). */
+/**
+ * Match a file path against a glob pattern (`*`, `**`; no `?`/classes).
+ * Paths and patterns are normalized (`\` → `/`, leading `./` stripped) and
+ * compared case-insensitively.
+ */
 export function globMatch(pattern: string, path: string): boolean {
   if (typeof pattern !== 'string' || typeof path !== 'string') return false;
   if (pattern === '') return false;
-  const normalized = path.replace(/^\.\//, '');
+  const normalizedPattern = normalizeDiffPath(pattern);
+  const normalized = normalizeDiffPath(path);
+  if (normalized === '') return false;
   const pathParts = normalized.split('/');
-  if (!pattern.includes('/')) {
+  if (!normalizedPattern.includes('/')) {
     const basename = pathParts[pathParts.length - 1] ?? '';
-    return matchSegments(pattern.split('/'), [basename]);
+    return matchSegments(normalizedPattern.split('/'), [basename]);
   }
-  return matchSegments(pattern.split('/'), pathParts);
+  return matchSegments(normalizedPattern.split('/'), pathParts);
 }
 
 /** True when `file` matches any of `globs` (defaults to the protected set). */
@@ -100,34 +113,22 @@ export function isProtected(
  * Diff helpers
  * ------------------------------------------------------------------ */
 
-function isAddedLine(line: string): boolean {
-  return line.startsWith('+') && !line.startsWith('+++');
-}
-
-function isRemovedLine(line: string): boolean {
-  return line.startsWith('-') && !line.startsWith('---');
-}
-
-function countChangedLines(diff: string): number {
-  let count = 0;
-  for (const line of diff.split(/\r?\n/)) {
-    if (isAddedLine(line) || isRemovedLine(line)) count++;
-  }
-  return count;
-}
-
 const SECRET_MATCHERS: ReadonlyArray<{ name: string; re: RegExp }> = [
   {
     name: 'key-like assignment (api key / secret / password / token with a long quoted value)',
     re: /(api[_-]?key|secret|password|token)\s*[:=]\s*['"][^'"]{8,}/i,
   },
   {
+    name: 'key-like assignment with a long unquoted value (env style DB_PASSWORD=… / YAML password: …)',
+    re: /(api[_-]?key|secret|password|token)\s*[:=]\s*(?!undefined\b|null\b|true\b|false\b|process\.env\.|os\.environ\b|env\.|this\.|[A-Za-z_$][\w$.]*\(|\$\{|\{\{)(?=[^\s'"`]*[0-9]|[^\s'"`]*[^A-Za-z0-9.])[^\s'"`]{8,}/i,
+  },
+  {
     name: 'private key block header',
     re: /BEGIN\s+[A-Z ]*PRIVATE KEY/,
   },
   {
-    name: 'known token prefix (sk- / ghp_) with long payload',
-    re: /\b(sk-|ghp_)[A-Za-z0-9_-]{8,}/,
+    name: 'known token prefix (sk- / ghp_ / xoxb- / glpat-) with long payload, or an AWS access key id (AKIA…)',
+    re: /\b(?:sk-|ghp_|xoxb-|glpat-)[A-Za-z0-9_-]{8,}|\bAKIA[0-9A-Z]{16}\b/,
   },
 ];
 
@@ -135,7 +136,6 @@ function basename(path: string): string {
   return path.split('/').pop() ?? path;
 }
 
-const DIFF_FILE_HEADER_RE = /^\+\+\+\s+(?:b\/)?(.+?)(?:\s.*)?$/;
 const DEP_SECTION_RE =
   /"(?:devDependencies|dependencies|optionalDependencies|peerDependencies)"\s*:\s*\{/;
 const DEP_ENTRY_RE = /^\s*"([^"]+)"\s*:\s*"[^"]*"\s*,?\s*$/;
@@ -157,16 +157,15 @@ function findNewDependenciesInDiff(
   const filesIncludePackageJson = files.some((f) => basename(f) === 'package.json');
 
   for (const rawLine of diff.split(/\r?\n/)) {
-    const header = rawLine.match(DIFF_FILE_HEADER_RE);
-    if (header) {
-      currentFile = header[1];
+    if (isPlusFileHeader(rawLine)) {
+      currentFile = parsePlusHeaderPath(rawLine) ?? undefined;
       sawHeader = true;
       inDepsSection = false;
       continue;
     }
-    if (rawLine.startsWith('---') || isRemovedLine(rawLine)) continue;
+    if (isMinusFileHeader(rawLine) || isRemovedDiffLine(rawLine)) continue;
 
-    const added = isAddedLine(rawLine);
+    const added = isAddedDiffLine(rawLine);
     const line = added ? rawLine.slice(1) : rawLine;
 
     if (DEP_SECTION_RE.test(line)) {
@@ -209,21 +208,11 @@ function positiveIntOrThrow(name: string, value: number | undefined, fallback: n
 export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
   const opts = config ?? {};
 
-  const maxDiffLinesSoft = positiveIntOrThrow(
-    'maxDiffLinesSoft',
-    opts.maxDiffLinesSoft,
-    DEFAULT_MAX_DIFF_LINES_SOFT,
-  );
   const maxDiffLinesHard = positiveIntOrThrow(
     'maxDiffLinesHard',
     opts.maxDiffLinesHard,
     DEFAULT_MAX_DIFF_LINES_HARD,
   );
-  if (maxDiffLinesSoft > maxDiffLinesHard) {
-    throw new RangeError(
-      `makeMergeRules: maxDiffLinesSoft (${maxDiffLinesSoft}) must not exceed maxDiffLinesHard (${maxDiffLinesHard})`,
-    );
-  }
 
   if (opts.protectedGlobs !== undefined) {
     if (!Array.isArray(opts.protectedGlobs)) {
@@ -241,10 +230,17 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
 
   const testsNotGreen: Rule = {
     id: 'tests-not-green',
-    evaluate: (input) =>
-      input.context?.testsPassed === false
-        ? { outcome: 'block', reason: 'tests not green' }
-        : null,
+    evaluate: (input) => {
+      const testsPassed = input.context?.testsPassed;
+      if (testsPassed === true) return null;
+      return {
+        outcome: 'block',
+        reason:
+          testsPassed === false
+            ? 'tests not green'
+            : 'tests status not provided - treated as not green',
+      };
+    },
   };
 
   const protectedPaths: Rule = {
@@ -270,7 +266,7 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
       const lines = input.diff.split(/\r?\n/);
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (line === undefined || !isAddedLine(line)) continue;
+        if (line === undefined || !isAddedDiffLine(line)) continue;
         const body = line.slice(1);
         for (const { name, re } of SECRET_MATCHERS) {
           if (re.test(body)) {
@@ -322,7 +318,6 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
         return {
           outcome: 'block',
           reason: `diff too large: ${changed} changed lines exceeds hard limit ${maxDiffLinesHard}; human review required`,
-          evidence: `grey zone for the judge starts at ${maxDiffLinesSoft} changed lines`,
         };
       }
       return null;

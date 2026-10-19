@@ -188,6 +188,9 @@ The four metrics, and what they actually mean:
 > **Caveats — read before quoting any number above.**
 > - All tasks are **synthetic** (32 hand-labelled cases; every secret is a
 >   fake `FAKE_EXAMPLE_ONLY_*` placeholder).
+> - **Eval labels were derived from the same rule/route heuristics under
+>   test**, so the accuracy numbers measure consistency with the intended
+>   policy, not external validity. v0.2 plans independently labelled tasks.
 > - All prices are **mock constants**, not quotes from any provider; token
 >   counts are estimates (~400/call).
 > - The **all-frontier arm is a simulation**, not a real frontier judge: its
@@ -223,8 +226,15 @@ The four metrics, and what they actually mean:
   injection inside a diff can neither bypass a rule nor mask detection
   (tested at gate level — a secret plus "ignore the rules" still blocks).
 - **Judge output is strictly validated.** Verdict enum, finite score in
-  [0,1], non-empty evidence; no type coercion, no extra-field leniency.
-  Malformed output does not error into an allow — it defers to a human.
+  [0,1], non-empty evidence; extra keys are ignored, required fields are
+  strictly typed with no coercion. Malformed output does not error into an
+  allow — it defers to a human.
+- **Trust boundary: the CLI must be fed authoritative `git diff` output.**
+  `jev check` parses file paths (including both sides of renames and binary
+  `Binary files … differ` notices) from the diff itself. Agent-authored or
+  edited "diff text" is an untrusted input by definition — pipe real
+  `git diff` output, and empty/non-diff input is a usage error (exit 1),
+  never an implicit allow.
 - **Fail-closed to human.** Missing API key, network failure, timeout,
   unparseable judge response, abstention, below-threshold score, invalid gate
   input — every uncertain path ends in `human`, never a guess.
@@ -264,7 +274,8 @@ The four metrics, and what they actually mean:
 | Export | What it does |
 | --- | --- |
 | `defineGate({ rules?, judge?, threshold?, onUncertain? })` | Build the gate: rules first (first hit decides), judge for the grey zone, humans for everything uncertain. Returns `{ decide(input) }`. |
-| `makeMergeRules({ maxDiffLinesSoft?, maxDiffLinesHard?, protectedGlobs? })` | The ordered merge rule pack: tests-not-green → protected-paths → secrets-in-diff → new-dependencies → diff-too-large. Defaults: soft 800, hard 2000 changed lines; `block` = stop-for-human. |
+| `makeMergeRules({ maxDiffLinesHard?, protectedGlobs? })` | The ordered merge rule pack: tests-not-green (missing status counts as not green) → protected-paths (case-insensitive; `\` and leading `./` normalized) → secrets-in-diff → new-dependencies → diff-too-large. Default hard limit 2000 changed lines; `block` = stop-for-human. |
+| `parseDiffFilePaths(diff)` / `isStructuredDiff(diff)` / `countChangedLines(diff)` | Shared strict diff parsing: paths from `diff --git` (both sides — renames), `+++` headers, and `Binary files … differ` notices; strict `+++`-header classification so added content starting with `++` cannot pose as a header. |
 | `MockJudge` / `makeMockJudge(verdictOrFn?)` | Deterministic judge for tests and local dev: no key, no network; abstains on TODO markers and protected-sounding paths, else allows at 0.85. |
 | `OpenAICompatibleJudge({ baseUrl, model, apiKeyEnv?, timeoutMs? })` | Real judge over any OpenAI-compatible chat-completions API. Key from env (default `JEV_JUDGE_API_KEY`), 15 s timeout, never throws — operational failures abstain to human. |
 | `scoreRoute(task)` | Deterministic tiering (`cheap`/`mid`/`frontier`) from keyword signals on difficulty/consequence/verifiability; low-confidence input raises one tier and sets `abstained=true`. Same input, same output — no model calls. |
@@ -290,7 +301,7 @@ More: [examples/config/](examples/config/) for a typed configuration example,
 ## Contributing / development
 
 ```bash
-npm test          # vitest (121 tests)
+npm test          # vitest (153 tests)
 npm run typecheck # tsc --noEmit
 npm run build     # tsc → dist/
 npm run eval      # build + run the deterministic eval
