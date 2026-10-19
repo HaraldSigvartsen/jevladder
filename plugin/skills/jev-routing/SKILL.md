@@ -6,7 +6,7 @@ description: Applies automatically when delegating or choosing effort for coding
 # Jev routing
 
 Jev provides advisory routing for Codex first, with Claude Code also supported.
-Call the `jev_route` or `jev_explain` MCP tool when available to size a task.
+Call `jev_route` or `jev_explain` to size a task. Before merge, use `jev_decide` as an advisory pre-merge check when available; enforcement stays in CI/merge.
 Start specific, well-scoped coding work at cheap effort; delegate automatically
 when the host supports it and its instructions allow delegation.
 

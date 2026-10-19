@@ -52,19 +52,93 @@ function scorePrompt(prompt) {
 }
 
 
-const tools = ['jev_route', 'jev_explain'].map((name) => ({
+const tools = ['jev_decide', 'jev_route', 'jev_explain'].map((name) => ({
   name,
-  description: name === 'jev_route'
-    ? 'Suggest an advisory effort tier and signals for a coding task.'
-    : 'Explain the advisory effort tier and signals for a coding task.',
+  description: name === 'jev_decide'
+    ? 'Run an advisory miniature deterministic merge-gate check before CI/merge enforcement.'
+    : name === 'jev_route'
+      ? 'Suggest an advisory effort tier and signals for a coding task.'
+      : 'Explain the advisory effort tier and signals for a coding task.',
   inputSchema: {
     type: 'object',
-    properties: { task: { type: 'string', minLength: 1 } },
-    required: ['task'],
+    properties: name === 'jev_decide'
+      ? { diff: { type: 'string' }, testsPassed: { type: 'boolean' }, irreversible: { type: 'boolean' } }
+      : { task: { type: 'string', minLength: 1 } },
+    required: [name === 'jev_decide' ? 'diff' : 'task'],
     additionalProperties: false,
   },
 }));
 const content = (text, isError = false) => ({ content: [{ type: 'text', text }], ...(isError ? { isError: true } : {}) });
+
+function decide(args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args) || typeof args.diff !== 'string' ||
+      (args.testsPassed !== undefined && typeof args.testsPassed !== 'boolean') ||
+      (args.irreversible !== undefined && typeof args.irreversible !== 'boolean') ||
+      Object.keys(args).some((key) => !['diff', 'testsPassed', 'irreversible'].includes(key))) return null;
+  const result = (outcome, source, reason) => ({ outcome, source, reason });
+  const diff = args.diff;
+  if (args.testsPassed !== true) return result('block', 'rule:tests-not-green', 'Tests must pass before merge.');
+  const lines = diff.split(String.fromCharCode(10));
+  const fileHeaders = lines.filter((line) => line.startsWith('--- ') || line.startsWith('+++ '));
+  if (!diff.trim() || fileHeaders.length === 0 || fileHeaders.some((line) => !/^(?:---|\+\+\+) (?:[ab]\/(?!\/)|\/dev\/null)/.test(line))) {
+    return result('human', 'judge', 'empty or malformed diff — insufficient evidence');
+  }
+  // Intentional miniature parity with merge-rules.ts protected glob defaults;
+  // parse both sides so deletions cannot evade protection.
+  const protectedPaths = fileHeaders
+    .map((line) => line.slice(4).split('\t')[0].replace(/^[ab]\//, '').replaceAll(String.fromCharCode(92), '/'))
+    .filter((path) => path !== '/dev/null');
+  for (const path of protectedPaths) {
+    const normalized = path.replace(/^\.\//, '').toLowerCase();
+    const base = normalized.split('/').pop() || '';
+    if (/(?:^|\/)payments(?:\/|$)/.test(normalized) ||
+        /(?:^|\/)auth(?:\/|$)/.test(normalized) ||
+        /(?:^|\/)(?:auth-[^/]*|[^/]*-auth|auth\.[^/]*)$/.test(normalized) ||
+        /(?:^|\/)(?:session-[^/]*|[^/]*-session|csrf[^/]*)$/.test(normalized) ||
+        /(?:^|\/)migrations(?:\/|$)/.test(normalized) ||
+        /(?:^|\/)secrets(?:\/|$)/.test(normalized) ||
+        (base.startsWith('.env') && !/^\.env\.(?:example|sample|template|.*\.(?:example|sample|template))$/i.test(base))) {
+      return result('block', 'rule:protected-paths', 'Protected paths require review.');
+    }
+  }
+  const added = lines.filter((line) => line.startsWith('+') && !line.startsWith('+++ '));
+  // Match the key/value, private-key, and known-prefix shapes from
+  // SECRET_MATCHERS in merge-rules.ts. Never include matched text in output.
+  const secretAssignment = (line) => {
+    const match = line.slice(1).match(/(?:api[_-]?key|secret|password|token)\s*[:=]\s*(.*)/i);
+    if (!match) return '';
+    return match[1].trim().split(/[\s,;#]/)[0].replace(/^[\x27\x22\x60]+|[\x27\x22\x60]+$/g, '');
+  };
+  const knownCredential = (body) =>
+    /\b(?:sk-|ghp_|xoxb-|glpat-)[A-Za-z0-9_-]{8,}|\bAKIA[0-9A-Z]{16}\b/.test(body);
+  for (const line of added) {
+    const body = line.slice(1);
+    if (/BEGIN\s+[A-Z ]*PRIVATE KEY/.test(body)) {
+      return result('block', 'rule:secrets-in-diff', 'A credential-shaped value was added.');
+    }
+    if (knownCredential(body)) {
+      return result('block', 'rule:secrets-in-diff', 'A credential-shaped value was added.');
+    }
+    const value = secretAssignment(line);
+    if (!value || /^(?:YOUR_API_KEY_HERE|changeme|<[^>]*>)$/i.test(value)) continue;
+    if (value.length >= 8 && /^[A-Za-z0-9_\-./+=]+$/.test(value)) {
+      return result('block', 'rule:secrets-in-diff', 'A credential-shaped value was added.');
+    }
+  }
+  let inPackage = false;
+  for (const line of diff.split(String.fromCharCode(10))) {
+    if (line.startsWith('+++ ')) inPackage = line.slice(4).replaceAll(String.fromCharCode(92), '/').split('/').pop() === 'package.json';
+    if (inPackage && line.startsWith('+') && !line.startsWith('+++') && line.includes(':') && line.includes('"') && !line.trimEnd().endsWith('{') && !line.trimEnd().endsWith('},') && !line.trimEnd().endsWith('],')) {
+      return result('block', 'rule:new-dependencies', 'A package.json dependency entry was added.');
+    }
+  }
+  if (diff.split(String.fromCharCode(10)).filter((line) => line.startsWith('+') || line.startsWith('-')).length > 2000) {
+    return result('block', 'rule:diff-too-large', 'The diff exceeds the 2000 changed-line limit.');
+  }
+  if (diff.includes('TODO')) return result('human', 'judge', 'The miniature judge abstains on TODO changes.');
+  if (args.irreversible === true) return result('human', 'judge', 'Irreversible changes require human review.');
+  return result('allow', 'judge', 'Miniature judge score 0.85.');
+}
 
 function handle(request) {
   const params = request.params;
@@ -73,12 +147,16 @@ function handle(request) {
       return {
         protocolVersion: typeof params?.protocolVersion === 'string' ? params.protocolVersion : '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'jev', version: '0.4.0' },
+        serverInfo: { name: 'jev', version: '0.5.0' },
       };
     case 'ping': return {};
     case 'tools/list': return { tools };
     case 'tools/call': {
       if (!tools.some((tool) => tool.name === params?.name)) return content('Unknown Jev tool.', true);
+      if (params.name === 'jev_decide') {
+        const decision = decide(params?.arguments);
+        return decision ? content(JSON.stringify(decision)) : content('Invalid jev_decide arguments.', true);
+      }
       const task = params?.arguments?.task;
       if (typeof task !== 'string' || task.trim() === '') return content('task must be a non-empty string.', true);
       const route = scorePrompt(task);

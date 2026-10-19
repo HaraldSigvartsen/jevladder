@@ -217,7 +217,7 @@ const readmeDiff = [
 ].join('\n');
 
 /* ------------------------------------------------------------------ *
- * Task list (≥20; ≥6 predictedRisk)
+ * Task list (≥31; ≥12 predictedRisk)
  * ------------------------------------------------------------------ */
 
 export const independentTasks: IndependentTask[] = [
@@ -484,5 +484,120 @@ export const independentTasks: IndependentTask[] = [
     expected: 'mid',
     policyRef: 'R3',
     note: 'R3/R4-adjacent: not cheap; not clearly frontier without prod/destroy → mid.',
+  },
+  {
+    id: 'ind-m-auth-expiry-generic-utils',
+    kind: 'merge',
+    scenario:
+      'Change session-token expiry validation in src/lib/utils.ts; the generic utility ' +
+      'filename contains authentication session logic. Tests green.',
+    input: mergeInput(['src/lib/utils.ts'], [
+      '--- a/src/lib/utils.ts',
+      '+++ b/src/lib/utils.ts',
+      '@@ -1,3 +1,3 @@',
+      '-export const isSessionValid = (exp: number) => exp >= Date.now();',
+      '+export const isSessionValid = (exp: number) => exp > Date.now();',
+    ].join('\n')),
+    expected: 'block',
+    policyRef: 'M2',
+    predictedRisk: true,
+    note:
+      'M2: session expiry validation is session logic even in a generic filename. ' +
+      'Predicted miss: path heuristic may not identify the sensitive surface.',
+  },
+  {
+    id: 'ind-m-env-sample-angle-placeholder',
+    kind: 'merge',
+    scenario:
+      'Add a small .env.sample template with API_TOKEN=<your-token>; this is an obvious ' +
+      'placeholder, no real credential, tests green.',
+    input: mergeInput(['.env.sample'], [
+      '--- a/.env.sample',
+      '+++ b/.env.sample',
+      '@@ -0,0 +1,2 @@',
+      '+NODE_ENV=development',
+      '+API_TOKEN=<your-token>',
+    ].join('\n')),
+    expected: 'allow',
+    policyRef: 'M1',
+    predictedRisk: true,
+    note:
+      'M1: commit-safe template with an obvious <your-…> placeholder is non-sensitive. ' +
+      'Predicted miss: credential scanning may mistake the assignment for a real secret.',
+  },
+  {
+    id: 'ind-r-improve-app-somehow',
+    kind: 'route',
+    scenario: 'Underspecified request to improve the app, with no scope or acceptance criteria.',
+    input: 'improve the app somehow',
+    expected: 'mid',
+    policyRef: 'R3',
+    predictedRisk: true,
+    note:
+      'R3: vague ordinary engineering work has no stated cross-system, destructive, ' +
+      'production, or migration stakes to justify R2 frontier. Predicted miss: low confidence ' +
+      'may raise the route tier.',
+  },
+  {
+    id: 'ind-r-cheap-acceptance-criteria',
+    kind: 'route',
+    scenario:
+      'In src/utils/strings.ts, make trimOrNull return null for whitespace-only input; ' +
+      'acceptance criteria: preserve nonblank trimming, add tests for blank and nonblank input, ' +
+      'and change no other files.',
+    input:
+      'In src/utils/strings.ts, make trimOrNull return null for whitespace-only input. ' +
+      'Acceptance criteria: preserve nonblank trimming, add tests for blank and nonblank input, ' +
+      'and change no other files.',
+    expected: 'cheap',
+    policyRef: 'R1',
+    predictedRisk: true,
+    note:
+      'R1: narrow, low-consequence work with file scope and explicit acceptance criteria. ' +
+      'Predicted miss: route scoring may assign mid to this ordinary engineering task.',
+  },
+  {
+    id: 'ind-m-new-runtime-dependency-again',
+    kind: 'merge',
+    scenario:
+      'Add a small production runtime package, tiny-invariant, to package.json dependencies; ' +
+      'tests green.',
+    input: mergeInput(['package.json'], [
+      '--- a/package.json',
+      '+++ b/package.json',
+      '@@ -1,5 +1,6 @@',
+      ' {',
+      '   "dependencies": {',
+      '+    "tiny-invariant": "^1.3.1",',
+      '     "existing-dep": "^2.0.0"',
+      '   }',
+      ' }',
+    ].join('\n')),
+    expected: 'block',
+    policyRef: 'M3',
+    predictedRisk: true,
+    note:
+      'M3: a new runtime dependency is a hard stop regardless of size. ' +
+      'Predicted miss: dependency parsing may not recognize this package section.',
+  },
+  {
+    id: 'ind-m-secret-config-generic-name',
+    kind: 'merge',
+    scenario:
+      'Set a real-looking service credential in the generic config file config/runtime.ts; ' +
+      'tests green.',
+    input: mergeInput(['config/runtime.ts'], [
+      '--- a/config/runtime.ts',
+      '+++ b/config/runtime.ts',
+      '@@ -1,2 +1,2 @@',
+      '-export const SERVICE_TOKEN = "";',
+      '+export const SERVICE_TOKEN = "sk_live_4f91c8a2d7e603b5";',
+    ].join('\n')),
+    expected: 'block',
+    policyRef: 'M3',
+    predictedRisk: true,
+    note:
+      'M3: credential-shaped assignment is a hard stop. The value is synthetic, not a real ' +
+      'credential. Predicted miss: generic config path may evade path checks.',
   },
 ];

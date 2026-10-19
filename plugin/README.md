@@ -1,6 +1,6 @@
 # Jev — Codex-first advisory plugin
 
-Version 0.4.0. Jev is active automatically with sensible defaults;
+Version 0.5.0. Jev is active automatically with sensible defaults;
 no CLI commands are needed after installation and hook trust review.
 SessionStart provides automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
 Never blocks or changes the main session model.
@@ -16,8 +16,9 @@ codex plugin add jev@jev
 
 Then just use Codex normally. Codex asks you to review/trust the plugin's hooks
 once (`/hooks`); this is Codex's safety prompt, not config editing. The bundled
-MCP server needs Node and exposes voluntary `jev_route` / `jev_explain` tools;
-it logs no task text and uses the same miniature scorer as the observe hook.
+MCP server needs Node and exposes voluntary `jev_decide`, `jev_route` /
+`jev_explain` tools; it logs no task or diff text. `jev_decide` is an
+advisory miniature pre-merge check; enforcement stays in CI/merge.
 
 ## What it does
 

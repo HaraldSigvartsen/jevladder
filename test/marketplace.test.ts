@@ -17,10 +17,10 @@ describe('Claude Code marketplace metadata', () => {
     expect(marketplace.plugins).toHaveLength(1);
     expect(marketplace.plugins[0].name).toBe('jev');
     expect(marketplace.plugins[0].source).toBe('./plugin');
-    expect(marketplace.plugins[0].version).toBe('0.4.0');
+    expect(marketplace.plugins[0].version).toBe('0.5.0');
     expect(marketplace.plugins[0].author.name).toBeTruthy();
     expect(plugin.name).toBe(marketplace.plugins[0].name);
-    expect(plugin.version).toBe('0.4.0');
+    expect(plugin.version).toBe('0.5.0');
   });
 });
 

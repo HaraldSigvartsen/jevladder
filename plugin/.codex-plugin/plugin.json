@@ -1,7 +1,7 @@
 {
   "name": "jev",
-  "version": "0.4.0",
-  "description": "Codex-first automatic advisory routing, lifecycle guidance, and voluntary MCP route/explain tools. Never blocks or swaps the main model.",
+  "version": "0.5.0",
+  "description": "Codex-first automatic advisory routing, lifecycle guidance, and voluntary MCP decide/route/explain tools. Never blocks or swaps the main model.",
   "author": {
     "name": "Harald Sigvartsen"
   },
@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "Jev",
     "shortDescription": "Cheap-first advisory routing for Codex.",
-    "longDescription": "Automatic lifecycle guidance and a routing skill, with voluntary local MCP route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host.",
+    "longDescription": "Automatic lifecycle guidance and a routing skill, with voluntary local MCP decide/route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host.",
     "developerName": "Harald Sigvartsen",
     "category": "Developer Tools",
     "capabilities": [

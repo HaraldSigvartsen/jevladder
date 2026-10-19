@@ -6,6 +6,7 @@
  *   jev check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
  *   jev route --explain "<task text>" [--json]
  *   jev plugin --out <dir> [--protected <glob> ...]
+ *   jev report [--log <path>] [--json]
  *   jev --help | --version
  *
  * Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.
@@ -25,6 +26,7 @@ import { makeMergeRules } from './rules/merge-rules.js';
 import { MockJudge } from './judge/mock.js';
 import { parseJevPluginConfig, writePluginFiles } from './plugin.js';
 import { scoreRoute } from './route.js';
+import { formatCostReport, readCostReport } from './report.js';
 
 /** Output/input seams so tests can capture everything the CLI emits. */
 export interface CliIO {
@@ -33,7 +35,7 @@ export interface CliIO {
   readStdin?(): string;
 }
 
-const VERSION_FALLBACK = '0.4.0';
+const VERSION_FALLBACK = '0.5.0';
 
 function readVersion(): string {
   try {
@@ -51,6 +53,7 @@ Usage:
   jev check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
   jev route --explain "<task text>" [--json]
   jev plugin --out <dir> [--config <json>] [--protected <glob> ...]
+  jev report [--log <path>] [--json]
   jev --help | --version
 
 check — run the merge gate over a unified diff
@@ -68,6 +71,10 @@ plugin — write the Codex-first advisory plugin files (legacy Claude Code suppo
   --config <json>   Plugin JSON config (subagentModels, protectedPaths, logFileName).
   --out <dir>       Output directory (required).
   --protected <g>   Protected-path glob embedded in config.json (repeatable).
+
+report — summarize privacy-safe observe log entries and simulated tier costs
+  --log <path>      Observe log path (default ~/.jev/observe.jsonl).
+  --json            Print the report as JSON.
 
 The diff must be authoritative git diff output (not agent-authored text);
 empty or non-diff input is a usage error (exit 1), never an implicit allow.
@@ -299,6 +306,33 @@ function runPlugin(args: string[], io: CliIO): number {
   }
 }
 
+function runReport(args: string[], io: CliIO): number {
+  let logPath: string | undefined;
+  let json = false;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] as string;
+    if (arg === '--log') {
+      const value = args[++i];
+      if (value === undefined || value.startsWith('--')) {
+        return usageError(io, 'report: --log requires a path');
+      }
+      logPath = value;
+    } else if (arg === '--json') {
+      json = true;
+    } else {
+      return usageError(io, `report: unknown option "${arg}"`);
+    }
+  }
+
+  const result = readCostReport(logPath);
+  if (!result.ok) {
+    io.stdout(`${result.message}\n`);
+    return 0;
+  }
+  io.stdout(formatCostReport(result.report, json));
+  return 0;
+}
+
 /** Run the CLI against explicit arguments and IO; returns the process exit code. */
 export async function runCli(args: string[], io?: CliIO): Promise<number> {
   const channels = io ?? defaultIO();
@@ -319,6 +353,7 @@ export async function runCli(args: string[], io?: CliIO): Promise<number> {
   if (command === 'check') return runCheck(args.slice(1), channels);
   if (command === 'route') return runRoute(args.slice(1), channels);
   if (command === 'plugin') return runPlugin(args.slice(1), channels);
+  if (command === 'report') return runReport(args.slice(1), channels);
 
   channels.stderr(`jev: unknown command "${command}"\n\n${USAGE}\n`);
   return 1;

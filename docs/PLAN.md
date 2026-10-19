@@ -15,13 +15,33 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
       strict marketplace test passes.
 - [x] Shared fail-open hooks and host-neutral automatic routing skill; honest
       one-time Codex hook trust review (`/hooks`) documented.
-- [x] Voluntary local `jev_route` / `jev_explain` tools share the miniature
-      hook scorer; no task text logged, no remote calls, advisory only.
+- [x] Voluntary local `jev_decide` / `jev_route` / `jev_explain` tools: decide
+      is an advisory miniature pre-merge check (enforcement stays in CI/merge);
+      no task/diff text logged and no remote calls.
 - [x] Codex is the maintainer's primary host; Claude Code is supported as a
       secondary host. Claude agent behavior
       unchanged; Codex custom agents are not bundled.
 - [x] Core judge contract, human approval invariants, and false-block metric
       retained unchanged.
+
+### v0.5 — decision tools, measured eval, and maintainer session — 2026-10-19
+
+- [x] Bump package, CLI fallback, MCP serverInfo, plugin manifests,
+      marketplace entries, tests, and README badge to 0.5.0; regenerate
+      checked-in plugin from `buildPluginFiles`.
+- [x] Bundle advisory `jev_decide`, `jev_route`, and `jev_explain`; cost report
+      reads privacy-safe observe logs and labels mock-price estimates simulated.
+- [x] Expand independent policy-labelled eval to 31 scenarios without tuning
+      rules to labels; latest result is 23/31 (74%) with disagreements retained.
+- [x] Real Codex exec session run 2026-10-19 on maintainer machine with jev
+      plugin installed from GitHub marketplace — SessionStart/UserPromptSubmit
+      hooks fired, observe log line written with tier/signals/promptChars only
+      (no prompt text), `jev_route` MCP tool called by the agent and returned
+      `frontier` for a production payments migration description; hook trust
+      handled via Codex review flow.
+- [ ] PreToolUse write/merge hooks — defer: enforcement belongs in CI/merge; in-session hooks stay advisory.
+- [ ] Host adapters beyond Codex+Claude Code — defer: two hosts prove the shared-core pattern; more hosts on demand.
+- [ ] Weekly config-proposal PRs — defer: needs accumulated real decision logs first.
 
 ### v0.3 — Claude Code marketplace + automatic advisory layer — DONE 2026-10-19
 
@@ -34,7 +54,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
       privacy-safe UserPromptSubmit metadata.
 - [x] Automatic behavior is advisory; irreversible or uncertain work goes to
       a human, and the main session model is never swapped.
-- [ ] Voluntary MCP `decide` / `route` / `explain` layer follows this phase.
+- [x] Voluntary MCP `decide` / `route` / `explain` layer is delivered in v0.4.
 
 ### v0.1 — core library + CLI + eval (this) — DONE 2026-10-19
 
@@ -87,21 +107,15 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
       Claude Code model aliases (defaults haiku / sonnet / inherit).
       UserPromptSubmit suggests the tier's agent; advisory delegation only,
       never blocks or swaps the main session model.
-- [ ] Claude Code plugin: hooks wrapping merge-gate checks around agent
-      write/merge actions (PreToolUse-style integration) — later in v0.2.
-- [ ] MCP server exposing `decide` / `route` / `explain` tools so any
-      MCP-capable host can consult the gate.
-- [ ] Cost report: cumulative spend by tier from the decision log
-      (rule / cheap / mid / frontier / human proxies).
+- [x] MCP server exposing `jev_decide` / `jev_route` / `jev_explain` tools;
+      delivered in v0.4 and expanded in v0.5.
+- [x] Cost report: `jev report` reads the privacy-safe observe log and reports
+      measured tier distribution plus simulated cost by tier and per routed task.
 
 ### v0.3 — "EverythingJevCan" multi-host adapters
 
-- [ ] Host adapters (Claude Code, Codex, Cursor, OpenCode, …) sharing one
-      gate/route core — routing stays advisory (dispatch/subagent level),
-      never a mid-session model swap.
-- [ ] Weekly config-proposal PRs generated from the eval/decision log
-      (protected globs, thresholds, ladder tweaks). Human approves every PR;
-      nothing auto-merges.
+- [ ] Host adapters beyond Codex+Claude Code — defer: two hosts prove the shared-core pattern; more hosts on demand.
+- [ ] Weekly config-proposal PRs — defer: needs accumulated real decision logs first.
 
 ## Decision log
 
@@ -118,7 +132,8 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
-| 2026-10-19 | v0.4: primary host changed to Codex; Claude Code supported as a second host. Added dual-host metadata, host-neutral skill/guidance, and voluntary bundled MCP route/explain tools. The catalog is placed at `.agents/plugins/marketplace.json`; strict discovery-path tests pass. |
+| 2026-10-19 | v0.5: align all version metadata at 0.5.0; retain the 31-case independent evaluation without rule tuning; Codex live-session verification completed the same day, including hook trust review through Codex review flow. |
+| 2026-10-19 | v0.4: primary host changed to Codex; Claude Code supported as a second host. Added dual-host metadata, host-neutral skill/guidance, and voluntary bundled MCP decide/route/explain tools. The catalog is placed at `.agents/plugins/marketplace.json`; strict discovery-path tests pass. |
 | 2026-10-19 | Dual-host wording clarified: Codex is the maintainer's primary host and Claude Code is fully supported as a secondary host. The maintainer develops and tests Jev on Codex; Claude Code support is validated structurally through manifest validation and hook simulation. |
 | 2026-10-19 | v0.3 marketplace distribution and automatic advisory layer: root marketplace points to `./plugin`; SessionStart supplies automatic routing guidance, `jev-routing` is auto-discovered, and both hook events use the fail-open shell launcher. Verified through strict plugin validation and simulation/integration tests; this is not a claim of a real Claude Code session run. MCP is a voluntary layer after this phase. |
 | 2026-10-19 | Field test (docs/FIELDTEST.md): corrected outcomes — large feature diffs blocked by protected migration path; large content diffs blocked by `diff-too-large` (>2000); both sensible (not “judge grey”). After env-template path fix, `.env.example` path is unprotected but content remains secret-scanned (placeholder/token FP class). Independent policy-labelled eval added under `eval/independent/` (`policy.md`, `tasks.ts`, `run.ts`, `npm run eval:independent`); numbers: see README eval section / generated reports — do not invent figures here. |

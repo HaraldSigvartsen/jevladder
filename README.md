@@ -22,7 +22,7 @@ of free-text "LGTM".
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-98492c.svg)](LICENSE)
 [![Node: >=20](https://img.shields.io/badge/node-%3E%3D20-334155.svg)](#advanced-cli--ci)
-[![Version: 0.4.0](https://img.shields.io/badge/version-0.4.0-334155.svg)](docs/PLAN.md)
+[![Version: 0.5.0](https://img.shields.io/badge/version-0.5.0-334155.svg)](docs/PLAN.md)
 
 ---
 
@@ -42,9 +42,10 @@ Then just use Codex normally. Jev supplies:
 - **Advisory hooks:** prompt submission adds tier/signals and writes a local
   observe log containing only `ts`, `session_id`, `cwd`, `tier`, `signals`, and
   `promptChars` — never prompt text. SessionStart does not log.
-- **Voluntary MCP tools:** `jev_route` returns tier/signals; `jev_explain`
-  adds explanation lines. Both run locally, reuse the hook's miniature
-  scorer, make no remote calls, and log no task text at all.
+- **Voluntary MCP tools:** `jev_decide` runs an advisory miniature pre-merge
+  check; `jev_route` returns tier/signals; `jev_explain` adds explanation
+  lines. They run locally, make no remote calls, and log no task or diff text.
+  Merge enforcement stays in CI/merge.
 
 Codex asks you to review/trust the plugin's hooks once (`/hooks`). This is
 Codex's own safety prompt, not config editing. Node is needed for the MCP
@@ -133,12 +134,12 @@ npm run eval:independent
 | Eval | Accuracy | What it measures |
 | --- | --- | --- |
 | Consistency (`npm run eval`) | **100%** (32/32) | Labels aligned with the same heuristics under test — intended-policy **consistency**, not external validity. |
-| Independent (`npm run eval:independent`) | **72%** (18/25) | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R4) **before** running jev, including predicted adversarial misses. |
+| Independent (`npm run eval:independent`) | 31 scenarios | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R4) **before** running jev, including predicted adversarial misses. Latest run: 23/31 correct (74%). |
 
 They differ on purpose: 100% consistency means the gate matches its own rule
-pack; 72% independent means policy-labelled humans disagree on seven edge
-cases (e.g. `.env.example` placeholders still trip `secrets-in-diff`). See the
-policy doc and the generated (gitignored) reports under `eval/`.
+pack; the independent result preserves policy-labelled disagreements without
+tuning rules to fit them. See the policy doc and generated (gitignored) reports
+under `eval/`.
 
 ### Exit codes
 
@@ -420,6 +421,20 @@ the test suite.
 
 A checked-in dogfood copy lives under [`plugin/`](plugin/).
 
+### Cost report
+
+Summarize observed routed tiers from the privacy-safe log (never prompt text):
+
+```bash
+node dist/src/cli.js report
+# or inspect another log
+node dist/src/cli.js report --log ./observe.jsonl --json
+```
+
+Tier counts and percentages are **measured (from log)**. Cost per routed task
+and cumulative costs are **simulated** using Jev's mock tier prices; they are
+not actual provider spend. Missing logs are reported as an advisory message.
+
 ### What it does / does not do
 
 On `UserPromptSubmit` it scores the prompt with miniature route signals,
@@ -559,10 +574,11 @@ npm run eval:independent # policy-labelled independent eval
 
 ### Roadmap (short)
 
-- **v0.4 (this):** Codex marketplace, automatic hooks and skill, and bundled
-  voluntary MCP `jev_route` / `jev_explain`. Claude Code is also supported as
-  a secondary host.
-  MCP `decide`, merge/action hooks, and cost report remain future work.
+- **v0.5 (this):** Codex marketplace, automatic hooks and skill, and bundled
+  voluntary MCP `jev_decide` / `jev_route` / `jev_explain`. Claude Code is
+  also supported as a secondary host.
+  Merge/action hooks remain future work; the observe-log cost report is available
+  through the advanced CLI.
 - **Later:** multi-host adapters; weekly config-proposal PRs
   from the decision log (human approves; never auto-merge).
 

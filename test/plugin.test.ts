@@ -71,7 +71,7 @@ describe('buildPluginFiles', () => {
       author: { name: string };
     };
     expect(manifest.name).toBe('jev');
-    expect(manifest.version).toBe('0.4.0');
+    expect(manifest.version).toBe('0.5.0');
     expect(manifest.description).toContain('observe-only');
     expect(manifest.author.name).toBe('Harald Sigvartsen');
 
@@ -418,13 +418,66 @@ describe('jev-mcp.mjs integration', () => {
     expect(responses.every((r) => r.jsonrpc === '2.0')).toBe(true);
     expect(responses[0].result).toEqual({
       protocolVersion: '2025-03-26', capabilities: { tools: {} },
-      serverInfo: { name: 'jev', version: '0.4.0' },
+      serverInfo: { name: 'jev', version: '0.5.0' },
     });
-    expect(responses[1].result.tools.map((tool: { name: string }) => tool.name)).toEqual(['jev_route', 'jev_explain']);
+    expect(responses[1].result.tools.map((tool: { name: string }) => tool.name)).toEqual(['jev_decide', 'jev_route', 'jev_explain']);
     expect(JSON.parse(responses[2].result.content[0].text)).toEqual({ tier: 'frontier', signals: ['payments', 'migration', 'delete', 'production'] });
     expect(responses[3].result.content[0].text).toContain('irreversible actions require human review');
     expect(JSON.stringify(responses)).not.toContain('PRIVATE_TASK_MARKER');
     expect(responses[4].result).toEqual({});
+  });
+
+  it('jev_decide applies miniature merge rules without returning diff content', () => {
+    const decide = (diff: string, extra: Record<string, unknown> = {}) => {
+      const [response] = runMcp([request(1, 'tools/call', { name: 'jev_decide', arguments: { diff, ...extra } })]);
+      return response.result;
+    };
+    const safeDiff = '--- a/src/a.ts\n+++ b/src/a.ts\n@@\n-old\n+new';
+    expect(JSON.parse(decide(safeDiff, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'allow', source: 'judge' });
+    for (const malformed of ['', '   ', '+content without file headers', '--- weird\n+++ malformed']) {
+      expect(JSON.parse(decide(malformed, { testsPassed: true }).content[0].text)).toMatchObject({
+        outcome: 'human', reason: 'empty or malformed diff — insufficient evidence',
+      });
+    }
+    for (const file of ['payments/charge.ts', 'src/auth-guard.ts', 'src/session-store.ts', 'db/migrations/001.sql', 'config/secrets/key.txt']) {
+      const deleted = `--- a/${file}\n+++ /dev/null\n-old`;
+      expect(JSON.parse(decide(deleted, { testsPassed: true }).content[0].text)).toMatchObject({
+        outcome: 'block', source: 'rule:protected-paths',
+      });
+    }
+    for (const body of [
+      '+token: abcdefgh12345678',
+      '+-----BEGIN RSA PRIVATE KEY-----',
+      '++token = abcdefgh12345678',
+      '+const token = "abcdefgh12345678";',
+    ]) {
+      const secret = `--- a/src/config.ts\n+++ b/src/config.ts\n${body}`;
+      const response = decide(secret, { testsPassed: true });
+      expect(JSON.parse(response.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:secrets-in-diff' });
+      expect(response.content[0].text).not.toContain('abcdefgh12345678');
+      expect(response.content[0].text).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789');
+    }
+    const standaloneCredential = '+ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+    const standaloneResult = decide(`--- a/src/config.ts\n+++ b/src/config.ts\n${standaloneCredential}`, { testsPassed: true });
+    expect(JSON.parse(standaloneResult.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:secrets-in-diff' });
+    expect(standaloneResult.content[0].text).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789');
+    const protectedDiff = '--- a/payments/secret.ts\n+++ b/payments/secret.ts\n+PAYMENT_PRIVATE_MARKER';
+    const protectedResult = decide(protectedDiff, { testsPassed: true });
+    expect(JSON.parse(protectedResult.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:protected-paths' });
+    expect(protectedResult.content[0].text).not.toContain('PAYMENT_PRIVATE_MARKER');
+    expect(JSON.parse(decide(safeDiff).content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:tests-not-green' });
+    expect(JSON.parse(decide(safeDiff, { testsPassed: true, irreversible: true }).content[0].text)).toMatchObject({ outcome: 'human', source: 'judge' });
+    expect(JSON.parse(decide('+// TODO inspect later', { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'human' });
+    const templateEnv = '--- a/.env.example\n+++ b/.env.example\n+API_KEY=YOUR_API_KEY_HERE';
+    expect(JSON.parse(decide(templateEnv, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'allow' });
+    const secretDiff = '--- a/src/config.ts\n+++ b/src/config.ts\n+api_key = "sk_live_ABCD1234EFGH5678"';
+    const secretResult = decide(secretDiff, { testsPassed: true });
+    expect(JSON.parse(secretResult.content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:secrets-in-diff' });
+    expect(secretResult.content[0].text).not.toContain('sk_live_ABCD1234EFGH5678');
+    const dependencyDiff = '--- a/package.json\n+++ b/package.json\n@@\n+"new-package": "^1.0.0"';
+    expect(JSON.parse(decide(dependencyDiff, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'block', source: 'rule:new-dependencies' });
+    const invalid = decide('', { testsPassed: 'true' });
+    expect(invalid.isError).toBe(true);
   });
 
   it('defaults protocol version, errors on unknown methods/tools, and rejects invalid tasks', () => {
