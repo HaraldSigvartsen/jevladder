@@ -19,7 +19,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "eval": "echo 'jev eval: not implemented yet (planned for a later step)'"
+    "eval": "npm run build && node dist/eval/run.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

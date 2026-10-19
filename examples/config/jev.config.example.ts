@@ -1,0 +1,69 @@
+/**
+ * Example jev configuration — typed, illustrative only.
+ *
+ * Copy to `jev.config.ts` (or import from your own setup code) and edit for
+ * your project. Model names are GENERIC PLACEHOLDERS: jev does not endorse
+ * any provider, and the prices are invented round numbers, not quotes. See
+ * examples/config/README.md for how each field maps to gate/route/cli
+ * concepts.
+ */
+
+export type ModelTier = 'cheap' | 'mid' | 'frontier';
+
+export interface ModelLadderEntry {
+  /** Route tier this entry serves (matches scoreRoute tiers). */
+  tier: ModelTier;
+  /** Placeholder model identifier — replace with whatever your setup calls. */
+  model: string;
+  /** Illustrative price per 1M input tokens. */
+  inputPer1M: number;
+  /** Illustrative price per 1M output tokens. */
+  outputPer1M: number;
+}
+
+export interface JevConfig {
+  /**
+   * Glob patterns (`*` within a segment, `**` across segments; slash-free
+   * patterns also match basenames) for paths that always require human
+   * review. Feeds the protected-paths rule of the merge gate.
+   */
+  protectedPaths: string[];
+  /** Right-sized model per route tier (scoreRoute assigns cheap/mid/frontier). */
+  modelLadder: ModelLadderEntry[];
+  /**
+   * Task phrases that mark an action irreversible. When an input is
+   * irreversible, a judge allow can never approve it alone — the gate always
+   * defers to a human. `delete *` uses the same glob-style wildcard.
+   */
+  irreversibleActions: string[];
+  /**
+   * Advisory skill/policy documents to load per task type when judging or
+   * executing (e.g. style guides for implementation, checklists for review).
+   */
+  skillsByTaskType: Record<string, string[]>;
+  /** Gate judge settings: verdicts below `threshold` defer to a human. */
+  judge: {
+    threshold: number;
+  };
+}
+
+export const config: JevConfig = {
+  protectedPaths: [
+    '**/payments/**',
+    '**/auth/**',
+    '**/migrations/**',
+    '*.env*',
+    '**/secrets/**',
+  ],
+  modelLadder: [
+    { tier: 'cheap', model: 'example-cheap-model', inputPer1M: 0.5, outputPer1M: 1.5 },
+    { tier: 'mid', model: 'example-mid-model', inputPer1M: 2, outputPer1M: 6 },
+    { tier: 'frontier', model: 'example-frontier-model', inputPer1M: 10, outputPer1M: 30 },
+  ],
+  irreversibleActions: ['deploy production', 'run migration', 'delete *'],
+  skillsByTaskType: {
+    implement: ['coding-standards'],
+    review: ['security-review'],
+  },
+  judge: { threshold: 0.7 },
+};
