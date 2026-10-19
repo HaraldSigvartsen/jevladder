@@ -51,16 +51,16 @@ describe('buildPluginFiles', () => {
         '.claude-plugin/plugin.json',
         '.codex-plugin/plugin.json',
         '.mcp.json',
-        'scripts/jev-mcp.mjs',
+        'scripts/tierclef-mcp.mjs',
         'README.md',
-        'agents/jev-cheap.md',
-        'agents/jev-mid.md',
-        'agents/jev-frontier.md',
+        'agents/tierclef-cheap.md',
+        'agents/tierclef-mid.md',
+        'agents/tierclef-frontier.md',
         'config.json',
         'hooks/hooks.json',
-        'scripts/jev-observe.mjs',
-        'scripts/jev-hook.sh',
-        'skills/jev-routing/SKILL.md',
+        'scripts/tierclef-observe.mjs',
+        'scripts/tierclef-hook.sh',
+        'skills/tierclef-routing/SKILL.md',
       ].sort(),
     );
 
@@ -70,7 +70,7 @@ describe('buildPluginFiles', () => {
       description: string;
       author: { name: string };
     };
-    expect(manifest.name).toBe('jev');
+    expect(manifest.name).toBe('tierclef');
     expect(manifest.version).toBe('0.5.0');
     expect(manifest.description).toContain('observe-only');
     expect(manifest.author.name).toBe('Harald Sigvartsen');
@@ -90,8 +90,8 @@ describe('buildPluginFiles', () => {
     const models = { cheap: 'haiku', mid: 'sonnet', frontier: 'inherit' };
     expect(JSON.parse(files['config.json']!).subagentModels).toEqual(models);
     for (const [tier, model] of Object.entries(models)) {
-      const agent = files[`agents/jev-${tier}.md`];
-      expect(agent).toMatch(new RegExp(`^---\\nname: jev-${tier}\\ndescription: .+\\nmodel: ${model}\\n---\\n`));
+      const agent = files[`agents/tierclef-${tier}.md`];
+      expect(agent).toMatch(new RegExp(`^---\\nname: tierclef-${tier}\\ndescription: .+\\nmodel: ${model}\\n---\\n`));
       expect(agent).toContain('advisory');
       expect(agent).toContain('human');
     }
@@ -99,9 +99,9 @@ describe('buildPluginFiles', () => {
 
   it('applies partial model overrides without changing other tier defaults', () => {
     const files = buildPluginFiles({ subagentModels: { frontier: 'opus', cheap: 'inherit' } });
-    expect(files['agents/jev-frontier.md']).toContain('model: opus');
-    expect(files['agents/jev-cheap.md']).toContain('model: inherit');
-    expect(files['agents/jev-mid.md']).toContain('model: sonnet');
+    expect(files['agents/tierclef-frontier.md']).toContain('model: opus');
+    expect(files['agents/tierclef-cheap.md']).toContain('model: inherit');
+    expect(files['agents/tierclef-mid.md']).toContain('model: sonnet');
   });
 
   it.each(['gpt-example', 'opus\npermissionMode: bypassPermissions', null, 42])(
@@ -115,7 +115,7 @@ describe('buildPluginFiles', () => {
   it('hooks.json references the observe script via CLAUDE_PLUGIN_ROOT', () => {
     const files = buildPluginFiles();
     const hooks = files['hooks/hooks.json'] as string;
-    expect(hooks.match(/sh \\\"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/jev-hook\.sh\\\"/g)).toHaveLength(2);
+    expect(hooks.match(/sh \\\"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/tierclef-hook\.sh\\\"/g)).toHaveLength(2);
     expect(hooks).toContain('SessionStart');
     expect(hooks).toContain('UserPromptSubmit');
     expect(hooks).toContain('"type": "command"');
@@ -124,27 +124,27 @@ describe('buildPluginFiles', () => {
 
   it('logFileName is embedded in the observe script, config, and README', () => {
     const files = buildPluginFiles({ logFileName: 'custom.jsonl' });
-    const script = files['scripts/jev-observe.mjs'] as string;
+    const script = files['scripts/tierclef-observe.mjs'] as string;
     expect(script).toContain('custom.jsonl');
     expect(script).toContain('DEFAULT_LOG_BASENAME = "custom.jsonl"');
     expect(script).not.toMatch(/DEFAULT_LOG_BASENAME = "observe\.jsonl"/);
 
     const config = JSON.parse(files['config.json'] as string) as { logFileName: string };
     expect(config.logFileName).toBe('custom.jsonl');
-    expect(files['README.md']).toContain('~/.jev/custom.jsonl');
-    expect(files['README.md']).toContain('JEV_OBSERVE_LOG');
+    expect(files['README.md']).toContain('~/.tierclef/custom.jsonl');
+    expect(files['README.md']).toContain('TIERCLEF_OBSERVE_LOG');
     expect(files['README.md']).toMatch(/env.*wins|always takes priority/i);
   });
 
   it('emits automatic routing skill with advisory safety rules', () => {
-    const skill = buildPluginFiles()['skills/jev-routing/SKILL.md'] as string;
-    expect(skill).toMatch(/^---\nname: jev-routing\ndescription: .*automatically.*coding tasks.*\n---/i);
+    const skill = buildPluginFiles()['skills/tierclef-routing/SKILL.md'] as string;
+    expect(skill).toMatch(/^---\nname: tierclef-routing\ndescription: .*automatically.*coding tasks.*\n---/i);
     expect(skill).toContain('Codex first');
-    expect(skill).toContain('jev_route');
-    expect(skill).toContain('jev_explain');
-    expect(skill).toContain('jev:jev-cheap');
-    expect(skill).toContain('jev:jev-mid');
-    expect(skill).toContain('jev:jev-frontier');
+    expect(skill).toContain('tierclef_route');
+    expect(skill).toContain('tierclef_explain');
+    expect(skill).toContain('tierclef:tierclef-cheap');
+    expect(skill).toContain('tierclef:tierclef-mid');
+    expect(skill).toContain('tierclef:tierclef-frontier');
     expect(skill).toContain('uncertainty');
     expect(skill).toContain('irreversible');
     expect(skill).toContain('CI/merge');
@@ -163,21 +163,21 @@ describe('buildPluginFiles', () => {
     expect(sanitizeLogFileName('has\0null.jsonl')).toBe(DEFAULT_LOG_FILE);
 
     const weird = buildPluginFiles({ logFileName: '../nope/../x.jsonl' });
-    expect(weird['scripts/jev-observe.mjs']).toContain('DEFAULT_LOG_BASENAME = "x.jsonl"');
+    expect(weird['scripts/tierclef-observe.mjs']).toContain('DEFAULT_LOG_BASENAME = "x.jsonl"');
     const fallback = buildPluginFiles({ logFileName: 'not a file!!!' });
-    expect(fallback['scripts/jev-observe.mjs']).toContain(
+    expect(fallback['scripts/tierclef-observe.mjs']).toContain(
       `DEFAULT_LOG_BASENAME = "${DEFAULT_LOG_FILE}"`,
     );
   });
 });
 
-describe('jev-observe.mjs integration', () => {
+describe('tierclef-observe.mjs integration', () => {
   function writePlugin(): { dir: string; script: string; log: string } {
-    const dir = tempDir('jev-plugin-');
+    const dir = tempDir('tierclef-plugin-');
     writePluginFiles(dir);
     return {
       dir,
-      script: join(dir, 'scripts', 'jev-observe.mjs'),
+      script: join(dir, 'scripts', 'tierclef-observe.mjs'),
       log: join(dir, 'observe-test.jsonl'),
     };
   }
@@ -190,7 +190,7 @@ describe('jev-observe.mjs integration', () => {
     const result = spawnSync(process.execPath, [script], {
       input: stdin,
       encoding: 'utf8',
-      env: { ...process.env, JEV_OBSERVE_LOG: log },
+      env: { ...process.env, TIERCLEF_OBSERVE_LOG: log },
     });
     return {
       status: result.status,
@@ -248,15 +248,15 @@ describe('jev-observe.mjs integration', () => {
     const output = JSON.parse(result.stdout);
     expect(output.hookSpecificOutput.hookEventName).toBe('SessionStart');
     expect(output.hookSpecificOutput.additionalContext).toContain('automatically delegate');
-    expect(output.hookSpecificOutput.additionalContext).toContain('jev:jev-cheap');
-    expect(output.hookSpecificOutput.additionalContext).toContain('jev:jev-mid');
-    expect(output.hookSpecificOutput.additionalContext).toContain('jev:jev-frontier');
+    expect(output.hookSpecificOutput.additionalContext).toContain('tierclef:tierclef-cheap');
+    expect(output.hookSpecificOutput.additionalContext).toContain('tierclef:tierclef-mid');
+    expect(output.hookSpecificOutput.additionalContext).toContain('tierclef:tierclef-frontier');
     expect(() => readFileSync(log, 'utf8')).toThrow();
   });
 
   it('launcher exits silently when node is missing from PATH', () => {
     const { dir } = writePlugin();
-    const result = spawnSync('/bin/sh', [join(dir, 'scripts', 'jev-hook.sh')], {
+    const result = spawnSync('/bin/sh', [join(dir, 'scripts', 'tierclef-hook.sh')], {
       input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'fix' }),
       encoding: 'utf8',
       env: { PATH: '/nonexistent' },
@@ -276,7 +276,7 @@ describe('jev-observe.mjs integration', () => {
     const output = JSON.parse(result.stdout);
     expect(Object.keys(output)).toEqual(['hookSpecificOutput']);
     expect(output.hookSpecificOutput.hookEventName).toBe('UserPromptSubmit');
-    expect(output.hookSpecificOutput.additionalContext).toContain(`suggested subagent=jev:jev-${tier}`);
+    expect(output.hookSpecificOutput.additionalContext).toContain(`suggested subagent=tierclef:tierclef-${tier}`);
     expect(output.hookSpecificOutput.additionalContext).toContain('advisory delegation only');
     expect(result.stdout).not.toContain(prompt);
     const entry = JSON.parse(readFileSync(log, 'utf8'));
@@ -288,7 +288,7 @@ describe('jev-observe.mjs integration', () => {
     const { script, dir } = writePlugin();
     const result = runObserve(script, dir, JSON.stringify({ prompt: 'fix' }));
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain('suggested subagent=jev:jev-mid');
+    expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain('suggested subagent=tierclef:tierclef-mid');
   });
 
   it('safe prompt → cheap or mid', () => {
@@ -309,10 +309,10 @@ describe('jev-observe.mjs integration', () => {
     expect(out.hookSpecificOutput.additionalContext).toMatch(/tier=(cheap|mid)/);
   });
 
-  it('JEV_OBSERVE_LOG env override wins over configured logFileName', () => {
-    const dir = tempDir('jev-plugin-log-');
+  it('TIERCLEF_OBSERVE_LOG env override wins over configured logFileName', () => {
+    const dir = tempDir('tierclef-plugin-log-');
     writePluginFiles(dir, { logFileName: 'custom.jsonl' });
-    const script = join(dir, 'scripts', 'jev-observe.mjs');
+    const script = join(dir, 'scripts', 'tierclef-observe.mjs');
     const overrideLog = join(dir, 'override-wins.jsonl');
     const result = spawnSync(process.execPath, [script], {
       input: JSON.stringify({
@@ -321,7 +321,7 @@ describe('jev-observe.mjs integration', () => {
         session_id: 'env-win',
       }),
       encoding: 'utf8',
-      env: { ...process.env, JEV_OBSERVE_LOG: overrideLog },
+      env: { ...process.env, TIERCLEF_OBSERVE_LOG: overrideLog },
     });
     expect(result.status).toBe(0);
     const logLine = readFileSync(overrideLog, 'utf8').trim();
@@ -330,9 +330,9 @@ describe('jev-observe.mjs integration', () => {
   });
 });
 
-describe('jev plugin CLI', () => {
+describe('tierclef plugin CLI', () => {
   it('loads plugin JSON config and lets --protected override its globs', async () => {
-    const dir = tempDir('jev-cli-config-');
+    const dir = tempDir('tierclef-cli-config-');
     const configPath = join(dir, 'input.json');
     writeFileSync(configPath, JSON.stringify({ protectedPaths: ['**/auth/**'], logFileName: 'custom.jsonl', subagentModels: { frontier: 'opus' } }));
     const { io, err } = captureIO();
@@ -341,11 +341,11 @@ describe('jev plugin CLI', () => {
     const config = JSON.parse(readFileSync(join(dir, 'plugin/config.json'), 'utf8'));
     expect(config.protectedPaths).toEqual(['*.lock']);
     expect(config.logFileName).toBe('custom.jsonl');
-    expect(readFileSync(join(dir, 'plugin/agents/jev-frontier.md'), 'utf8')).toContain('model: opus');
+    expect(readFileSync(join(dir, 'plugin/agents/tierclef-frontier.md'), 'utf8')).toContain('model: opus');
   });
 
   it.each(['null', '[]', '{', '{"subagentModels":{"cheap":"invalid"}}', '{"protectedPaths":42}', '{"logFileName":42}', '{"subagentModels":[]}'])('rejects malformed config %s', async (raw) => {
-    const dir = tempDir('jev-cli-bad-config-');
+    const dir = tempDir('tierclef-cli-bad-config-');
     const configPath = join(dir, 'input.json');
     writeFileSync(configPath, raw);
     const { io, out } = captureIO();
@@ -353,18 +353,18 @@ describe('jev plugin CLI', () => {
     expect(out()).toBe('');
   });
 
-  it.each([['--config'], ['--config', '--out'], ['--config', '/missing-jev-config.json']])('rejects unusable config arguments %j', async (...args) => {
+  it.each([['--config'], ['--config', '--out'], ['--config', '/missing-tierclef-config.json']])('rejects unusable config arguments %j', async (...args) => {
     const { io } = captureIO();
-    expect(await runCli(['plugin', '--out', tempDir('jev-cli-missing-'), ...args], io)).toBe(1);
+    expect(await runCli(['plugin', '--out', tempDir('tierclef-cli-missing-'), ...args], io)).toBe(1);
   });
   it('writes files and prints paths when --out is set', async () => {
-    const dir = tempDir('jev-cli-plugin-');
+    const dir = tempDir('tierclef-cli-plugin-');
     const { io, out, err } = captureIO();
     const code = await runCli(['plugin', '--out', dir, '--protected', '**/auth/**'], io);
     expect(code).toBe(0);
     expect(err()).toBe('');
     expect(out()).toContain(join(dir, '.claude-plugin', 'plugin.json'));
-    expect(out()).toContain(join(dir, 'scripts', 'jev-observe.mjs'));
+    expect(out()).toContain(join(dir, 'scripts', 'tierclef-observe.mjs'));
     const config = JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')) as {
       protectedPaths: string[];
     };
@@ -382,20 +382,20 @@ describe('jev plugin CLI', () => {
     const { io, out } = captureIO();
     const code = await runCli(['--help'], io);
     expect(code).toBe(0);
-    expect(out()).toContain('jev plugin --out');
+    expect(out()).toContain('tierclef plugin --out');
   });
 });
 
-describe('jev-mcp.mjs integration', () => {
+describe('tierclef-mcp.mjs integration', () => {
   function runMcp(messages: unknown[], prefix = '') {
-    const dir = tempDir('jev-mcp-');
+    const dir = tempDir('tierclef-mcp-');
     writePluginFiles(dir);
     const log = join(dir, 'must-not-exist.jsonl');
-    const result = spawnSync(process.execPath, [join(dir, 'scripts/jev-mcp.mjs')], {
+    const result = spawnSync(process.execPath, [join(dir, 'scripts/tierclef-mcp.mjs')], {
       input: prefix + messages.map((message) => JSON.stringify(message)).join('\n') + '\n',
       encoding: 'utf8',
       timeout: 5000,
-      env: { ...process.env, JEV_OBSERVE_LOG: log },
+      env: { ...process.env, TIERCLEF_OBSERVE_LOG: log },
     });
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
@@ -410,26 +410,26 @@ describe('jev-mcp.mjs integration', () => {
       request(1, 'initialize', { protocolVersion: '2025-03-26' }),
       { jsonrpc: '2.0', method: 'notifications/initialized' },
       request(2, 'tools/list'),
-      request(3, 'tools/call', { name: 'jev_route', arguments: { task } }),
-      request(4, 'tools/call', { name: 'jev_explain', arguments: { task } }),
+      request(3, 'tools/call', { name: 'tierclef_route', arguments: { task } }),
+      request(4, 'tools/call', { name: 'tierclef_explain', arguments: { task } }),
       request(5, 'ping'),
     ], 'not-json{{{\nnull\n[]\n42\n{"jsonrpc":"2.0","id":null}\n');
     expect(responses.map((r) => r.id)).toEqual([1, 2, 3, 4, 5]);
     expect(responses.every((r) => r.jsonrpc === '2.0')).toBe(true);
     expect(responses[0].result).toEqual({
       protocolVersion: '2025-03-26', capabilities: { tools: {} },
-      serverInfo: { name: 'jev', version: '0.5.0' },
+      serverInfo: { name: 'tierclef', version: '0.5.0' },
     });
-    expect(responses[1].result.tools.map((tool: { name: string }) => tool.name)).toEqual(['jev_decide', 'jev_route', 'jev_explain']);
+    expect(responses[1].result.tools.map((tool: { name: string }) => tool.name)).toEqual(['tierclef_decide', 'tierclef_route', 'tierclef_explain']);
     expect(JSON.parse(responses[2].result.content[0].text)).toEqual({ tier: 'frontier', signals: ['payments', 'migration', 'delete', 'production'] });
     expect(responses[3].result.content[0].text).toContain('irreversible actions require human review');
     expect(JSON.stringify(responses)).not.toContain('PRIVATE_TASK_MARKER');
     expect(responses[4].result).toEqual({});
   });
 
-  it('jev_decide applies miniature merge rules without returning diff content', () => {
+  it('tierclef_decide applies miniature merge rules without returning diff content', () => {
     const decide = (diff: string, extra: Record<string, unknown> = {}) => {
-      const [response] = runMcp([request(1, 'tools/call', { name: 'jev_decide', arguments: { diff, ...extra } })]);
+      const [response] = runMcp([request(1, 'tools/call', { name: 'tierclef_decide', arguments: { diff, ...extra } })]);
       return response.result;
     };
     const safeDiff = '--- a/src/a.ts\n+++ b/src/a.ts\n@@\n-old\n+new';
@@ -494,7 +494,7 @@ describe('jev-mcp.mjs integration', () => {
       request(1, 'unknown-method'),
       request(2, 'tools/call', { name: 'missing-tool' }),
       ...[undefined, null, 42, {}, '', '  '].map((task, index) =>
-        request(index + 3, 'tools/call', { name: index % 2 ? 'jev_route' : 'jev_explain', arguments: { task } })),
+        request(index + 3, 'tools/call', { name: index % 2 ? 'tierclef_route' : 'tierclef_explain', arguments: { task } })),
       request(9, 'tools/call'),
       request(10, 'ping'),
     ]);
@@ -509,12 +509,12 @@ describe('jev-mcp.mjs integration', () => {
     'fix',
     'migrate production payments and delete old table',
   ])('matches the observe hook miniature scorer for %s', (task) => {
-    const [response] = runMcp([request(1, 'tools/call', { name: 'jev_route', arguments: { task } })]);
-    const dir = tempDir('jev-parity-');
+    const [response] = runMcp([request(1, 'tools/call', { name: 'tierclef_route', arguments: { task } })]);
+    const dir = tempDir('tierclef-parity-');
     writePluginFiles(dir);
-    const observed = spawnSync(process.execPath, [join(dir, 'scripts/jev-observe.mjs')], {
+    const observed = spawnSync(process.execPath, [join(dir, 'scripts/tierclef-observe.mjs')], {
       input: JSON.stringify({ prompt: task }), encoding: 'utf8',
-      env: { ...process.env, JEV_OBSERVE_LOG: join(dir, 'observe.jsonl') },
+      env: { ...process.env, TIERCLEF_OBSERVE_LOG: join(dir, 'observe.jsonl') },
     });
     expect(observed.status).toBe(0);
     const entry = JSON.parse(readFileSync(join(dir, 'observe.jsonl'), 'utf8'));

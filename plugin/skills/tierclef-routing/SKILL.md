@@ -1,20 +1,20 @@
 ---
-name: jev-routing
+name: tierclef-routing
 description: Applies automatically when delegating or choosing effort for coding tasks.
 ---
 
-# Jev routing
+# TierClef routing
 
-Jev provides advisory routing for Codex first, with Claude Code also supported.
-Call `jev_route` or `jev_explain` to size a task. Before merge, use `jev_decide` as an advisory pre-merge check when available; enforcement stays in CI/merge.
+TierClef provides advisory routing for Codex first, with Claude Code also supported.
+Call `tierclef_route` or `tierclef_explain` to size a task. Before merge, use `tierclef_decide` as an advisory pre-merge check when available; enforcement stays in CI/merge.
 Start specific, well-scoped coding work at cheap effort; delegate automatically
 when the host supports it and its instructions allow delegation.
 
 If a tier fails or verification is weak, preserve the error output and escalate
 one tier at a time: cheap → mid → frontier. Abstention and uncertainty escalate
 up. Reserve frontier for cross-cutting work, unclear causes, or orchestration.
-Claude Code can use `jev:jev-cheap`, `jev:jev-mid`, and
-`jev:jev-frontier`. The bundled agents/*.md are Claude-only; Codex custom
+Claude Code can use `tierclef:tierclef-cheap`, `tierclef:tierclef-mid`, and
+`tierclef:tierclef-frontier`. The bundled agents/*.md are Claude-only; Codex custom
 agents live in ~/.codex/agents as TOML and are not bundled here.
 
 A tier is never permission. Irreversible or uncertain actions go to a human;

@@ -1,8 +1,17 @@
-# Jev — plan
+# TierClef — plan
 
-Working plan for the jev repository. Dates are ISO; "done" means implemented
+Working plan for the TierClef repository. Dates are ISO; "done" means implemented
 and verified with `npm test` / `npm run typecheck` / `npm run build` /
 `npm run eval`.
+
+## Product rename — 2026-10-19
+
+- Renamed from Jev because ‘Jev’ collides with the existing TypeSafe Jev
+  ecosystem and ‘Jev Gate’ is a published PyPI product. TierClef was verified
+  free on GitHub, npm, and PyPI at the time of the rename.
+- MCP tools were breaking-renamed from `jev_route` / `jev_explain` /
+  `jev_decide` to `tierclef_route` / `tierclef_explain` / `tierclef_decide`
+  for consistency while the project is still a v0.x draft.
 
 ## Phases
 

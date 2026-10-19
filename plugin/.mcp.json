@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "jev": {
+    "tierclef": {
       "command": "node",
       "args": [
-        "./scripts/jev-mcp.mjs"
+        "./scripts/tierclef-mcp.mjs"
       ],
       "cwd": "."
     }

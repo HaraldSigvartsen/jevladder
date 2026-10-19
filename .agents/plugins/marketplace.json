@@ -1,11 +1,19 @@
 {
-  "name": "jev",
-  "interface": { "displayName": "Jev" },
+  "name": "tierclef",
+  "interface": {
+    "displayName": "TierClef"
+  },
   "plugins": [
     {
-      "name": "jev",
-      "source": { "source": "local", "path": "./plugin" },
-      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "name": "tierclef",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
       "category": "Developer Tools"
     }
   ]

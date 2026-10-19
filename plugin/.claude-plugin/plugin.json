@@ -1,7 +1,7 @@
 {
-  "name": "jev",
+  "name": "tierclef",
   "version": "0.5.0",
-  "description": "Jev observe-only decision log and advisory subagent routing. Never blocks or changes the main session model.",
+  "description": "TierClef observe-only decision log and advisory subagent routing. Never blocks or changes the main session model.",
   "author": {
     "name": "Harald Sigvartsen"
   }

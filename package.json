@@ -1,12 +1,12 @@
 {
-  "name": "jev",
+  "name": "tierclef",
   "version": "0.5.0",
   "description": "Clef-gate for AI agents: deterministic rules first, an AI judge for the grey zone, and a hard human fallback.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/HaraldSigvartsen/jev.git"
+    "url": "git+https://github.com/HaraldSigvartsen/tierclef.git"
   },
   "exports": {
     ".": {
@@ -18,7 +18,7 @@
     "node": ">=20"
   },
   "bin": {
-    "jev": "dist/src/cli.js"
+    "tierclef": "dist/src/cli.js"
   },
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

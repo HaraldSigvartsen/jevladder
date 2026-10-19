@@ -15,7 +15,7 @@ function record(overrides: Partial<ArmOutcome> & Pick<ArmOutcome, 'id' | 'kind' 
 
 const fixtureRun: EvalRun = {
   tasks: [],
-  jev: [
+  tierclef: [
     record({ id: 't1', kind: 'merge', expected: 'allow', outcome: 'allow', cost: PRICES.cheapCall, modelCalls: 1 }),
     record({ id: 't2', kind: 'merge', expected: 'human', outcome: 'human', cost: 0.252, modelCalls: 1, escalated: true }),
     record({ id: 't3', kind: 'merge', expected: 'allow', outcome: 'block' }),
@@ -33,29 +33,29 @@ describe('computeMetrics (hand-built fixture)', () => {
   const metrics = computeMetrics(fixtureRun);
 
   it('computes per-arm accuracy and quality parity', () => {
-    expect(metrics.jev.accuracy).toBeCloseTo(0.75, 10);
-    expect(metrics.jev.mergeAccuracy).toBeCloseTo(2 / 3, 10);
-    expect(metrics.jev.routeAccuracy).toBe(1);
+    expect(metrics.tierclef.accuracy).toBeCloseTo(0.75, 10);
+    expect(metrics.tierclef.mergeAccuracy).toBeCloseTo(2 / 3, 10);
+    expect(metrics.tierclef.routeAccuracy).toBe(1);
     expect(metrics.baseline.accuracy).toBe(0.5);
     expect(metrics.qualityParity).toBeCloseTo(0.25, 10);
   });
 
   it('computes costs, approvals and token estimates', () => {
-    expect(metrics.jev.totalCost).toBeCloseTo(0.256, 6);
-    expect(metrics.jev.approvedCount).toBe(1);
-    expect(metrics.jev.costPerApproved).toBeCloseTo(0.256, 6);
-    expect(metrics.jev.modelCalls).toBe(3);
-    expect(metrics.jev.estimatedTokens).toBe(3 * PRICES.tokensPerCall);
+    expect(metrics.tierclef.totalCost).toBeCloseTo(0.256, 6);
+    expect(metrics.tierclef.approvedCount).toBe(1);
+    expect(metrics.tierclef.costPerApproved).toBeCloseTo(0.256, 6);
+    expect(metrics.tierclef.modelCalls).toBe(3);
+    expect(metrics.tierclef.estimatedTokens).toBe(3 * PRICES.tokensPerCall);
     expect(metrics.baseline.totalCost).toBeCloseTo(0.2, 6);
     expect(metrics.baseline.approvedCount).toBe(3);
     expect(metrics.baseline.costPerApproved).toBeCloseTo(0.2 / 3, 6);
   });
 
   it('computes false-block rate and escalation precision', () => {
-    expect(metrics.jev.falseBlocks).toBe(1);
-    expect(metrics.jev.falseBlockRate).toBe(0.5);
-    expect(metrics.jev.escalations).toBe(1);
-    expect(metrics.jev.escalationPrecision).toBe(1);
+    expect(metrics.tierclef.falseBlocks).toBe(1);
+    expect(metrics.tierclef.falseBlockRate).toBe(0.5);
+    expect(metrics.tierclef.escalations).toBe(1);
+    expect(metrics.tierclef.escalationPrecision).toBe(1);
     expect(metrics.baseline.escalations).toBe(0);
     expect(metrics.baseline.escalationPrecision).toBeNull();
   });
@@ -93,10 +93,10 @@ describe('eval tasks', () => {
 });
 
 describe('runEval (mock arms, full task set)', () => {
-  it('achieves jev accuracy >= 0.8 and >= baseline', async () => {
+  it('achieves tierclef accuracy >= 0.8 and >= baseline', async () => {
     const metrics = computeMetrics(await runEval());
-    expect(metrics.jev.accuracy).toBeGreaterThanOrEqual(0.8);
-    expect(metrics.jev.accuracy).toBeGreaterThanOrEqual(metrics.baseline.accuracy);
+    expect(metrics.tierclef.accuracy).toBeGreaterThanOrEqual(0.8);
+    expect(metrics.tierclef.accuracy).toBeGreaterThanOrEqual(metrics.baseline.accuracy);
   });
 
   it('is deterministic across runs', async () => {

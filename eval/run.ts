@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Jev eval runner: two arms over the labelled synthetic tasks in tasks.ts.
+ * TierClef eval runner: two arms over the labelled synthetic tasks in tasks.ts.
  *
- * Arm JEV (the thing being evaluated):
+ * Arm TIERCLEF (the thing being evaluated):
  * - merge tasks: deterministic merge rules first (free, first hit decides),
  *   grey zone to a cheap mock judge that can abstain; abstentions and
  *   irreversible judge-allows defer to a human (human-review cost proxy).
@@ -97,7 +97,7 @@ export interface ArmOutcome {
 
 export interface EvalRun {
   tasks: readonly EvalTask[];
-  jev: ArmOutcome[];
+  tierclef: ArmOutcome[];
   baseline: ArmOutcome[];
 }
 
@@ -129,20 +129,20 @@ function mergeCost(
 
 /** Run both arms over `tasks` (defaults to the full synthetic set). */
 export async function runEval(tasks: readonly EvalTask[] = evalTasks): Promise<EvalRun> {
-  const jevGate = defineGate({ rules: makeMergeRules(), judge: new MockJudge() });
+  const tierclefGate = defineGate({ rules: makeMergeRules(), judge: new MockJudge() });
   const baselineGate = defineGate({
     rules: makeMergeRules(),
     judge: new PermissiveFrontierMock(),
   });
 
-  const jev: ArmOutcome[] = [];
+  const tierclef: ArmOutcome[] = [];
   const baseline: ArmOutcome[] = [];
 
   for (const task of tasks) {
     if (task.kind === 'merge') {
-      const decision = await jevGate.decide(task.input);
+      const decision = await tierclefGate.decide(task.input);
       const priced = mergeCost(decision, PRICES.cheapCall);
-      jev.push({
+      tierclef.push({
         id: task.id,
         kind: 'merge',
         expected: task.expected,
@@ -165,7 +165,7 @@ export async function runEval(tasks: readonly EvalTask[] = evalTasks): Promise<E
       });
     } else {
       const routed = scoreRoute(task.input);
-      jev.push({
+      tierclef.push({
         id: task.id,
         kind: 'route',
         expected: task.expected,
@@ -190,7 +190,7 @@ export async function runEval(tasks: readonly EvalTask[] = evalTasks): Promise<E
     }
   }
 
-  return { tasks, jev, baseline };
+  return { tasks, tierclef, baseline };
 }
 
 /* ------------------------------------------------------------------ *
@@ -224,14 +224,14 @@ export interface ArmMetrics {
 }
 
 export interface EvalMetrics {
-  jev: ArmMetrics;
+  tierclef: ArmMetrics;
   baseline: ArmMetrics;
-  /** jev.accuracy - baseline.accuracy (quality parity; positive = jev better). */
+  /** tierclef.accuracy - baseline.accuracy (quality parity; positive = tierclef better). */
   qualityParity: number;
 }
 
 export function computeMetrics(run: {
-  jev: ArmOutcome[];
+  tierclef: ArmOutcome[];
   baseline: ArmOutcome[];
 }): EvalMetrics {
   const arm = (records: ArmOutcome[]): ArmMetrics => {
@@ -278,9 +278,9 @@ export function computeMetrics(run: {
     };
   };
 
-  const jev = arm(run.jev);
+  const tierclef = arm(run.tierclef);
   const baseline = arm(run.baseline);
-  return { jev, baseline, qualityParity: round6(jev.accuracy - baseline.accuracy) };
+  return { tierclef, baseline, qualityParity: round6(tierclef.accuracy - baseline.accuracy) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -299,25 +299,25 @@ function mark(ok: boolean): string {
   return ok ? 'ok' : 'X';
 }
 
-export function formatReport(run: { jev: ArmOutcome[]; baseline: ArmOutcome[] }, metrics: EvalMetrics): string {
+export function formatReport(run: { tierclef: ArmOutcome[]; baseline: ArmOutcome[] }, metrics: EvalMetrics): string {
   const lines: string[] = [];
   const push = (text = ''): void => {
     lines.push(text);
   };
 
-  const mergeCount = run.jev.filter((r) => r.kind === 'merge').length;
-  const routeCount = run.jev.filter((r) => r.kind === 'route').length;
+  const mergeCount = run.tierclef.filter((r) => r.kind === 'merge').length;
+  const routeCount = run.tierclef.filter((r) => r.kind === 'route').length;
 
-  push('# jev eval report (generatedFrom: mock)');
+  push('# tierclef eval report (generatedFrom: mock)');
   push();
   push(
-    `Tasks: ${run.jev.length} synthetic (${mergeCount} merge, ${routeCount} route). ` +
+    `Tasks: ${run.tierclef.length} synthetic (${mergeCount} merge, ${routeCount} route). ` +
       'Deterministic: mock judges and keyword routing only, no network, no API keys, fake secrets only.',
   );
   push();
   push('## Arms');
   push(
-    '- JEV: merge rules first (free), grey zone to a cheap mock judge that can abstain; ' +
+    '- TIERCLEF: merge rules first (free), grey zone to a cheap mock judge that can abstain; ' +
       'uncertain or irreversible grey merges go to a human. Route tasks tiered by scoreRoute.',
   );
   push(
@@ -328,12 +328,12 @@ export function formatReport(run: { jev: ArmOutcome[]; baseline: ArmOutcome[] },
   push('## Quality parity');
   push('arm            accuracy   merge     route');
   push(
-    `jev            ${pct(metrics.jev.accuracy).padEnd(10)} ${pct(metrics.jev.mergeAccuracy).padEnd(9)} ${pct(metrics.jev.routeAccuracy)}`,
+    `tierclef            ${pct(metrics.tierclef.accuracy).padEnd(10)} ${pct(metrics.tierclef.mergeAccuracy).padEnd(9)} ${pct(metrics.tierclef.routeAccuracy)}`,
   );
   push(
     `all-frontier   ${pct(metrics.baseline.accuracy).padEnd(10)} ${pct(metrics.baseline.mergeAccuracy).padEnd(9)} ${pct(metrics.baseline.routeAccuracy)}`,
   );
-  push(`parity (jev - baseline): ${(100 * metrics.qualityParity).toFixed(2)}pp`);
+  push(`parity (tierclef - baseline): ${(100 * metrics.qualityParity).toFixed(2)}pp`);
   push();
   push('## Cost (mock prices)');
   push(
@@ -341,24 +341,24 @@ export function formatReport(run: { jev: ArmOutcome[]; baseline: ArmOutcome[] },
   );
   push('arm            totalCost   approved(allow)   costPerApproved   modelCalls   estTokens');
   push(
-    `jev            ${money(metrics.jev.totalCost).padEnd(11)} ${String(metrics.jev.approvedCount).padEnd(17)} ${money(metrics.jev.costPerApproved).padEnd(17)} ${String(metrics.jev.modelCalls).padEnd(12)} ${metrics.jev.estimatedTokens}`,
+    `tierclef            ${money(metrics.tierclef.totalCost).padEnd(11)} ${String(metrics.tierclef.approvedCount).padEnd(17)} ${money(metrics.tierclef.costPerApproved).padEnd(17)} ${String(metrics.tierclef.modelCalls).padEnd(12)} ${metrics.tierclef.estimatedTokens}`,
   );
   push(
     `all-frontier   ${money(metrics.baseline.totalCost).padEnd(11)} ${String(metrics.baseline.approvedCount).padEnd(17)} ${money(metrics.baseline.costPerApproved).padEnd(17)} ${String(metrics.baseline.modelCalls).padEnd(12)} ${metrics.baseline.estimatedTokens}`,
   );
   push(
-    `route cost per task: jev ${metrics.jev.routeCostPerTask === null ? 'n/a' : money(metrics.jev.routeCostPerTask)} vs baseline ${metrics.baseline.routeCostPerTask === null ? 'n/a' : money(metrics.baseline.routeCostPerTask)}`,
+    `route cost per task: tierclef ${metrics.tierclef.routeCostPerTask === null ? 'n/a' : money(metrics.tierclef.routeCostPerTask)} vs baseline ${metrics.baseline.routeCostPerTask === null ? 'n/a' : money(metrics.baseline.routeCostPerTask)}`,
   );
   push();
   push('## Safety');
-  const expectedAllowCount = run.jev.filter(
+  const expectedAllowCount = run.tierclef.filter(
     (r) => r.kind === 'merge' && r.expected === 'allow',
   ).length;
   push(
-    `- false-block rate (jev): ${pct(metrics.jev.falseBlockRate)} (${metrics.jev.falseBlocks} of ${expectedAllowCount} expected-allow merge tasks blocked or sent to human)`,
+    `- false-block rate (tierclef): ${pct(metrics.tierclef.falseBlockRate)} (${metrics.tierclef.falseBlocks} of ${expectedAllowCount} expected-allow merge tasks blocked or sent to human)`,
   );
   push(
-    `- escalation precision (jev): ${pct(metrics.jev.escalationPrecision)} (${metrics.jev.escalations} human escalations, warranted when expected is human/block)`,
+    `- escalation precision (tierclef): ${pct(metrics.tierclef.escalationPrecision)} (${metrics.tierclef.escalations} human escalations, warranted when expected is human/block)`,
   );
   push();
   push('## Limitations');
@@ -368,7 +368,7 @@ export function formatReport(run: { jev: ArmOutcome[]; baseline: ArmOutcome[] },
       'directional — it illustrates confident permissiveness without an abstention channel.',
   );
   push(
-    '- costPerApproved rewards rubber-stamping (the baseline "approves" tasks jev correctly escalates). ' +
+    '- costPerApproved rewards rubber-stamping (the baseline "approves" tasks tierclef correctly escalates). ' +
       'Read it next to total cost, accuracy and the safety metrics, never alone.',
   );
   push(
@@ -377,12 +377,12 @@ export function formatReport(run: { jev: ArmOutcome[]; baseline: ArmOutcome[] },
   );
   push();
   push('## Per task');
-  push('id                                kind   expected   jev       ok  baseline  ok');
-  run.jev.forEach((jevRecord, i) => {
+  push('id                                kind   expected   tierclef       ok  baseline  ok');
+  run.tierclef.forEach((tierclefRecord, i) => {
     const base = run.baseline[i];
     if (!base) return;
     push(
-      `${jevRecord.id.padEnd(33)} ${jevRecord.kind.padEnd(6)} ${jevRecord.expected.padEnd(10)} ${String(jevRecord.outcome).padEnd(9)} ${mark(jevRecord.correct).padEnd(3)} ${String(base.outcome).padEnd(9)} ${mark(base.correct)}`,
+      `${tierclefRecord.id.padEnd(33)} ${tierclefRecord.kind.padEnd(6)} ${tierclefRecord.expected.padEnd(10)} ${String(tierclefRecord.outcome).padEnd(9)} ${mark(tierclefRecord.correct).padEnd(3)} ${String(base.outcome).padEnd(9)} ${mark(base.correct)}`,
     );
   });
   return lines.join('\n') + '\n';
@@ -399,7 +399,7 @@ export interface PerTaskReport {
   kind: 'merge' | 'route';
   expected: ExpectedOutcome;
   note: string;
-  jev: { outcome: Outcome; correct: boolean; cost: number; reason: string };
+  tierclef: { outcome: Outcome; correct: boolean; cost: number; reason: string };
   baseline: { outcome: Outcome; correct: boolean; cost: number; reason: string };
 }
 
@@ -411,7 +411,7 @@ export interface EvalReport {
 }
 
 export function buildReport(run: EvalRun, metrics: EvalMetrics): EvalReport {
-  const perTask: PerTaskReport[] = run.jev.map((jevRecord, i) => {
+  const perTask: PerTaskReport[] = run.tierclef.map((tierclefRecord, i) => {
     const base = run.baseline[i];
     const task = run.tasks[i];
     if (!base || !task) {
@@ -422,11 +422,11 @@ export function buildReport(run: EvalRun, metrics: EvalMetrics): EvalReport {
       kind: task.kind,
       expected: task.expected,
       note: task.note,
-      jev: {
-        outcome: jevRecord.outcome,
-        correct: jevRecord.correct,
-        cost: jevRecord.cost,
-        reason: jevRecord.reason,
+      tierclef: {
+        outcome: tierclefRecord.outcome,
+        correct: tierclefRecord.correct,
+        cost: tierclefRecord.cost,
+        reason: tierclefRecord.reason,
       },
       baseline: {
         outcome: base.outcome,
@@ -461,7 +461,7 @@ const invokedAsScript = (() => {
 
 if (invokedAsScript) {
   main().catch((err: unknown) => {
-    process.stderr.write(`jev eval: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.stderr.write(`tierclef eval: ${err instanceof Error ? err.message : String(err)}\n`);
     process.exitCode = 1;
   });
 }

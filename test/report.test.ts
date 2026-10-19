@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 function tempLog(content: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'jev-report-'));
+  const dir = mkdtempSync(join(tmpdir(), 'tierclef-report-'));
   tempDirs.push(dir);
   const path = join(dir, 'observe.jsonl');
   writeFileSync(path, content, 'utf8');
@@ -43,7 +43,7 @@ describe('cost report', () => {
 
   it('returns a friendly advisory message and exit 0 for a missing file', async () => {
     let output = '';
-    const code = await runCli(['report', '--log', '/missing/jev-observe-test.jsonl'], {
+    const code = await runCli(['report', '--log', '/missing/tierclef-observe-test.jsonl'], {
       stdout: (text) => { output += text; },
       stderr: () => {},
     });

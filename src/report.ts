@@ -70,7 +70,7 @@ export function buildCostReport(logText: string): CostReport {
   };
 }
 
-export function readCostReport(logPath = join(homedir(), '.jev', 'observe.jsonl')):
+export function readCostReport(logPath = join(homedir(), '.tierclef', 'observe.jsonl')):
   | { ok: true; report: CostReport }
   | { ok: false; message: string } {
   try {

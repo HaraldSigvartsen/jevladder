@@ -3,7 +3,7 @@
  *
  * Labels come from prose scenarios + eval/independent/policy.md (M1–M5 / R1–R4),
  * NOT from which merge rule or MockJudge / scoreRoute signal fires.
- * `predictedRisk: true` marks cases where current jev heuristics are expected
+ * `predictedRisk: true` marks cases where current tierclef heuristics are expected
  * to disagree with the policy-true label — the label stays policy-true anyway.
  */
 import type { GateInput } from '../../src/gate.js';
