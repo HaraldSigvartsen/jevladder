@@ -289,10 +289,35 @@ actual on every miss.
   can share blind spots with the models it judges.
 - **ABSTAIN exists for exactly that.** When the judge is not confident it
   says so, and the gate spends a human rather than a wrong answer.
-- **Host support today:** none built in — v0.1 is the library + CLI. The
-  v0.2/v0.3 roadmap (Claude Code plugin hooks, MCP server, multi-host
-  adapters) is where host integration lands; each host's integration surface
-  will be documented per host when it ships.
+- **Host support today:** library + CLI, plus a v0.2 **observe-only** Claude
+  Code plugin (annotation / decision log). Blocking hooks, MCP
+  `decide`/`route`/`explain`, and multi-host adapters remain later in the
+  roadmap; each host's integration surface will be documented when it ships.
+
+## v0.2 Claude Code plugin (observing only)
+
+Generate a loadable plugin directory:
+
+```bash
+npm run build
+node dist/src/cli.js plugin --out plugin
+# or: jev plugin --out ./my-jev-plugin [--protected '**/payments/**']
+```
+
+A checked-in copy lives under [`plugin/`](plugin/). Load as a local plugin /
+copy into your plugins directory — see Claude Code plugin docs.
+
+**What it does:** on `UserPromptSubmit`, scores the prompt with miniature
+route signals and appends one JSON line to `~/.jev/observe.jsonl` (or
+`JEV_OBSERVE_LOG`). It prints `additionalContext` with the tier — never a
+blocking decision.
+
+**What it does not do:** no blocking, no model swap (see Honesty above). The
+log stores `{ts, session_id, cwd, tier, signals, promptChars}` only — **never
+the full prompt text**.
+
+Uninstall: remove the plugin directory and delete `~/.jev` if you no longer
+want local observe logs.
 
 ## API summary
 
@@ -304,6 +329,7 @@ actual on every miss.
 | `MockJudge` / `makeMockJudge(verdictOrFn?)` | Deterministic judge for tests and local dev: no key, no network; abstains on TODO markers and protected-sounding paths, else allows at 0.85. |
 | `OpenAICompatibleJudge({ baseUrl, model, apiKeyEnv?, timeoutMs? })` | Real judge over any OpenAI-compatible chat-completions API. Key from env (default `JEV_JUDGE_API_KEY`), 15 s timeout, never throws — operational failures abstain to human. |
 | `scoreRoute(task)` | Deterministic tiering (`cheap`/`mid`/`frontier`) from keyword signals on difficulty/consequence/verifiability; low-confidence input raises one tier and sets `abstained=true`. Same input, same output — no model calls. |
+| `buildPluginFiles(config?)` / `writePluginFiles(outDir, config?)` | Emit the observe-only Claude Code plugin files (manifest, hooks, standalone observe script, config, README). |
 
 CLI exit codes: **0** allow · **2** block · **3** human decision required ·
 **1** usage/IO error.
@@ -316,8 +342,9 @@ More: [examples/config/](examples/config/) for a typed configuration example,
 
 - **v0.1 (this)** — library core, merge rule pack, deterministic router,
   CLI, synthetic eval, docs.
-- **v0.2** — Claude Code plugin hooks around merge actions; MCP server
-  exposing `decide` / `route` / `explain`; cost report from the decision log.
+- **v0.2 (started)** — Claude Code **observe-only** plugin (UserPromptSubmit
+  annotation + local decision log). Still ahead: MCP `decide` / `route` /
+  `explain`, blocking/merge hooks, cost report from the decision log.
 - **v0.3 — "EverythingJevCan"** — multi-host adapters (Claude Code, Codex,
   Cursor, OpenCode, …) on one gate/route core; weekly config-proposal PRs
   generated from the eval/decision log (protected globs, thresholds, ladder
@@ -326,7 +353,7 @@ More: [examples/config/](examples/config/) for a typed configuration example,
 ## Contributing / development
 
 ```bash
-npm test          # vitest (153 tests)
+npm test          # vitest (174 tests)
 npm run typecheck # tsc --noEmit
 npm run build     # tsc → dist/
 npm run eval              # build + consistency eval (heuristic-aligned labels)

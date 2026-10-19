@@ -46,8 +46,14 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 ### v0.2 — Claude Code plugin hooks + MCP + cost report
 
+- [x] Claude Code plugin (observe-only, 2026-10-19): `jev plugin --out`
+      generates `.claude-plugin/plugin.json`, `hooks/hooks.json`
+      (UserPromptSubmit → `scripts/jev-observe.mjs`), embedded config, and
+      README. Annotates prompts with a miniature route tier; never blocks;
+      never changes models; log is privacy-safe (no prompt text). Checked-in
+      tree under `plugin/` via dogfooded CLI.
 - [ ] Claude Code plugin: hooks wrapping merge-gate checks around agent
-      write/merge actions (PreToolUse-style integration).
+      write/merge actions (PreToolUse-style integration) — later in v0.2.
 - [ ] MCP server exposing `decide` / `route` / `explain` tools so any
       MCP-capable host can consult the gate.
 - [ ] Cost report: cumulative spend by tier from the decision log
@@ -78,3 +84,4 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 | Date | Entry |
 | --- | --- |
 | 2026-10-19 | Field test (docs/FIELDTEST.md): corrected outcomes — large feature diffs blocked by protected migration path; large content diffs blocked by `diff-too-large` (>2000); both sensible (not “judge grey”). After env-template path fix, `.env.example` path is unprotected but content remains secret-scanned (placeholder/token FP class). Independent policy-labelled eval added under `eval/independent/` (`policy.md`, `tasks.ts`, `run.ts`, `npm run eval:independent`); numbers: see README eval section / generated reports — do not invent figures here. |
+| 2026-10-19 | v0.2 observe plugin: `src/plugin.ts` + `jev plugin --out` emit Claude Code plugin files; `plugin/` dogfooded from built CLI; UserPromptSubmit observe-only (no block / no model swap); log `~/.jev/observe.jsonl` or `JEV_OBSERVE_LOG` without prompt text. MCP and blocking hooks remain later. |

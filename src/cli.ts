@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * `jev` CLI: merge-gate checks and deterministic task routing.
+ * `jev` CLI: merge-gate checks, deterministic task routing, and plugin emit.
  *
  * Commands:
  *   jev check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
  *   jev route --explain "<task text>" [--json]
+ *   jev plugin --out <dir> [--protected <glob> ...]
  *   jev --help | --version
  *
  * Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.
@@ -16,12 +17,13 @@
  * `Binary files … differ` notices, including both sides of renames).
  */
 import { readFileSync, realpathSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defineGate } from './gate.js';
 import { isStructuredDiff, parseDiffFilePaths } from './diff-parse.js';
 import { makeMergeRules } from './rules/merge-rules.js';
 import { MockJudge } from './judge/mock.js';
+import { writePluginFiles } from './plugin.js';
 import { scoreRoute } from './route.js';
 
 /** Output/input seams so tests can capture everything the CLI emits. */
@@ -48,6 +50,7 @@ const USAGE = `jev — clef-gate for AI agents
 Usage:
   jev check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
   jev route --explain "<task text>" [--json]
+  jev plugin --out <dir> [--protected <glob> ...]
   jev --help | --version
 
 check — run the merge gate over a unified diff
@@ -60,6 +63,10 @@ check — run the merge gate over a unified diff
 route — score a task description deterministically (no model calls)
   --explain <text>  Task text to score (required).
   --json            Print the routing result as JSON.
+
+plugin — write the observe-only Claude Code plugin files (never blocks)
+  --out <dir>       Output directory (required).
+  --protected <g>   Protected-path glob embedded in config.json (repeatable).
 
 The diff must be authoritative git diff output (not agent-authored text);
 empty or non-diff input is a usage error (exit 1), never an implicit allow.
@@ -238,6 +245,48 @@ function runRoute(args: string[], io: CliIO): number {
   return 0;
 }
 
+function runPlugin(args: string[], io: CliIO): number {
+  let outDir: string | undefined;
+  const protectedPaths: string[] = [];
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] as string;
+    if (arg === '--out') {
+      const value: string | undefined = args[++i];
+      if (value === undefined) return usageError(io, 'plugin: --out requires a directory');
+      if (value.startsWith('--')) {
+        return usageError(io, `plugin: --out requires a directory, got "${value}"`);
+      }
+      outDir = value;
+    } else if (arg === '--protected') {
+      const value: string | undefined = args[++i];
+      if (value === undefined) return usageError(io, 'plugin: --protected requires a glob');
+      if (value.startsWith('--')) {
+        return usageError(io, `plugin: --protected requires a glob, got "${value}"`);
+      }
+      protectedPaths.push(value);
+    } else {
+      return usageError(io, `plugin: unknown option "${arg}"`);
+    }
+  }
+
+  if (outDir === undefined) return usageError(io, 'plugin: --out <dir> is required');
+
+  try {
+    const abs = resolve(outDir);
+    const written = writePluginFiles(abs, {
+      protectedPaths: protectedPaths.length > 0 ? protectedPaths : undefined,
+    });
+    for (const path of written) {
+      io.stdout(`${path}\n`);
+    }
+    return 0;
+  } catch (error) {
+    io.stderr(`jev: cannot write plugin to "${outDir}": ${errorMessage(error)}\n`);
+    return 1;
+  }
+}
+
 /** Run the CLI against explicit arguments and IO; returns the process exit code. */
 export async function runCli(args: string[], io?: CliIO): Promise<number> {
   const channels = io ?? defaultIO();
@@ -257,6 +306,7 @@ export async function runCli(args: string[], io?: CliIO): Promise<number> {
   }
   if (command === 'check') return runCheck(args.slice(1), channels);
   if (command === 'route') return runRoute(args.slice(1), channels);
+  if (command === 'plugin') return runPlugin(args.slice(1), channels);
 
   channels.stderr(`jev: unknown command "${command}"\n\n${USAGE}\n`);
   return 1;

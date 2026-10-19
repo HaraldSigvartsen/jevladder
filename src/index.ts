@@ -7,3 +7,4 @@ export * from './judge/mock.js';
 export * from './judge/openai-compatible.js';
 export * from './rules/merge-rules.js';
 export * from './route.js';
+export * from './plugin.js';

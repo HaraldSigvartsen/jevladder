@@ -1,0 +1,9 @@
+{
+  "protectedPaths": [],
+  "irreversibleActions": [
+    "deploy",
+    "migration",
+    "delete"
+  ],
+  "observeOnly": true
+}
