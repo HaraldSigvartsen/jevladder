@@ -1,0 +1,30 @@
+{
+  "name": "jev",
+  "version": "0.4.0",
+  "description": "Codex-first automatic advisory routing, lifecycle guidance, and voluntary MCP route/explain tools. Never blocks or swaps the main model.",
+  "author": {
+    "name": "Harald Sigvartsen"
+  },
+  "homepage": "https://github.com/HaraldSigvartsen/jev",
+  "repository": "https://github.com/HaraldSigvartsen/jev",
+  "license": "MIT",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Jev",
+    "shortDescription": "Cheap-first advisory routing for Codex.",
+    "longDescription": "Automatic lifecycle guidance and a routing skill, with voluntary local MCP route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host.",
+    "developerName": "Harald Sigvartsen",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Instructions",
+      "Lifecycle hooks"
+    ],
+    "defaultPrompt": [
+      "Size this coding task with Jev.",
+      "Explain the recommended effort tier.",
+      "Start cheap and escalate when verification is weak."
+    ]
+  }
+}

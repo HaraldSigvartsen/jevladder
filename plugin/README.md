@@ -1,24 +1,29 @@
-# jev Claude Code plugin (observe-only)
+# Jev — Codex-first advisory plugin
 
-Version 0.3.0. Jev is active automatically with sensible defaults;
-no setup or CLI commands are needed after installation. SessionStart provides
-automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
+Version 0.4.0. Jev is active automatically with sensible defaults;
+no CLI commands are needed after installation and hook trust review.
+SessionStart provides automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
 Never blocks or changes the main session model.
 
 ## Install
 
-Install from the Jev marketplace:
+Install from the Jev marketplace in Codex:
 
 ```bash
-/plugin marketplace add HaraldSigvartsen/jev
-/plugin install jev@jev
+codex plugin marketplace add HaraldSigvartsen/jev
+codex plugin add jev@jev
 ```
+
+Then just use Codex normally. Codex asks you to review/trust the plugin's hooks
+once (`/hooks`); this is Codex's safety prompt, not config editing. The bundled
+MCP server needs Node and exposes voluntary `jev_route` / `jev_explain` tools;
+it logs no task text and uses the same miniature scorer as the observe hook.
 
 ## What it does
 
 On `SessionStart`, supplies concise routing guidance: automatically delegate
-specific, well-scoped coding tasks to `jev:jev-cheap` first; keep error output
-and escalate one tier at a time to mid then frontier when work fails or
+specific, well-scoped coding tasks at cheap effort when the host supports it;
+keep error output and escalate one tier at a time to mid then frontier when work fails or
 verification is weak. Reserve frontier for cross-cutting, unclear-cause, or
 orchestration work. A tier is never permission; irreversible or uncertain work
 goes to a human, and the main session model is never swapped.
@@ -36,7 +41,13 @@ The hook launcher checks for Node and exits silently with status 0 when Node is
 unavailable, so plugin loading remains fail-open. The CLI is not needed for
 normal use.
 
-## Subagent models
+## Claude Code (secondary host)
+
+Install using `/plugin marketplace add HaraldSigvartsen/jev`, then
+`/plugin install jev@jev`. The agents below are Claude-only; Codex custom
+agents are TOML in ~/.codex/agents and are not bundled by this plugin.
+
+### Subagent models
 
 | Tier | Agent | Claude Code model alias |
 | --- | --- | --- |

@@ -6,6 +6,23 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 ## Phases
 
+### v0.4 — Codex-first automatic layer — 2026-10-19
+
+- [x] Dual-host plugin generator emits `.codex-plugin/plugin.json`, bundled
+      `.mcp.json`, and dependency-free stdio MCP server alongside legacy files.
+- [x] Codex marketplace at `.agents/plugins/marketplace.json` points at
+      `./plugin`; the catalog is placed at the required discovery path and its
+      strict marketplace test passes.
+- [x] Shared fail-open hooks and host-neutral automatic routing skill; honest
+      one-time Codex hook trust review (`/hooks`) documented.
+- [x] Voluntary local `jev_route` / `jev_explain` tools share the miniature
+      hook scorer; no task text logged, no remote calls, advisory only.
+- [x] Codex is the maintainer's primary host; Claude Code is supported as a
+      secondary host. Claude agent behavior
+      unchanged; Codex custom agents are not bundled.
+- [x] Core judge contract, human approval invariants, and false-block metric
+      retained unchanged.
+
 ### v0.3 — Claude Code marketplace + automatic advisory layer — DONE 2026-10-19
 
 - [x] Marketplace metadata at `.claude-plugin/marketplace.json` points to the
@@ -101,6 +118,8 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-19 | v0.4: primary host changed to Codex; Claude Code supported as a second host. Added dual-host metadata, host-neutral skill/guidance, and voluntary bundled MCP route/explain tools. The catalog is placed at `.agents/plugins/marketplace.json`; strict discovery-path tests pass. |
+| 2026-10-19 | Dual-host wording clarified: Codex is the maintainer's primary host and Claude Code is fully supported as a secondary host. The maintainer develops and tests Jev on Codex; Claude Code support is validated structurally through manifest validation and hook simulation. |
 | 2026-10-19 | v0.3 marketplace distribution and automatic advisory layer: root marketplace points to `./plugin`; SessionStart supplies automatic routing guidance, `jev-routing` is auto-discovered, and both hook events use the fail-open shell launcher. Verified through strict plugin validation and simulation/integration tests; this is not a claim of a real Claude Code session run. MCP is a voluntary layer after this phase. |
 | 2026-10-19 | Field test (docs/FIELDTEST.md): corrected outcomes — large feature diffs blocked by protected migration path; large content diffs blocked by `diff-too-large` (>2000); both sensible (not “judge grey”). After env-template path fix, `.env.example` path is unprotected but content remains secret-scanned (placeholder/token FP class). Independent policy-labelled eval added under `eval/independent/` (`policy.md`, `tasks.ts`, `run.ts`, `npm run eval:independent`); numbers: see README eval section / generated reports — do not invent figures here. |
 | 2026-10-19 | v0.2 observe plugin: `src/plugin.ts` + `jev plugin --out` emit Claude Code plugin files; `plugin/` dogfooded from built CLI; UserPromptSubmit observe-only (no block / no model swap); log `~/.jev/observe.jsonl` or `JEV_OBSERVE_LOG` without prompt text. MCP and blocking hooks remain later. |

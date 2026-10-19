@@ -5,16 +5,17 @@ description: Applies automatically when delegating or choosing effort for coding
 
 # Jev routing
 
-Jev is advisory routing guidance with sensible defaults. No setup or commands
-are needed. Automatically delegate specific, well-scoped coding tasks (for
-example, fixing a test, adding a field, or writing a function that follows a
-neighbouring pattern) to `jev:jev-cheap` first; do not ask the user before
-delegating these tasks.
+Jev provides advisory routing for Codex first, with Claude Code also supported.
+Call the `jev_route` or `jev_explain` MCP tool when available to size a task.
+Start specific, well-scoped coding work at cheap effort; delegate automatically
+when the host supports it and its instructions allow delegation.
 
 If a tier fails or verification is weak, preserve the error output and escalate
-one tier at a time: `jev:jev-mid`, then `jev:jev-frontier`. Asymmetric
-uncertainty escalates up. Reserve frontier for cross-cutting work, unclear
-causes, or orchestration.
+one tier at a time: cheap → mid → frontier. Abstention and uncertainty escalate
+up. Reserve frontier for cross-cutting work, unclear causes, or orchestration.
+Claude Code can use `jev:jev-cheap`, `jev:jev-mid`, and
+`jev:jev-frontier`. The bundled agents/*.md are Claude-only; Codex custom
+agents live in ~/.codex/agents as TOML and are not bundled here.
 
 A tier is never permission. Irreversible or uncertain actions go to a human;
 the judge never solely approves irreversible actions. Enforcement belongs in

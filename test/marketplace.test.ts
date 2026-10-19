@@ -17,9 +17,44 @@ describe('Claude Code marketplace metadata', () => {
     expect(marketplace.plugins).toHaveLength(1);
     expect(marketplace.plugins[0].name).toBe('jev');
     expect(marketplace.plugins[0].source).toBe('./plugin');
-    expect(marketplace.plugins[0].version).toBe('0.3.0');
+    expect(marketplace.plugins[0].version).toBe('0.4.0');
     expect(marketplace.plugins[0].author.name).toBeTruthy();
     expect(plugin.name).toBe(marketplace.plugins[0].name);
-    expect(plugin.version).toBe('0.3.0');
+    expect(plugin.version).toBe('0.4.0');
+  });
+});
+
+describe('Codex marketplace metadata', () => {
+  const root = resolve(import.meta.dirname, '..');
+  const readJson = (path: string) => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
+
+  it('places a valid catalog at the Codex discovery path', () => {
+    const marketplace = readJson('.agents/plugins/marketplace.json');
+    expect(marketplace.name).toBe('jev');
+    expect(marketplace.interface.displayName).toBe('Jev');
+    expect(marketplace.plugins).toEqual([{
+      name: 'jev', source: { source: 'local', path: './plugin' },
+      policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
+      category: 'Developer Tools',
+    }]);
+  });
+
+  it('keeps the bundled manifest, MCP, and hooks aligned', () => {
+    const plugin = readJson('plugin/.codex-plugin/plugin.json');
+    const pkg = readJson('package.json');
+    expect(plugin.name).toBe('jev');
+    expect(plugin.version).toBe(pkg.version);
+    expect(plugin.skills).toBe('./skills/');
+    expect(plugin.hooks).toBe('./hooks/hooks.json');
+    expect(plugin.mcpServers).toBe('./.mcp.json');
+    expect(plugin.interface.capabilities).toEqual(['Instructions', 'Lifecycle hooks']);
+    expect(plugin.interface.defaultPrompt.length).toBeGreaterThanOrEqual(2);
+    expect(plugin.interface.defaultPrompt.length).toBeLessThanOrEqual(3);
+    expect(plugin).not.toHaveProperty('icon');
+    expect(plugin).not.toHaveProperty('logo');
+    const mcp = readJson(`plugin/${plugin.mcpServers}`);
+    expect(mcp).toEqual({ mcpServers: { jev: { command: 'node', args: ['./scripts/jev-mcp.mjs'], cwd: '.' } } });
+    expect(readFileSync(resolve(root, 'plugin', mcp.mcpServers.jev.args[0]), 'utf8')).toContain('node:readline');
+    expect(readJson(`plugin/${plugin.hooks}`).hooks.SessionStart).toBeTruthy();
   });
 });

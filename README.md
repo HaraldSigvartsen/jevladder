@@ -4,55 +4,60 @@
 
 Jev is a small decision authority for coding agents: deterministic rules run
 first (free, auditable), a cheap judge covers only the grey zone, and every
-uncertain or irreversible action goes to a human. Use it as a TypeScript
-library, a CLI merge gate / router, or an observe-only Claude Code plugin.
+uncertain or irreversible action goes to a human. Use it as a
+Codex-first advisory plugin, a TypeScript library, or a CLI merge gate / router.
+The maintainer develops and tests Jev on Codex; Claude Code support is validated structurally (manifest validation + hook simulation).
 
 **Who it is for:** anyone wiring merge safety or model-tier routing into an
 agent workflow who wants measurable exits (`allow` / `block` / `human`) instead
 of free-text "LGTM".
 
-[Install](#install-end-users) ·
+[Install for Codex](#install-codex) ·
 [Advanced CLI / CI](#advanced-cli--ci) ·
 [Config](#config) ·
-[Claude Code plugin](#claude-code-plugin-automatic-observe-only) ·
+[Claude Code](#claude-code-secondary-host) ·
 [How it works](#how-it-works) ·
 [FAQ](#6-faq--troubleshooting) ·
 [Contributors](#contributors)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-98492c.svg)](LICENSE)
 [![Node: >=20](https://img.shields.io/badge/node-%3E%3D20-334155.svg)](#advanced-cli--ci)
-[![Version: 0.3.0](https://img.shields.io/badge/version-0.3.0-334155.svg)](docs/PLAN.md)
+[![Version: 0.4.0](https://img.shields.io/badge/version-0.4.0-334155.svg)](docs/PLAN.md)
 
 ---
 
-## Install (end users)
-
-In Claude Code, run:
-
-```text
-/plugin marketplace add HaraldSigvartsen/jev
-/plugin install jev@jev
-```
-
-Shell equivalents:
+## Install: Codex
 
 ```bash
-claude plugin marketplace add HaraldSigvartsen/jev
-claude plugin install jev@jev
+codex plugin marketplace add HaraldSigvartsen/jev
+codex plugin add jev@jev
 ```
 
-Then just use Claude Code normally — Jev runs automatically. At session start,
-Jev guides automatic delegation of specific, well-scoped coding tasks to the
-cheap tier first, escalating one tier at a time when a tier fails or
-verification is weak. Prompt submission adds advisory route context and a
-privacy-safe observe log. No clone, npm install, build, CLI command, or API key
-is needed for end-user use.
+Then just use Codex normally. Jev supplies:
 
-Before: ask for a small, specific coding change and the main session does the
-work itself. After: Claude Code can automatically delegate that task to
-`jev:jev-cheap`, keeping the main session model unchanged. Cross-cutting,
-unclear-cause, or orchestration work is reserved for frontier. A tier is never
-permission; uncertain or irreversible actions go to a human.
+- **SessionStart guidance:** start well-scoped tasks cheap and escalate one
+  tier at a time when work fails or verification is weak.
+- **An automatic routing skill:** sizes coding work and preserves the same
+  cheap-first escalation and human safety rules.
+- **Advisory hooks:** prompt submission adds tier/signals and writes a local
+  observe log containing only `ts`, `session_id`, `cwd`, `tier`, `signals`, and
+  `promptChars` — never prompt text. SessionStart does not log.
+- **Voluntary MCP tools:** `jev_route` returns tier/signals; `jev_explain`
+  adds explanation lines. Both run locally, reuse the hook's miniature
+  scorer, make no remote calls, and log no task text at all.
+
+Codex asks you to review/trust the plugin's hooks once (`/hooks`). This is
+Codex's own safety prompt, not config editing. Node is needed for the MCP
+server; without Node the hooks exit 0 silently. No clone, build, API key,
+or manual configuration is needed for normal end-user use.
+
+Claude Code is also a supported host; see [Claude Code](#claude-code-secondary-host).
+
+A tier is never permission. Uncertainty or abstention escalates up, and humans
+approve irreversible actions. The plugin never swaps the main session model;
+the host controls any available delegation. Bundled `agents/*.md` are for
+Claude Code only. Codex custom agents are TOML in `~/.codex/agents`,
+not plugin-bundled agents.
 
 ## Advanced: CLI / CI
 
@@ -331,9 +336,9 @@ The typed example is for you to copy fields into `defineGate` /
 
 ---
 
-### Claude Code plugin (automatic, observe-only)
+## Claude Code (secondary host)
 
-Install end users from the marketplace:
+Claude Code is also supported:
 
 ```text
 /plugin marketplace add HaraldSigvartsen/jev
@@ -352,10 +357,13 @@ Tree (relative to the out dir):
 
 ```text
 my-jev-plugin/
+  .codex-plugin/plugin.json
   .claude-plugin/plugin.json
+  .mcp.json
   hooks/hooks.json
   scripts/jev-hook.sh
   scripts/jev-observe.mjs
+  scripts/jev-mcp.mjs
   skills/jev-routing/SKILL.md
   agents/jev-cheap.md
   agents/jev-mid.md
@@ -516,8 +524,9 @@ it (`--plugin-dir` off) / delete the plugin dir.
 calls. Network only happens if **you** configure `OpenAICompatibleJudge` to
 your endpoint. The observe plugin writes locally only.
 
-**Which hosts today?** Library + CLI anywhere Node runs. Plugin: Claude Code
-only. Codex / Cursor / OpenCode adapters are planned for a later phase.
+**Which hosts today?** Codex is the maintainer's primary plugin host; Claude Code
+is also supported as a secondary host. Library + CLI work anywhere Node runs. Other hosts can
+consult the voluntary local MCP tools; dedicated adapters remain future work.
 
 **Empty diff → exit 1?** By design — refusing to run on no input (never fail
 open).
@@ -550,9 +559,10 @@ npm run eval:independent # policy-labelled independent eval
 
 ### Roadmap (short)
 
-- **v0.3 (this):** Claude Code marketplace distribution and automatic advisory
-  layer done. MCP `decide` / `route` / `explain` remains a voluntary layer after
-  this; merge/action hooks and cost report are also ahead.
+- **v0.4 (this):** Codex marketplace, automatic hooks and skill, and bundled
+  voluntary MCP `jev_route` / `jev_explain`. Claude Code is also supported as
+  a secondary host.
+  MCP `decide`, merge/action hooks, and cost report remain future work.
 - **Later:** multi-host adapters; weekly config-proposal PRs
   from the decision log (human approves; never auto-merge).
 

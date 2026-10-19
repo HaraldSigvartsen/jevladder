@@ -49,6 +49,9 @@ describe('buildPluginFiles', () => {
     expect(Object.keys(files).sort()).toEqual(
       [
         '.claude-plugin/plugin.json',
+        '.codex-plugin/plugin.json',
+        '.mcp.json',
+        'scripts/jev-mcp.mjs',
         'README.md',
         'agents/jev-cheap.md',
         'agents/jev-mid.md',
@@ -68,7 +71,7 @@ describe('buildPluginFiles', () => {
       author: { name: string };
     };
     expect(manifest.name).toBe('jev');
-    expect(manifest.version).toBe('0.3.0');
+    expect(manifest.version).toBe('0.4.0');
     expect(manifest.description).toContain('observe-only');
     expect(manifest.author.name).toBe('Harald Sigvartsen');
 
@@ -136,6 +139,9 @@ describe('buildPluginFiles', () => {
   it('emits automatic routing skill with advisory safety rules', () => {
     const skill = buildPluginFiles()['skills/jev-routing/SKILL.md'] as string;
     expect(skill).toMatch(/^---\nname: jev-routing\ndescription: .*automatically.*coding tasks.*\n---/i);
+    expect(skill).toContain('Codex first');
+    expect(skill).toContain('jev_route');
+    expect(skill).toContain('jev_explain');
     expect(skill).toContain('jev:jev-cheap');
     expect(skill).toContain('jev:jev-mid');
     expect(skill).toContain('jev:jev-frontier');
@@ -377,5 +383,80 @@ describe('jev plugin CLI', () => {
     const code = await runCli(['--help'], io);
     expect(code).toBe(0);
     expect(out()).toContain('jev plugin --out');
+  });
+});
+
+describe('jev-mcp.mjs integration', () => {
+  function runMcp(messages: unknown[], prefix = '') {
+    const dir = tempDir('jev-mcp-');
+    writePluginFiles(dir);
+    const log = join(dir, 'must-not-exist.jsonl');
+    const result = spawnSync(process.execPath, [join(dir, 'scripts/jev-mcp.mjs')], {
+      input: prefix + messages.map((message) => JSON.stringify(message)).join('\n') + '\n',
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, JEV_OBSERVE_LOG: log },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(() => readFileSync(log)).toThrow();
+    return result.stdout.trim().split('\n').map((line) => JSON.parse(line));
+  }
+  const request = (id: number, method: string, params?: unknown) => ({ jsonrpc: '2.0', id, method, params });
+
+  it('initializes, lists tools, routes production risk, explains, and survives garbage', () => {
+    const task = 'migrate production payments and delete old table PRIVATE_TASK_MARKER';
+    const responses = runMcp([
+      request(1, 'initialize', { protocolVersion: '2025-03-26' }),
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      request(2, 'tools/list'),
+      request(3, 'tools/call', { name: 'jev_route', arguments: { task } }),
+      request(4, 'tools/call', { name: 'jev_explain', arguments: { task } }),
+      request(5, 'ping'),
+    ], 'not-json{{{\nnull\n[]\n42\n{"jsonrpc":"2.0","id":null}\n');
+    expect(responses.map((r) => r.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(responses.every((r) => r.jsonrpc === '2.0')).toBe(true);
+    expect(responses[0].result).toEqual({
+      protocolVersion: '2025-03-26', capabilities: { tools: {} },
+      serverInfo: { name: 'jev', version: '0.4.0' },
+    });
+    expect(responses[1].result.tools.map((tool: { name: string }) => tool.name)).toEqual(['jev_route', 'jev_explain']);
+    expect(JSON.parse(responses[2].result.content[0].text)).toEqual({ tier: 'frontier', signals: ['payments', 'migration', 'delete', 'production'] });
+    expect(responses[3].result.content[0].text).toContain('irreversible actions require human review');
+    expect(JSON.stringify(responses)).not.toContain('PRIVATE_TASK_MARKER');
+    expect(responses[4].result).toEqual({});
+  });
+
+  it('defaults protocol version, errors on unknown methods/tools, and rejects invalid tasks', () => {
+    const responses = runMcp([
+      request(0, 'initialize'),
+      request(1, 'unknown-method'),
+      request(2, 'tools/call', { name: 'missing-tool' }),
+      ...[undefined, null, 42, {}, '', '  '].map((task, index) =>
+        request(index + 3, 'tools/call', { name: index % 2 ? 'jev_route' : 'jev_explain', arguments: { task } })),
+      request(9, 'tools/call'),
+      request(10, 'ping'),
+    ]);
+    expect(responses[0].result.protocolVersion).toBe('2024-11-05');
+    expect(responses[1].error.code).toBe(-32601);
+    for (const response of responses.slice(2, -1)) expect(response.result.isError).toBe(true);
+    expect(responses.at(-1).result).toEqual({});
+  });
+
+  it.each([
+    'rename the helper function greet to sayHello in greeting.ts',
+    'fix',
+    'migrate production payments and delete old table',
+  ])('matches the observe hook miniature scorer for %s', (task) => {
+    const [response] = runMcp([request(1, 'tools/call', { name: 'jev_route', arguments: { task } })]);
+    const dir = tempDir('jev-parity-');
+    writePluginFiles(dir);
+    const observed = spawnSync(process.execPath, [join(dir, 'scripts/jev-observe.mjs')], {
+      input: JSON.stringify({ prompt: task }), encoding: 'utf8',
+      env: { ...process.env, JEV_OBSERVE_LOG: join(dir, 'observe.jsonl') },
+    });
+    expect(observed.status).toBe(0);
+    const entry = JSON.parse(readFileSync(join(dir, 'observe.jsonl'), 'utf8'));
+    expect(JSON.parse(response.result.content[0].text)).toEqual({ tier: entry.tier, signals: entry.signals });
   });
 });

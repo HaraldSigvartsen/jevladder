@@ -33,7 +33,7 @@ export interface CliIO {
   readStdin?(): string;
 }
 
-const VERSION_FALLBACK = '0.3.0';
+const VERSION_FALLBACK = '0.4.0';
 
 function readVersion(): string {
   try {
@@ -64,7 +64,7 @@ route — score a task description deterministically (no model calls)
   --explain <text>  Task text to score (required).
   --json            Print the routing result as JSON.
 
-plugin — write the observe-only Claude Code plugin files (never blocks)
+plugin — write the Codex-first advisory plugin files (legacy Claude Code supported) (never blocks)
   --config <json>   Plugin JSON config (subagentModels, protectedPaths, logFileName).
   --out <dir>       Output directory (required).
   --protected <g>   Protected-path glob embedded in config.json (repeatable).

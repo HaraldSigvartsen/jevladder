@@ -10,6 +10,15 @@ import { dirname, join } from 'node:path';
 
 const DEFAULT_LOG_BASENAME = "observe.jsonl";
 
+async function readAllStdin() {
+  const chunks = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
+  }
+  return chunks.join('');
+}
+
+// Mirrors scoreRoute in miniature; shared by the observe hook and MCP tools.
 const RISK = [
   ['payments', /\bpayments?\b/i],
   ['auth', /\bauth\w*\b/i],
@@ -19,14 +28,6 @@ const RISK = [
 ];
 
 const AMBIGUOUS = /\b(?:somehow|maybe|fix|stuff|things?|whatever|unclear|idk|tbd)\b/i;
-
-async function readAllStdin() {
-  const chunks = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
-  }
-  return chunks.join('');
-}
 
 function scorePrompt(prompt) {
   const signals = [];
@@ -66,6 +67,8 @@ function scorePrompt(prompt) {
   return { tier, signals: signals.slice(0, 5) };
 }
 
+
+
 function logPath() {
   // Env override always wins over the configured basename.
   const fromEnv = process.env.JEV_OBSERVE_LOG;
@@ -97,14 +100,14 @@ function main() {
             hookSpecificOutput: {
               hookEventName: 'SessionStart',
               additionalContext:
-                'Jev is active automatically with sensible defaults; no setup or commands are needed. For specific, well-scoped coding tasks (such as fixing a test, adding a field, or writing a function that follows a neighbouring pattern), automatically delegate to jev:jev-cheap first without asking the user. If that tier fails or verification is weak, keep the error output and escalate one tier at a time to jev:jev-mid, then jev:jev-frontier. Reserve frontier for cross-cutting work, unclear causes, or orchestration. A tier is never permission: irreversible or uncertain actions go to a human. The main session model is never swapped.',
+                'Jev is active automatically with sensible defaults; no setup or commands are needed. For specific, well-scoped coding tasks (such as fixing a test, adding a field, or writing a function that follows a neighbouring pattern), start with cheap effort and automatically delegate when the host supports it. Use jev_route or jev_explain MCP tools when available to size the task. In Claude Code, delegate to jev:jev-cheap first. If that tier fails or verification is weak, keep the error output and escalate one tier at a time: cheap, mid, frontier (Claude Code agents: jev:jev-mid, then jev:jev-frontier). Reserve frontier for cross-cutting work, unclear causes, or orchestration. A tier is never permission: irreversible or uncertain actions go to a human. The main session model is never swapped.',
             },
           }) + '\n',
         );
         return;
       }
 
-      // Claude hook input includes hook_event_name; eventless legacy payloads
+      // Host hook input includes hook_event_name; eventless legacy payloads
       // remain UserPromptSubmit-compatible for existing callers/tests.
       if (hookEventName !== '' && hookEventName !== 'UserPromptSubmit') return;
 
@@ -141,7 +144,7 @@ function main() {
         tier +
         ' signals=' +
         signalList +
-        ' suggested subagent=jev:jev-' +
+        ' Claude Code suggested subagent=jev:jev-' +
         tier +
         ' (advisory delegation only; observe-only, no action taken; main session model unchanged)';
       process.stdout.write(
