@@ -35,6 +35,9 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 ### v0.5 — decision tools, measured eval, and maintainer session — 2026-10-19
 
+- [x] Add labelled eval scenarios for known weaknesses; next: rule fixes guided
+      by these evals (see `docs/SECURITY.md` and generated eval reports).
+
 - [x] Bump package, CLI fallback, MCP serverInfo, plugin manifests,
       marketplace entries, tests, and README badge to 0.5.0; regenerate
       checked-in plugin from `buildPluginFiles`.

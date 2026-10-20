@@ -30,8 +30,8 @@ describe('runIndependentEval', () => {
     expect(run.accuracy).toBeGreaterThanOrEqual(0);
     expect(run.accuracy).toBeLessThanOrEqual(1);
     expect(Array.isArray(run.misses)).toBe(true);
-    expect(run.total).toBe(independentTasks.length);
-    expect(run.correct + run.misses.length).toBe(run.total);
+    expect(run.total).toBe(independentTasks.filter((t) => !t.knownWeakness).length);
+    expect(run.correct + run.misses.filter((m) => !m.knownWeakness).length).toBe(run.total);
     for (const miss of run.misses) {
       expect(miss.expected).not.toBe(miss.actual);
       expect(miss.id.length).toBeGreaterThan(0);

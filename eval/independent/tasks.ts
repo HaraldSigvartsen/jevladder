@@ -9,8 +9,8 @@
 import type { GateInput } from '../../src/gate.js';
 
 export type MergeExpected = 'allow' | 'block' | 'human';
-export type RouteExpected = 'cheap' | 'mid' | 'frontier';
-export type PolicyRef = `M${1 | 2 | 3 | 4 | 5}` | `R${1 | 2 | 3 | 4}`;
+export type RouteExpected = 'cheap' | 'mid' | 'frontier' | 'reject';
+export type PolicyRef = `M${1 | 2 | 3 | 4 | 5}` | `R${1 | 2 | 3 | 4 | 5}`;
 
 export interface IndependentMergeTask {
   id: string;
@@ -22,6 +22,7 @@ export interface IndependentMergeTask {
   policyRef: PolicyRef;
   note: string;
   predictedRisk?: boolean;
+  knownWeakness?: true;
 }
 
 export interface IndependentRouteTask {
@@ -33,6 +34,7 @@ export interface IndependentRouteTask {
   policyRef: PolicyRef;
   note: string;
   predictedRisk?: boolean;
+  knownWeakness?: true;
 }
 
 export type IndependentTask = IndependentMergeTask | IndependentRouteTask;
@@ -278,6 +280,19 @@ export const independentTasks: IndependentTask[] = [
       'Predicted miss: protected-paths returns block, not human.',
   },
   {
+    id: 'ind-m-unprotected-binary-diff',
+    kind: 'merge',
+    scenario: 'Binary image diff on an unprotected asset path; content cannot be inspected.',
+    input: mergeInput(['src/assets/logo.png'], [
+      'diff --git a/src/assets/logo.png b/src/assets/logo.png',
+      'Binary files a/src/assets/logo.png and b/src/assets/logo.png differ',
+    ].join('\n')),
+    expected: 'human',
+    policyRef: 'M5',
+    knownWeakness: true,
+    note: 'M5: binary content provides insufficient evidence; never-guess policy requires human review.',
+  },
+  {
     id: 'ind-m-payments-css-only',
     kind: 'merge',
     scenario:
@@ -301,6 +316,16 @@ export const independentTasks: IndependentTask[] = [
     note:
       'R4: chatty underspecified Q&A is mid, not cheap. ' +
       'Predicted miss: scoreRoute may tier cheap via short low-signal text.',
+  },
+  {
+    id: 'ind-r-empty-route-task',
+    kind: 'route',
+    scenario: 'Empty route task provides no evidence for selecting a tier.',
+    input: '  ',
+    expected: 'reject',
+    policyRef: 'R5',
+    knownWeakness: true,
+    note: 'R5: empty input must reject or abstain; it cannot silently receive a tier.',
   },
   {
     id: 'ind-m-irreversible-tiny',

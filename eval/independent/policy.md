@@ -90,6 +90,12 @@ Chatty or underspecified questions (“quick question: explain this error”)
 without a concrete, mechanical deliverable are **`mid`**, not cheap — even if
 they look short. Cheap is reserved for well-specified low-stakes work (R1).
 
+### R5 — Reject / abstain: no task
+
+An empty or whitespace-only route input contains no task to classify. It must
+be rejected as invalid usage or abstained to a human; returning any tier is not
+a successful route decision.
+
 ## Limitations
 
 - Small curated set; same author wrote policy, scenarios, and (historically)

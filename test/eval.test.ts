@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evalTasks } from '../eval/tasks.js';
 import { PRICES, computeMetrics, runEval, type ArmOutcome, type EvalRun } from '../eval/run.js';
+import { evalTasks } from '../eval/tasks.js';
 
 function record(overrides: Partial<ArmOutcome> & Pick<ArmOutcome, 'id' | 'kind' | 'expected' | 'outcome'>): ArmOutcome {
   return {
@@ -58,6 +58,21 @@ describe('computeMetrics (hand-built fixture)', () => {
     expect(metrics.tierclef.escalationPrecision).toBe(1);
     expect(metrics.baseline.escalations).toBe(0);
     expect(metrics.baseline.escalationPrecision).toBeNull();
+  });
+});
+
+describe('known weakness scenarios', () => {
+  it('are marked with correct labels and currently fail', async () => {
+    const cases = evalTasks.filter((task) => task.knownWeakness === true);
+    expect(cases.map((task) => task.id)).toEqual([
+      'm-human-unprotected-binary-diff',
+      'route-reject-empty-task',
+    ]);
+    expect(cases.map((task) => task.expected)).toEqual(['human', 'reject']);
+    const run = await runEval(cases);
+    expect(run.tierclef.every((result) => !result.correct)).toBe(true);
+    const metrics = computeMetrics({ ...run, tasks: run.tasks });
+    expect(metrics.tierclef.total).toBe(0);
   });
 });
 

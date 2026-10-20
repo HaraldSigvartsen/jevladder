@@ -32,6 +32,24 @@ treat observe hooks or MCP tools as enforcement boundaries.
 
 ## Data and privacy
 
+## Known weaknesses and residual risk
+
+The generated eval reports track two known policy gaps (see their
+`knownWeaknesses` sections for current actual outcomes):
+
+- `m-human-unprotected-binary-diff` / `ind-m-unprotected-binary-diff`: a binary
+  diff on an unprotected path can currently be allowed even though the secrets
+  rule cannot inspect its content. Under the never-guess policy, expected is
+  `human`.
+- `route-reject-empty-task` / `ind-r-empty-route-task`: an empty or
+  whitespace-only route task currently receives a tier. It must reject or
+  abstain; expected is `reject`.
+
+These labelled cases are excluded from headline accuracy and shown separately
+in generated reports. A case that passes is reported as fixed and its marker
+should be removed after the corresponding rule behavior is intentionally
+changed.
+
 The observe log contains only `ts`, `session_id`, `cwd`, `tier`, `signals`, and
 `promptChars`. Prompt, task, and diff text are never written to that log or
 echoed in hook/MCP error messages. Rule findings use rule IDs rather than

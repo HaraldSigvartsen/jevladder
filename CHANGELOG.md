@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Prepare the npm package metadata and include generated plugin assets; npm provenance is disabled because CI OIDC is not available.
+- Add separately reported, policy-labelled eval scenarios for uninspectable binary diffs and empty route tasks; rule fixes remain queued.
 
 ## 0.6.0 — 2026-10-19
 

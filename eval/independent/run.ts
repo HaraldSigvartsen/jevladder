@@ -34,6 +34,7 @@ export interface IndependentMiss {
   predictedRisk: boolean;
   reason: string;
   note: string;
+  knownWeakness: boolean;
 }
 
 export interface IndependentResult {
@@ -47,6 +48,7 @@ export interface IndependentResult {
   reason: string;
   note: string;
   scenario: string;
+  knownWeakness: boolean;
 }
 
 export interface IndependentRun {
@@ -57,6 +59,7 @@ export interface IndependentRun {
   routeAccuracy: number | null;
   total: number;
   correct: number;
+  knownWeaknesses: IndependentMiss[];
 }
 
 function decisionSummary(decision: Decision): string {
@@ -85,6 +88,7 @@ export async function runIndependentEval(
         reason: decisionSummary(decision),
         note: task.note,
         scenario: task.scenario,
+        knownWeakness: task.knownWeakness === true,
       });
     } else {
       const routed = scoreRoute(task.input);
@@ -100,12 +104,13 @@ export async function runIndependentEval(
         reason: `scoreRoute tier=${routed.tier}${routed.abstained ? ' (low-confidence, tier raised)' : ''}`,
         note: task.note,
         scenario: task.scenario,
+        knownWeakness: task.knownWeakness === true,
       });
     }
   }
 
   const misses: IndependentMiss[] = results
-    .filter((r) => !r.correct)
+    .filter((r) => !r.correct && !r.knownWeakness)
     .map((r) => ({
       id: r.id,
       kind: r.kind,
@@ -115,12 +120,21 @@ export async function runIndependentEval(
       predictedRisk: r.predictedRisk,
       reason: r.reason,
       note: r.note,
+      knownWeakness: r.knownWeakness,
+    }));
+  const knownWeaknesses: IndependentMiss[] = results
+    .filter((r) => r.knownWeakness)
+    .map((r) => ({
+      id: r.id, kind: r.kind, expected: r.expected, actual: r.actual,
+      policyRef: r.policyRef, predictedRisk: r.predictedRisk, reason: r.reason,
+      note: r.note, knownWeakness: true,
     }));
 
-  const merge = results.filter((r) => r.kind === 'merge');
-  const route = results.filter((r) => r.kind === 'route');
-  const correct = results.filter((r) => r.correct).length;
-  const total = results.length;
+  const scored = results.filter((r) => !r.knownWeakness);
+  const merge = scored.filter((r) => r.kind === 'merge');
+  const route = scored.filter((r) => r.kind === 'route');
+  const correct = scored.filter((r) => r.correct).length;
+  const total = scored.length;
 
   return {
     results,
@@ -130,6 +144,7 @@ export async function runIndependentEval(
     routeAccuracy: route.length > 0 ? route.filter((r) => r.correct).length / route.length : null,
     total,
     correct,
+    knownWeaknesses,
   };
 }
 
@@ -170,6 +185,11 @@ export function formatIndependentReport(run: IndependentRun): string {
     }
   }
   push();
+  push('## Known weaknesses');
+  const known = run.results.filter((r) => r.knownWeakness);
+  push(`count: ${known.length}`);
+  for (const r of known) push(`- ${r.id}: expected=${r.expected} actual=${r.actual}${r.correct ? ' — fixed — remove marker' : ''}`);
+  push();
   push('## Per task');
   push('id                                       kind   expected  actual    ok  risk');
   for (const r of run.results) {
@@ -188,6 +208,7 @@ export interface IndependentReport {
   total: number;
   correct: number;
   misses: IndependentMiss[];
+  knownWeaknesses: IndependentMiss[];
   perTask: IndependentResult[];
 }
 
@@ -200,6 +221,7 @@ export function buildIndependentReport(run: IndependentRun): IndependentReport {
     total: run.total,
     correct: run.correct,
     misses: run.misses,
+    knownWeaknesses: run.knownWeaknesses,
     perTask: run.results,
   };
 }
