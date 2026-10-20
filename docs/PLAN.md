@@ -144,6 +144,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-20 | Queue step 2: derive two shared merge-gate improvements from independent policy M1/M2 — allow only obvious whole-value placeholders in secret assignments while retaining credential-shaped blocking, and block code-shaped auth/session/security changes by content on neutral paths. Added unit/adversarial coverage and security limitations; known binary-diff and empty-route weaknesses remain unchanged. |
 | 2026-10-19 | v0.5: align all version metadata at 0.5.0; retain the 31-case independent evaluation without rule tuning; Codex live-session verification completed the same day, including hook trust review through Codex review flow. |
 | 2026-10-19 | v0.4: primary host changed to Codex; Claude Code supported as a second host. Added dual-host metadata, host-neutral skill/guidance, and voluntary bundled MCP decide/route/explain tools. The catalog is placed at `.agents/plugins/marketplace.json`; strict discovery-path tests pass. |
 | 2026-10-19 | Dual-host wording clarified: Codex is the maintainer's primary host and Claude Code is fully supported as a secondary host. The maintainer develops and tests Jev on Codex; Claude Code support is validated structurally through manifest validation and hook simulation. |

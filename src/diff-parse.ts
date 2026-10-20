@@ -27,6 +27,24 @@ const MINUS_HEADER_RE = /^---[ \t](?:a\/)?(\/dev\/null|[^\t\n\r ]+)(?:\t[^\n\r]*
 /** `diff --git a/<old> b/<new>` header (paths may differ on rename). */
 const GIT_HEADER_RE = /^diff --git a\/(\S+) b\/(\S+)$/;
 
+/** Parsed both-side paths of a strict `diff --git a/<old> b/<new>` header. */
+export interface GitHeaderPaths {
+  oldPath: string;
+  newPath: string;
+}
+
+/**
+ * Parse a `diff --git a/<old> b/<new>` header into both paths, or `null`
+ * when the line does not parse unambiguously. Quoted paths and paths with
+ * spaces do NOT parse (treated as unparseable by callers — fail closed to
+ * an ordinary file with no exemptions).
+ */
+export function parseGitDiffHeader(line: string): GitHeaderPaths | null {
+  const match = line.match(GIT_HEADER_RE);
+  if (!match || !match[1] || !match[2]) return null;
+  return { oldPath: match[1], newPath: match[2] };
+}
+
 /** `Binary files a/<old> and b/<new> differ` notice. */
 const BINARY_HEADER_RE = /^Binary files a\/(\S+) and b\/(\S+) differ$/;
 
