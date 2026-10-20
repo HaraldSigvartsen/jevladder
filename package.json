@@ -23,8 +23,22 @@
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "files": [
-    "dist/src"
+    "dist/src",
+    "plugin",
+    "README.md",
+    "LICENSE",
+    "docs/SECURITY.md",
+    "CHANGELOG.md"
   ],
+  "homepage": "https://github.com/HaraldSigvartsen/tierclef#readme",
+  "bugs": {
+    "url": "https://github.com/HaraldSigvartsen/tierclef/issues"
+  },
+  "keywords": ["ai-agents", "model-routing", "merge-gate", "cli", "codex", "claude-code"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",

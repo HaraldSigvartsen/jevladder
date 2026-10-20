@@ -25,6 +25,8 @@
       "Size this coding task with TierClef.",
       "Explain the recommended effort tier.",
       "Start cheap and escalate when verification is weak."
-    ]
+    ],
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png"
   }
 }

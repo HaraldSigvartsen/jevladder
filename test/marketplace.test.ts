@@ -50,11 +50,18 @@ describe('Codex marketplace metadata', () => {
     expect(plugin.interface.capabilities).toEqual(['Instructions', 'Lifecycle hooks']);
     expect(plugin.interface.defaultPrompt.length).toBeGreaterThanOrEqual(2);
     expect(plugin.interface.defaultPrompt.length).toBeLessThanOrEqual(3);
-    expect(plugin).not.toHaveProperty('icon');
-    expect(plugin).not.toHaveProperty('logo');
+    expect(plugin.interface.composerIcon).toBe('./assets/icon.png');
+    expect(plugin.interface.logo).toBe('./assets/icon.png');
     const mcp = readJson(`plugin/${plugin.mcpServers}`);
     expect(mcp).toEqual({ mcpServers: { tierclef: { command: 'node', args: ['./scripts/tierclef-mcp.mjs'], cwd: '.' } } });
     expect(readFileSync(resolve(root, 'plugin', mcp.mcpServers.tierclef.args[0]), 'utf8')).toContain('MAX_LINE_BYTES');
     expect(readJson(`plugin/${plugin.hooks}`).hooks.SessionStart).toBeTruthy();
+  });
+
+  it('keeps the Claude directory icon on the plugin manifest only', () => {
+    const plugin = readJson('plugin/.claude-plugin/plugin.json');
+    const marketplace = readJson('.claude-plugin/marketplace.json');
+    expect(plugin.icon).toBe('./assets/icon.png');
+    expect(marketplace.plugins[0]).not.toHaveProperty('icon');
   });
 });

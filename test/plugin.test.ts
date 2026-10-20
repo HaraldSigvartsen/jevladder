@@ -48,6 +48,7 @@ describe('buildPluginFiles', () => {
     const files = buildPluginFiles({ protectedPaths: ['**/payments/**'] });
     expect(Object.keys(files).sort()).toEqual(
       [
+        'assets/icon.svg',
         '.claude-plugin/plugin.json',
         '.codex-plugin/plugin.json',
         '.mcp.json',
@@ -68,12 +69,19 @@ describe('buildPluginFiles', () => {
       name: string;
       version: string;
       description: string;
+      icon: string;
       author: { name: string };
     };
     expect(manifest.name).toBe('tierclef');
     expect(manifest.version).toBe('0.6.0');
     expect(manifest.description).toContain('observe-only');
     expect(manifest.author.name).toBe('Harald Sigvartsen');
+    expect(manifest.icon).toBe('./assets/icon.png');
+    const codexManifest = JSON.parse(files['.codex-plugin/plugin.json'] as string);
+    expect(codexManifest.interface.composerIcon).toBe('./assets/icon.png');
+    expect(codexManifest.interface.logo).toBe('./assets/icon.png');
+    expect(files['assets/icon.svg']).toContain('viewBox="0 0 64 64"');
+    expect(files['assets/icon.svg']).toContain('#6D5BD0');
 
     const config = JSON.parse(files['config.json'] as string) as {
       protectedPaths: string[];

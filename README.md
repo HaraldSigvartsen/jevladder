@@ -1,3 +1,5 @@
+<img src="docs/assets/icon.svg" width="96" alt="TierClef icon">
+
 # TierClef
 
 **TierClef — rules first, a judge only when in doubt, humans for the irreversible. Measurable model routing and merge gates for coding agents.**
@@ -65,6 +67,13 @@ Claude Code only. Codex custom agents are TOML in `~/.codex/agents`,
 not plugin-bundled agents.
 
 ## Advanced: CLI / CI
+
+Install the published CLI with `npm i -D tierclef` (available once the
+maintainer completes npm login), or try its help after publication:
+
+```bash
+npx tierclef --help
+```
 
 ### Clone and build
 

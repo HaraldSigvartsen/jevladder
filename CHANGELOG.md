@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Prepare the npm package metadata and include generated plugin assets; npm provenance is disabled because CI OIDC is not available.
+
 ## 0.6.0 — 2026-10-19
 
 - Renamed Jev to TierClef across package, CLI, plugin, and MCP surfaces.

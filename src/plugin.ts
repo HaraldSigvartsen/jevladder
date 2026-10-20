@@ -568,6 +568,7 @@ export function buildPluginFiles(
     version: PLUGIN_VERSION,
     description:
       'TierClef observe-only decision log and advisory subagent routing. Never blocks or changes the main session model.',
+    icon: './assets/icon.png',
     author: { name: 'Harald Sigvartsen' },
   };
 
@@ -590,6 +591,8 @@ export function buildPluginFiles(
       category: 'Developer Tools',
       capabilities: ['Instructions', 'Lifecycle hooks'],
       defaultPrompt: ['Size this coding task with TierClef.', 'Explain the recommended effort tier.', 'Start cheap and escalate when verification is weak.'],
+      composerIcon: './assets/icon.png',
+      logo: './assets/icon.png',
     },
   };
 
@@ -629,8 +632,15 @@ export function buildPluginFiles(
   };
 
   const script = observeScript(logFileName);
+  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#1E1B2E"/>
+  <path d="M15 47h10V37H15zM27 47h10V29H27zM39 47h10V21H39z" fill="#6D5BD0"/>
+  <path d="M17 27c2-7 7-10 13-9 5 1 7 5 7 10" stroke="#6D5BD0" stroke-width="4" stroke-linecap="round"/>
+</svg>
+`;
 
   return {
+    'assets/icon.svg': iconSvg,
     '.codex-plugin/plugin.json': `${JSON.stringify(codexPluginJson, null, 2)}\n`,
     '.mcp.json': `${JSON.stringify({ mcpServers: { tierclef: { command: 'node', args: ['./scripts/tierclef-mcp.mjs'], cwd: '.' } } }, null, 2)}\n`,
     'scripts/tierclef-mcp.mjs': mcpScript(),
