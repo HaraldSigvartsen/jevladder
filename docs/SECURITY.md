@@ -59,11 +59,12 @@ Other independent-eval disagreements stay labelled `predictedRisk` and are
 not tuned away.
 
 The observe log contains only `ts`, `session_id`, `cwd`, `tier`, `signals`, and
-`promptChars`. Prompt, task, and diff text are never written to that log or
-echoed in hook/MCP error messages. Rule findings use rule IDs rather than
-including matched secret values. Hook stdout contains only the routing
-annotation (or fixed SessionStart guidance); malformed and oversized input is
-silent.
+`promptChars`. Prompt, task, diff text, and PreToolUse tool input are never
+written to that log or echoed in hook/MCP error messages. Rule findings use
+rule IDs rather than including matched secret values. Hook stdout contains only
+the routing annotation, fixed SessionStart guidance, or advisory PreToolUse
+context with no command text and no file contents. PreToolUse never sets
+`permissionDecision`. Malformed and oversized input is silent.
 
 Set `JEVLADDER_NO_LOG=1` (or `JEVLADDER_NO_LOG=true`) to disable observe-log
 writing while keeping the UserPromptSubmit annotation. By default the log is

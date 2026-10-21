@@ -1,9 +1,10 @@
 /**
  * Codex-first, dual-host advisory plugin generator (v0.5 automatic layer).
  *
- * Emits a loadable plugin directory: manifest, UserPromptSubmit hook,
- * standalone observe script, config, and README. The hook annotates prompts
- * with a miniature route tier — it never blocks and never changes models.
+ * Emits a loadable plugin directory: manifest, SessionStart, UserPromptSubmit,
+ * and advisory PreToolUse hooks, a standalone observe script, config, and
+ * README. The hook annotates prompts and write/merge tool use — it never
+ * blocks, never sets a permission decision, and never changes models.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -367,6 +368,12 @@ function logPath() {
   return join(homedir(), '.jevladder', DEFAULT_LOG_BASENAME);
 }
 
+function mergeLike(command) {
+  // Advisory classification only. A miss stays silent; a hit never blocks.
+  if (command.length === 0 || command.length > 8192) return false;
+  return /(?:^|&&|\\|\\||;|\\n)\\s*(?:git\\s+(?:merge|push|rebase)(?![\\w-])|gh\\s+pr\\s+merge(?![\\w-]))/i.test(command);
+}
+
 function main() {
   return readAllStdin()
     .then((raw) => {
@@ -393,6 +400,43 @@ function main() {
               hookEventName: 'SessionStart',
               additionalContext:
                 'JevLadder is active automatically with sensible defaults; no setup or commands are needed. For specific, well-scoped coding tasks (such as fixing a test, adding a field, or writing a function that follows a neighbouring pattern), start with cheap effort and automatically delegate when the host supports it. Use jevladder_route or jevladder_explain MCP tools when available to size the task. Before merge, use jevladder_decide as an advisory pre-merge check; enforcement stays in CI/merge. In Claude Code, delegate to jevladder:jevladder-cheap first. If that tier fails or verification is weak, keep the error output and escalate one tier at a time: cheap, mid, frontier (Claude Code agents: jevladder:jevladder-mid, then jevladder:jevladder-frontier). Reserve frontier for cross-cutting work, unclear causes, or orchestration. A tier is never permission: irreversible or uncertain actions go to a human. The main session model is never swapped.',
+            },
+          }) + '\\n',
+        );
+        return;
+      }
+
+      if (hookEventName === 'PreToolUse') {
+        const toolName = typeof parsed.tool_name === 'string' ? parsed.tool_name : '';
+        const toolInput =
+          parsed.tool_input !== null &&
+          typeof parsed.tool_input === 'object' &&
+          !Array.isArray(parsed.tool_input)
+            ? parsed.tool_input
+            : {};
+        const command = typeof toolInput.command === 'string' ? toolInput.command : '';
+        const writeTool =
+          toolName === 'Write' ||
+          toolName === 'Edit' ||
+          toolName === 'MultiEdit' ||
+          toolName === 'NotebookEdit' ||
+          toolName === 'apply_patch';
+        const kind = writeTool
+          ? 'write'
+          : (toolName === 'Bash' || toolName === 'shell') && mergeLike(command)
+            ? 'merge'
+            : '';
+        if (kind === '') return;
+
+        const additionalContext =
+          kind === 'merge'
+            ? 'jevladder observe: PreToolUse merge-like command. Advisory only; this hook does not approve or deny. Irreversible merge and push actions need a human. Enforcement stays in CI/merge. Use jevladder_decide before merge when available.'
+            : 'jevladder observe: PreToolUse file write. Advisory only; this hook does not approve or deny the edit. A file write is not merge approval. Before merge, use jevladder_decide; enforcement stays in CI/merge. Irreversible or uncertain changes go to a human.';
+        process.stdout.write(
+          JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: 'PreToolUse',
+              additionalContext,
             },
           }) + '\\n',
         );
@@ -469,7 +513,8 @@ function pluginReadme(logFileName: string, models: Record<RouteTier, ClaudeCodeM
 Version ${PLUGIN_VERSION}. JevLadder is active automatically with sensible defaults;
 no CLI commands are needed after installation and hook trust review.
 SessionStart provides automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
-Never blocks or changes the main session model.
+PreToolUse adds advisory context before file writes and merge-like shell commands.
+It never approves or denies the tool call. Never blocks or changes the main session model.
 
 ## Install
 
@@ -504,6 +549,12 @@ On \`UserPromptSubmit\`, runs \`scripts/jevladder-observe.mjs\`:
    never the full prompt text).
 3. Prints advisory routing context; the host performs any delegation.
 
+On \`PreToolUse\` for \`Write\`, \`Edit\`, \`MultiEdit\`, \`NotebookEdit\`, \`apply_patch\`, and
+\`Bash\`, the same script prints advisory context for file writes and for
+merge-like commands (\`git merge\`, \`git push\`, \`git rebase\`, \`gh pr merge\`).
+Other shell commands produce no output. The hook does not log tool input,
+file contents, or command text, and it never sets \`permissionDecision\`.
+
 The hook launcher checks for Node and exits silently with status 0 when Node is
 unavailable, so plugin loading remains fail-open. The CLI is not needed for
 normal use.
@@ -532,7 +583,7 @@ config changes. Editing the emitted \`config.json\` does not change agent models
 
 ## What it does NOT do
 
-- Does **not** block prompts or tool use.
+- Does **not** block prompts or tool use. PreToolUse is context only.
 - Does **not** swap the host model mid-session (a plugin cannot do that —
   see the main jevladder README honesty section).
 - Does **not** call remote APIs or send prompt text anywhere.
@@ -620,6 +671,18 @@ export function buildPluginFiles(
           ],
         },
       ],
+      PreToolUse: [
+        {
+          matcher: 'Write|Edit|MultiEdit|NotebookEdit|apply_patch|Bash',
+          hooks: [
+            {
+              type: 'command',
+              command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/jevladder-hook.sh"',
+              timeout: 5,
+            },
+          ],
+        },
+      ],
     },
   };
 
@@ -657,6 +720,7 @@ description: Applies automatically when delegating or choosing effort for coding
 
 JevLadder provides advisory routing for Codex first, with Claude Code also supported.
 Call \`jevladder_route\` or \`jevladder_explain\` to size a task. Before merge, use \`jevladder_decide\` as an advisory pre-merge check when available; enforcement stays in CI/merge.
+PreToolUse adds advisory context before a file write or a merge-like shell command. It does not approve or deny the tool.
 Start specific, well-scoped coding work at cheap effort; delegate automatically
 when the host supports it and its instructions allow delegation.
 

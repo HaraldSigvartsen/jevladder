@@ -80,6 +80,12 @@ function logPath() {
   return join(homedir(), '.jevladder', DEFAULT_LOG_BASENAME);
 }
 
+function mergeLike(command) {
+  // Advisory classification only. A miss stays silent; a hit never blocks.
+  if (command.length === 0 || command.length > 8192) return false;
+  return /(?:^|&&|\|\||;|\n)\s*(?:git\s+(?:merge|push|rebase)(?![\w-])|gh\s+pr\s+merge(?![\w-]))/i.test(command);
+}
+
 function main() {
   return readAllStdin()
     .then((raw) => {
@@ -106,6 +112,43 @@ function main() {
               hookEventName: 'SessionStart',
               additionalContext:
                 'JevLadder is active automatically with sensible defaults; no setup or commands are needed. For specific, well-scoped coding tasks (such as fixing a test, adding a field, or writing a function that follows a neighbouring pattern), start with cheap effort and automatically delegate when the host supports it. Use jevladder_route or jevladder_explain MCP tools when available to size the task. Before merge, use jevladder_decide as an advisory pre-merge check; enforcement stays in CI/merge. In Claude Code, delegate to jevladder:jevladder-cheap first. If that tier fails or verification is weak, keep the error output and escalate one tier at a time: cheap, mid, frontier (Claude Code agents: jevladder:jevladder-mid, then jevladder:jevladder-frontier). Reserve frontier for cross-cutting work, unclear causes, or orchestration. A tier is never permission: irreversible or uncertain actions go to a human. The main session model is never swapped.',
+            },
+          }) + '\n',
+        );
+        return;
+      }
+
+      if (hookEventName === 'PreToolUse') {
+        const toolName = typeof parsed.tool_name === 'string' ? parsed.tool_name : '';
+        const toolInput =
+          parsed.tool_input !== null &&
+          typeof parsed.tool_input === 'object' &&
+          !Array.isArray(parsed.tool_input)
+            ? parsed.tool_input
+            : {};
+        const command = typeof toolInput.command === 'string' ? toolInput.command : '';
+        const writeTool =
+          toolName === 'Write' ||
+          toolName === 'Edit' ||
+          toolName === 'MultiEdit' ||
+          toolName === 'NotebookEdit' ||
+          toolName === 'apply_patch';
+        const kind = writeTool
+          ? 'write'
+          : (toolName === 'Bash' || toolName === 'shell') && mergeLike(command)
+            ? 'merge'
+            : '';
+        if (kind === '') return;
+
+        const additionalContext =
+          kind === 'merge'
+            ? 'jevladder observe: PreToolUse merge-like command. Advisory only; this hook does not approve or deny. Irreversible merge and push actions need a human. Enforcement stays in CI/merge. Use jevladder_decide before merge when available.'
+            : 'jevladder observe: PreToolUse file write. Advisory only; this hook does not approve or deny the edit. A file write is not merge approval. Before merge, use jevladder_decide; enforcement stays in CI/merge. Irreversible or uncertain changes go to a human.';
+        process.stdout.write(
+          JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: 'PreToolUse',
+              additionalContext,
             },
           }) + '\n',
         );

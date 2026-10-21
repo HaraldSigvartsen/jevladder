@@ -42,7 +42,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
       (no prompt text), `jevladder_route` MCP tool called by the agent and returned
       `frontier` for a production payments migration description; hook trust
       handled via Codex review flow.
-- [ ] PreToolUse write/merge hooks — defer: enforcement belongs in CI/merge; in-session hooks stay advisory.
+- [x] PreToolUse write/merge hooks — advisory context only; enforcement stays in CI/merge, and the hook never approves or denies the tool.
 - [ ] Host adapters beyond Codex+Claude Code — defer: two hosts prove the shared-core pattern; more hosts on demand.
 - [ ] Weekly config-proposal PRs — defer: needs accumulated real decision logs first.
 
@@ -135,6 +135,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-21 | Advisory PreToolUse hooks for file writes (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `apply_patch`) and merge-like shell commands (`git merge`, `git push`, `git rebase`, `gh pr merge`). Context only: no `permissionDecision`, no tool-input logging. Other shell commands stay silent. |
 | 2026-10-21 | Closed the three labelled weaknesses: unprotected binary diffs return human, empty route input is rejected, and commented prose in env templates is not a secrets-in-diff hit. Markers removed; consistency eval 35/35, independent eval 25/33. |
 | 2026-10-21 | Field test round 2 (docs/FIELDTEST.md): 10 real diffs from two private projects — 8 allowed via judge grey zone, 1 middleware commit blocked by protected-paths (sensible), 1 working tree blocked by `secrets-in-diff` on a commented prose line in `.env.example` (false positive, fail-closed). Added eval known weakness `m-env-template-commented-prose` (expected `allow` per independent policy M1) plus the eval-runner known-weakness list now derived from task markers; no rule changes. |
 | 2026-10-20 | Queue step 2: derive two shared merge-gate improvements from independent policy M1/M2 — allow only obvious whole-value placeholders in secret assignments while retaining credential-shaped blocking, and block code-shaped auth/session/security changes by content on neutral paths. Added unit/adversarial coverage and security limitations; known binary-diff and empty-route weaknesses remain unchanged. |
