@@ -424,6 +424,98 @@ describe('rule: secrets-in-diff', () => {
     expect(rule.evaluate({ action: 'merge', files: ['.env.example'], diff: `${templateHeader}\n+API_KEY="<insert value>"` })).toBeNull();
   });
 
+  it('allows pure # prose comments in env templates without credential-shaped tokens (policy M1)', () => {
+    const header = 'diff --git a/.env.example b/.env.example';
+    const prose =
+      '+# EXAMPLE_TOKEN = longlivedaccess token from the settings page (profile -> security).';
+    expect(rule.evaluate({ action: 'merge', files: ['.env.example'], diff: `${header}\n${prose}` })).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+# API_KEY = Required for the payments sandbox`,
+      }),
+    ).toBeNull();
+    const headerless = [
+      '--- a/.env.example',
+      '+++ b/.env.example',
+      '@@ -0,0 +1,1 @@',
+      prose,
+    ].join('\n');
+    expect(
+      rule.evaluate({ action: 'merge', files: ['.env.example'], diff: headerless }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+EXAMPLE_PUBLIC_KEY=\n+EXAMPLE_TOKEN=\n${prose}`,
+      }),
+    ).toBeNull();
+  });
+
+  it('still blocks credential-shaped content inside env-template # comments', () => {
+    const header = 'diff --git a/.env.example b/.env.example';
+    const prefix = ['sk', 'Ab3dEf5gHi7jKl9mNo1p'].join('-');
+    expect(
+      rule.evaluate({ action: 'merge', files: ['.env.example'], diff: `${header}\n+# API_KEY=${prefix}` }),
+    ).toMatchObject({ outcome: 'block' });
+    const embedded = 'FAKE_EXAMPLE_ONLY_' + '998273';
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+# note: DB_PASSWORD=${embedded}`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+# DB_PASSWORD = ${embedded}`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+# SERVICE_TOKEN="${embedded}"`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    const secretWithProse = ['abcd', 'efgh', '1234'].join('');
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+# API_SECRET = ${secretWithProse} is the prod key`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    const yamlStyleSecret = ['Q7wzK2mpLx', '9nRt4vBc'].join('');
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+# password: ${yamlStyleSecret}`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        files: ['.env.example'],
+        diff: `${header}\n+# password: required`,
+      }),
+    ).toBeNull();
+  });
+
+  it('does not let env-template comment prose bypass: same assignment in real .env still blocks', () => {
+    const header = 'diff --git a/.env.local b/.env.local';
+    const embedded = 'FAKE_EXAMPLE_ONLY_' + '998273';
+    const commentAssign = `+# DB_PASSWORD = ${embedded}`;
+    expect(
+      rule.evaluate({ action: 'merge', files: ['.env.local'], diff: `${header}\n${commentAssign}` }),
+    ).toMatchObject({ outcome: 'block' });
+  });
+
   it('does not flag benign code lines as unquoted secrets (S3 false-positive guards)', () => {
     expect(rule.evaluate({ action: 'merge', diff: '+  password = undefined;' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+  token = false;' })).toBeNull();
