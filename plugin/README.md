@@ -71,9 +71,22 @@ subagent; it does not guarantee a frontier-class model or a lower cost.
 Aliases are baked into agent frontmatter at generation time; regenerate after
 config changes. Editing the emitted `config.json` does not change agent models.
 
+## OpenCode (additional host)
+
+`opencode/jevladder.mjs` exports `JevLadderPlugin`. Place that file at
+`.opencode/plugins/jevladder.mjs` (this repository already does, via a
+re-export). OpenCode then gets advisory system guidance, a route tier on user
+text, and a note after file-write or merge-like shell tools. The `config` hook
+adds the local `jevladder` MCP server and this plugin's `skills` directory
+only when those entries are absent. Tool arguments are not rewritten, and no
+permission is denied. Prompt text and tool input are not logged.
+
+This is structural support, validated by loading the module and simulating
+hooks. It is not a claim that a live OpenCode session was run.
+
 ## What it does NOT do
 
-- Does **not** block prompts or tool use. PreToolUse is context only.
+- Does **not** block prompts or tool use. PreToolUse and the OpenCode adapter are context only.
 - Does **not** swap the host model mid-session (a plugin cannot do that —
   see the main jevladder README honesty section).
 - Does **not** call remote APIs or send prompt text anywhere.

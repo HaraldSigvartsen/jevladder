@@ -61,6 +61,7 @@ describe('buildPluginFiles', () => {
         'hooks/hooks.json',
         'scripts/jevladder-observe.mjs',
         'scripts/jevladder-hook.sh',
+        'opencode/jevladder.mjs',
         'skills/jevladder-routing/SKILL.md',
       ].sort(),
     );
