@@ -347,7 +347,8 @@ export function formatReport(run: { tierclef: ArmOutcome[]; baseline: ArmOutcome
   push(`parity (tierclef - baseline): ${(100 * metrics.qualityParity).toFixed(2)}pp`);
   push();
   push('## Known weaknesses');
-  const known = run.tierclef.filter((r) => r.id === 'm-human-unprotected-binary-diff' || r.id === 'route-reject-empty-task');
+  const knownIds = new Set((run.tasks ?? []).filter((t) => t.knownWeakness === true).map((t) => t.id));
+  const known = run.tierclef.filter((r) => knownIds.has(r.id));
   push(`count: ${known.length}`);
   for (const r of known) push(`- ${r.id}: expected=${r.expected} actual=${r.outcome}${r.correct ? ' — fixed — remove marker' : ''}`);
   push();

@@ -38,7 +38,7 @@ treat observe hooks or MCP tools as enforcement boundaries.
 
 ## Known weaknesses and residual risk
 
-The generated eval reports track two known policy gaps (see their
+The generated eval reports track three known policy gaps (see their
 `knownWeaknesses` sections for current actual outcomes):
 
 - `m-human-unprotected-binary-diff` / `ind-m-unprotected-binary-diff`: a binary
@@ -48,6 +48,18 @@ The generated eval reports track two known policy gaps (see their
 - `route-reject-empty-task` / `ind-r-empty-route-task`: an empty or
   whitespace-only route task currently receives a tier. It must reject or
   abstain; expected is `reject`.
+- `m-env-template-commented-prose`: a commit-safe env template (`.env.example`)
+  whose added lines are only empty assignments plus a commented prose line — a
+  comment of the shape `# KEY_NAME = plain English sentence about the key` — is
+  hard-blocked by `secrets-in-diff` even though no credential-shaped value is
+  present. The strict whole-line template exemption does not cover comment
+  lines, so the ordinary secret matchers run and the first word after `=` (a
+  plain lowercase prose word of enough length) can look credential-shaped.
+  This is a fail-closed false-positive class: commented prose in an env
+  template is documentation, not a credential. Policy view (M1) is that the
+  ideal outcome is `allow`; the rule currently blocks. Because the failure
+  direction is block (never allow), it is a precision limitation, not a
+  security hole.
 
 These labelled cases are excluded from headline accuracy and shown separately
 in generated reports. A case that passes is reported as fixed and its marker

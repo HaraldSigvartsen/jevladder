@@ -66,13 +66,31 @@ describe('known weakness scenarios', () => {
     const cases = evalTasks.filter((task) => task.knownWeakness === true);
     expect(cases.map((task) => task.id)).toEqual([
       'm-human-unprotected-binary-diff',
+      'm-env-template-commented-prose',
       'route-reject-empty-task',
     ]);
-    expect(cases.map((task) => task.expected)).toEqual(['human', 'reject']);
+    expect(cases.map((task) => task.expected)).toEqual(['human', 'allow', 'reject']);
     const run = await runEval(cases);
     expect(run.tierclef.every((result) => !result.correct)).toBe(true);
     const metrics = computeMetrics({ ...run, tasks: run.tasks });
     expect(metrics.tierclef.total).toBe(0);
+  });
+
+  it('excludes the new env-template weakness from scored accuracy and reports it separately', async () => {
+    const task = evalTasks.find((t) => t.id === 'm-env-template-commented-prose');
+    expect(task).toBeDefined();
+    expect(task?.kind).toBe('merge');
+    if (task?.kind !== 'merge') throw new Error('expected merge task');
+    expect(task.input.files).toEqual(['.env.example']);
+    const run = await runEval([task]);
+    const record = run.tierclef[0];
+    expect(record.expected).toBe('allow');
+    expect(record.outcome).toBe('block');
+    expect(record.correct).toBe(false);
+    const metrics = computeMetrics({ ...run, tasks: run.tasks });
+    expect(metrics.tierclef.total).toBe(0);
+    expect(metrics.tierclef.falseBlocks).toBe(0);
+    expect(metrics.tierclef.falseBlockRate).toBeNull();
   });
 });
 

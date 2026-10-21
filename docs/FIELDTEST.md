@@ -50,3 +50,26 @@ diff *types* and synthetic equivalents used in tests.
 | Large content diff >2000 lines | `diff-too-large` block |
 | Working tree `.env.example` path alone | Not protected |
 | `.env.example` **content** with fake `DB_PASSWORD=…` / long placeholder tokens | `secrets-in-diff` block (remaining debatable FP for templates) |
+
+## Round 2 — 2026-10-21
+
+Read-only re-run of the same method (exported diffs from two private local
+projects, checked outside this repository; no repo names, paths, or diff
+contents recorded here).
+
+- **10 real diffs** total: 8 small/medium feature and chore commits, 1
+  security-header/middleware commit, 1 large uncommitted working tree.
+- The 8 small/medium diffs: all allowed through the judge grey zone (mock
+  judge) — sensible.
+- The security-header/middleware commit: blocked by `protected-paths`
+  (security-sensitive `middleware.*` filename glob) — sensible.
+- The large uncommitted working tree: blocked by `secrets-in-diff` on a
+  **commented prose line in `.env.example`** — a comment of the shape
+  `# KEY_NAME = plain English explanation of the key`, where the first word
+  after `=` is a plain lowercase prose word. No credential-shaped value was
+  present. This is a **false positive** (fail-closed direction) and is now
+  tracked as the `m-env-template-commented-prose` eval known weakness. The
+  same working tree would also have hit `new-dependencies` (package.json
+  change) and `diff-too-large` (size), both of which are sensible blocks on
+  their own.
+

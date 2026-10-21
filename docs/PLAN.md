@@ -144,6 +144,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-21 | Field test round 2 (docs/FIELDTEST.md): 10 real diffs from two private projects — 8 allowed via judge grey zone, 1 middleware commit blocked by protected-paths (sensible), 1 working tree blocked by `secrets-in-diff` on a commented prose line in `.env.example` (false positive, fail-closed). Added eval known weakness `m-env-template-commented-prose` (expected `allow` per independent policy M1) plus the eval-runner known-weakness list now derived from task markers; no rule changes. |
 | 2026-10-20 | Queue step 2: derive two shared merge-gate improvements from independent policy M1/M2 — allow only obvious whole-value placeholders in secret assignments while retaining credential-shaped blocking, and block code-shaped auth/session/security changes by content on neutral paths. Added unit/adversarial coverage and security limitations; known binary-diff and empty-route weaknesses remain unchanged. |
 | 2026-10-19 | v0.5: align all version metadata at 0.5.0; retain the 31-case independent evaluation without rule tuning; Codex live-session verification completed the same day, including hook trust review through Codex review flow. |
 | 2026-10-19 | v0.4: primary host changed to Codex; Claude Code supported as a second host. Added dual-host metadata, host-neutral skill/guidance, and voluntary bundled MCP decide/route/explain tools. The catalog is placed at `.agents/plugins/marketplace.json`; strict discovery-path tests pass. |
