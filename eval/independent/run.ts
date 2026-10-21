@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defineGate, type Decision } from '../../src/gate.js';
 import { makeMergeRules } from '../../src/rules/merge-rules.js';
 import { MockJudge } from '../../src/judge/mock.js';
-import { scoreRoute, type RouteTier } from '../../src/route.js';
+import { scoreRoute } from '../../src/route.js';
 import {
   independentTasks,
   type IndependentTask,
@@ -92,7 +92,7 @@ export async function runIndependentEval(
       });
     } else {
       const routed = scoreRoute(task.input);
-      const actual: RouteTier = routed.tier;
+      const actual: RouteExpected = routed.rejected ? 'reject' : routed.tier;
       results.push({
         id: task.id,
         kind: 'route',
@@ -101,7 +101,9 @@ export async function runIndependentEval(
         correct: actual === task.expected,
         policyRef: task.policyRef,
         predictedRisk: task.predictedRisk === true,
-        reason: `scoreRoute tier=${routed.tier}${routed.abstained ? ' (low-confidence, tier raised)' : ''}`,
+        reason: routed.rejected
+          ? `scoreRoute rejected: ${routed.reason}`
+          : `scoreRoute tier=${routed.tier}${routed.abstained ? ' (low-confidence, tier raised)' : ''}`,
         note: task.note,
         scenario: task.scenario,
         knownWeakness: task.knownWeakness === true,

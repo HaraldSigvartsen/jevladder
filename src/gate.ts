@@ -14,7 +14,7 @@ export const DEFAULT_THRESHOLD = 0.7;
 
 export type GateOutcome = 'allow' | 'block' | 'human';
 export type DecisionSource = 'rule' | 'judge' | 'human' | 'none';
-export type RuleOutcome = 'allow' | 'block';
+export type RuleOutcome = 'allow' | 'block' | 'human';
 export type JudgeVerdictName = 'allow' | 'block' | 'abstain';
 
 /** Pipeline stage a {@link DecisionLogEntry} belongs to. */
@@ -187,7 +187,9 @@ function isValidHit(hit: unknown): hit is RuleHit {
   if (typeof hit !== 'object' || hit === null) return false;
   const candidate = hit as Record<string, unknown>;
   return (
-    (candidate.outcome === 'allow' || candidate.outcome === 'block') &&
+    (candidate.outcome === 'allow' ||
+      candidate.outcome === 'block' ||
+      candidate.outcome === 'human') &&
     typeof candidate.reason === 'string' &&
     candidate.reason.trim() !== ''
   );
@@ -303,6 +305,11 @@ async function runGate(input: GateInput, config: GateRuntime): Promise<Decision>
     }
     if (isValidHit(hit)) {
       entry('rule', `rule "${rule.id}" hit: ${hit.outcome} — ${oneLine(hit.reason, 200)}`);
+      if (hit.outcome === 'human') {
+        const decision = await toHuman('rule', hit.reason);
+        decision.ruleId = rule.id;
+        return decision;
+      }
       entry('decision', `outcome=${hit.outcome} source=rule rule="${rule.id}"`);
       return {
         outcome: hit.outcome,

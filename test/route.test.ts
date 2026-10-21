@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { scoreRoute } from '../src/index.js';
+import { scoreRoute, type RouteResult } from '../src/index.js';
+
+function scored(task: string): RouteResult {
+  const result = scoreRoute(task);
+  if (result.rejected) throw new Error(`expected a tier, got rejection: ${result.reason}`);
+  return result;
+}
 
 describe('scoreRoute', () => {
   it('routes typo fixes and docs edits to cheap without abstaining', () => {
-    const typo = scoreRoute("Fix the typo 'recieve' → 'receive' in README.md.");
+    const typo = scored("Fix the typo 'recieve' → 'receive' in README.md.");
     expect(typo.tier).toBe('cheap');
     expect(typo.abstained).toBe(false);
 
-    const docs = scoreRoute(
+    const docs = scored(
       'Rewrite the getting-started section of docs/getting-started.md for clarity.',
     );
     expect(docs.tier).toBe('cheap');
@@ -15,7 +21,7 @@ describe('scoreRoute', () => {
   });
 
   it('raises an ambiguous underspecified task one tier and abstains', () => {
-    const result = scoreRoute('fix login somehow');
+    const result = scored('fix login somehow');
     expect(result.abstained).toBe(true);
     expect(result.tier).toBe('mid'); // cheap base, raised for low confidence
     expect(result.explanation).toContain('low-confidence');
@@ -23,7 +29,7 @@ describe('scoreRoute', () => {
   });
 
   it('routes payment migrations to frontier on consequence', () => {
-    const result = scoreRoute('Migrate payment processing to the new provider');
+    const result = scored('Migrate payment processing to the new provider');
     expect(result.tier).toBe('frontier');
     expect(result.axes.consequence).toBeGreaterThanOrEqual(0.85);
   });
@@ -35,7 +41,7 @@ describe('scoreRoute', () => {
       "Add tests in test/users.test.ts; the error 'E_TIMEOUT' happens on page 2",
       'repro: GET /api/users?page=2&limit=50.',
     ].join(' ');
-    const result = scoreRoute(task);
+    const result = scored(task);
     expect(result.tier).toBe('mid');
     expect(result.abstained).toBe(false);
     expect(result.axes.consequence).toBeLessThan(0.6);
@@ -44,12 +50,12 @@ describe('scoreRoute', () => {
   });
 
   it('never routes deploy/production or delete tasks to cheap', () => {
-    expect(scoreRoute('Deploy the service to production').tier).not.toBe('cheap');
-    expect(scoreRoute('Delete the legacy users table').tier).not.toBe('cheap');
+    expect(scored('Deploy the service to production').tier).not.toBe('cheap');
+    expect(scored('Delete the legacy users table').tier).not.toBe('cheap');
   });
 
   it('keeps axes in [0,1] and returns at most 5 signals sorted by weight', () => {
-    const result = scoreRoute(
+    const result = scored(
       'Migrate the db schema and the payment API across multiple files, delete old rows, add tests and repro steps',
     );
     for (const value of [result.axes.difficulty, result.axes.consequence, result.axes.verifiability]) {
@@ -65,20 +71,24 @@ describe('scoreRoute', () => {
   });
 
   it('is deterministic for identical input', () => {
-    const a = scoreRoute('improve the thing');
-    const b = scoreRoute('improve the thing');
+    const a = scored('improve the thing');
+    const b = scored('improve the thing');
     expect(a).toEqual(b);
   });
 
-  it('abstains and raises the tier on very short or empty tasks', () => {
-    const short = scoreRoute('fix it');
+  it('abstains and raises the tier on very short tasks', () => {
+    const short = scored('fix it');
     expect(short.abstained).toBe(true);
     expect(short.tier).toBe('mid');
+  });
 
-    const empty = scoreRoute('');
-    expect(empty.abstained).toBe(true);
-    expect(empty.tier).toBe('mid');
-    expect(empty.axes.difficulty).toBe(0);
+  it('rejects empty and whitespace-only tasks instead of picking a tier', () => {
+    for (const task of ['', '   ', '\n\t']) {
+      const rejected = scoreRoute(task);
+      expect(rejected.rejected).toBe(true);
+      if (!rejected.rejected) continue;
+      expect(rejected.reason).toMatch(/empty/i);
+    }
   });
 
   it('throws only on non-string input', () => {

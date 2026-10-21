@@ -61,22 +61,28 @@ describe('computeMetrics (hand-built fixture)', () => {
   });
 });
 
-describe('known weakness scenarios', () => {
-  it('are marked with correct labels and currently fail', async () => {
-    const cases = evalTasks.filter((task) => task.knownWeakness === true);
-    expect(cases.map((task) => task.id)).toEqual([
+describe('former known-weakness scenarios', () => {
+  it('match policy and are scored with the rest of the set', async () => {
+    const ids = [
       'm-human-unprotected-binary-diff',
       'm-env-template-commented-prose',
       'route-reject-empty-task',
-    ]);
+    ];
+    const cases = ids.map((id) => {
+      const task = evalTasks.find((candidate) => candidate.id === id);
+      expect(task).toBeDefined();
+      expect(task?.knownWeakness).toBeUndefined();
+      return task!;
+    });
     expect(cases.map((task) => task.expected)).toEqual(['human', 'allow', 'reject']);
     const run = await runEval(cases);
-    expect(run.jevladder.every((result) => !result.correct)).toBe(true);
+    expect(run.jevladder.every((result) => result.correct)).toBe(true);
     const metrics = computeMetrics({ ...run, tasks: run.tasks });
-    expect(metrics.jevladder.total).toBe(0);
+    expect(metrics.jevladder.total).toBe(3);
+    expect(metrics.jevladder.correct).toBe(3);
   });
 
-  it('excludes the new env-template weakness from scored accuracy and reports it separately', async () => {
+  it('allows commented prose in .env.example and counts it as an approval', async () => {
     const task = evalTasks.find((t) => t.id === 'm-env-template-commented-prose');
     expect(task).toBeDefined();
     expect(task?.kind).toBe('merge');
@@ -85,12 +91,13 @@ describe('known weakness scenarios', () => {
     const run = await runEval([task]);
     const record = run.jevladder[0];
     expect(record.expected).toBe('allow');
-    expect(record.outcome).toBe('block');
-    expect(record.correct).toBe(false);
+    expect(record.outcome).toBe('allow');
+    expect(record.correct).toBe(true);
     const metrics = computeMetrics({ ...run, tasks: run.tasks });
-    expect(metrics.jevladder.total).toBe(0);
+    expect(metrics.jevladder.total).toBe(1);
     expect(metrics.jevladder.falseBlocks).toBe(0);
-    expect(metrics.jevladder.falseBlockRate).toBeNull();
+    expect(metrics.jevladder.falseBlockRate).toBe(0);
+    expect(metrics.jevladder.approvedCount).toBe(1);
   });
 });
 

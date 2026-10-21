@@ -63,14 +63,16 @@ describe('adversarial public entry points', () => {
     const gate = defineGate({ rules: makeMergeRules() });
     expect((await gate.decide({ action: 'merge', diff: rename, files: parseDiffFilePaths(rename), context: { testsPassed: true } })).outcome).toBe('block');
     const decision = await gate.decide({ action: 'merge', diff: binary, files: parseDiffFilePaths(binary), context: { testsPassed: true } });
-    expect(['allow', 'block', 'human']).toContain(decision.outcome);
+    expect(decision.outcome).toBe('human');
+    expect(decision.ruleId).toBe('uninspectable-binary');
   });
 
   it('keeps empty CLI inputs and garbage report logs within their exit contracts', async () => {
     const stdin = io(''); expect(await runCli(['check', '--tests-passed'], stdin.channels)).toBe(1);
     const empty = join(temp(), 'empty.diff'); writeFileSync(empty, '');
     expect(await runCli(['check', '--diff', empty, '--tests-passed'], io().channels)).toBe(1);
-    expect(await runCli(['route', '--explain', ''], io().channels)).toBe(0);
+    expect(await runCli(['route', '--explain', ''], io().channels)).toBe(1);
+    expect(await runCli(['route', '--explain', '   '], io().channels)).toBe(1);
     const log = join(temp(), 'garbage.jsonl'); writeFileSync(log, 'not json\n{}\n');
     const report = io(); expect(await runCli(['report', '--log', log], report.channels)).toBe(0);
     expect(report.output()).toContain('malformed lines skipped: 2');

@@ -142,8 +142,8 @@ npm run eval:independent
 
 | Eval | Accuracy | What it measures |
 | --- | --- | --- |
-| Consistency (`npm run eval`) | **100%** (32/32) | Labels aligned with the same heuristics under test — intended-policy **consistency**, not external validity. |
-| Independent (`npm run eval:independent`) | 31 scenarios | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R4) **before** running jevladder, including predicted adversarial misses. Latest run: 23/31 correct (74%). |
+| Consistency (`npm run eval`) | **100%** (35/35) | Labels aligned with the same heuristics under test — intended-policy **consistency**, not external validity. |
+| Independent (`npm run eval:independent`) | 33 scenarios | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R5) **before** running jevladder, including predicted adversarial misses. Latest run: 25/33 correct (76%). |
 
 They differ on purpose: 100% consistency means the gate matches its own rule
 pack; the independent result preserves policy-labelled disagreements without
@@ -157,7 +157,7 @@ under `eval/`.
 | `0` | allow |
 | `2` | block |
 | `3` | human decision required |
-| `1` | usage / IO error (empty diff, bad flags, unreadable file, …) |
+| `1` | usage / IO error (empty diff, empty route text, bad flags, unreadable file, …) |
 
 ```bash
 node dist/src/cli.js check --diff examples/merge-gate/sample.diff --tests-passed

@@ -4,9 +4,10 @@
  * `block` in this pack means "stop and require a human" — it is the safe
  * direction, never a judgment that the change itself is bad. Rules are
  * ordered and the gate's first-hit semantics decide which one wins:
- * tests-not-green, protected-paths, secrets-in-diff, sensitive-content,
- * new-dependencies,
- * diff-too-large.
+ * tests-not-green, protected-paths, uninspectable-binary, secrets-in-diff,
+ * sensitive-content, new-dependencies, diff-too-large.
+ * `uninspectable-binary` returns `human` (not `block`): the bytes are not in
+ * the diff, so the gate must not guess `allow`.
  *
  * Diff text is DATA. Nothing found inside a diff — including text that
  * instructs the agent or the gate to ignore rules — can alter rule
@@ -15,7 +16,7 @@
  * by diff content.
  */
 import type { Rule } from '../gate.js';
-import { countChangedLines, isAddedDiffLine, isMinusFileHeader, isPlusFileHeader, isRemovedDiffLine, parseGitDiffHeader, parsePlusHeaderPath } from '../diff-parse.js';
+import { countChangedLines, isAddedDiffLine, isMinusFileHeader, isPlusFileHeader, isRemovedDiffLine, parseBinaryDiffNotice, parseGitDiffHeader, parsePlusHeaderPath } from '../diff-parse.js';
 
 export interface MergeRulesConfig {
   /** Changed-line count that always blocks. Default {@link DEFAULT_MAX_DIFF_LINES_HARD}. */
@@ -183,6 +184,28 @@ const UNQUOTED_LITERAL_TOKEN_RE = /^[A-Za-z0-9_\-./+=]{8,}/;
  */
 const ENV_TEMPLATE_PLACEHOLDER_LINE_RE =
   /^\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(?:""|''|<[a-z_\- ]+>|"<[a-z_\- ]+>"|changeme|CHANGEME|[Yy][Oo][Uu][Rr]_[A-Za-z0-9_]*_[Hh][Ee][Rr][Ee]|[Xx]{3,})?\s*$/;
+
+/**
+ * Full-line dotenv comment whose only key-like assignments are prose:
+ * `# KEY = longlivedaccess token from the settings page`.
+ * The value's first word is lowercase letters (8+), and more words follow.
+ * A digit, a capital, a lone token, a known credential prefix, or a
+ * private-key header is not prose. Callers still run always-on matchers.
+ */
+function isCommentedProseLine(body: string): boolean {
+  const trimmed = body.trim();
+  if (!trimmed.startsWith('#')) return false;
+  const comment = trimmed.slice(1);
+  const keyRe = /(api[_-]?key|secret|password|token)\s*[:=]\s*/gi;
+  let match: RegExpExecArray | null;
+  let sawAssignment = false;
+  while ((match = keyRe.exec(comment)) !== null) {
+    sawAssignment = true;
+    const after = comment.slice(match.index + match[0].length);
+    if (!/^[a-z]{8,}\s+[A-Za-z]/.test(after)) return false;
+  }
+  return sawAssignment;
+}
 
 /**
  * Types/keywords/placeholders that look long enough to trip a naive unquoted
@@ -833,6 +856,22 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
     },
   };
 
+  const uninspectableBinary: Rule = {
+    id: 'uninspectable-binary',
+    evaluate: (input) => {
+      if (typeof input.diff !== 'string' || input.diff === '') return null;
+      for (const line of input.diff.split(/\r?\n/)) {
+        if (!parseBinaryDiffNotice(line)) continue;
+        return {
+          outcome: 'human',
+          reason: 'binary diff content cannot be inspected; human review required',
+          evidence: 'Binary files notice — never guess allow when the bytes are absent',
+        };
+      }
+      return null;
+    },
+  };
+
   const secretsInDiff: Rule = {
     id: 'secrets-in-diff',
     evaluate: (input) => {
@@ -856,13 +895,12 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
         // Credential-prefix and private-key checks run over the COMPLETE
         // line first and always block; the placeholder exemption only ever
         // suppresses the ordinary assignment matchers.
-        const templatePlaceholder =
-          currentFile !== undefined &&
-          isEnvTemplatePath(currentFile) &&
-          ENV_TEMPLATE_PLACEHOLDER_LINE_RE.test(body);
+        const templateFile = currentFile !== undefined && isEnvTemplatePath(currentFile);
+        const templatePlaceholder = templateFile && ENV_TEMPLATE_PLACEHOLDER_LINE_RE.test(body);
+        const templateCommentProse = templateFile && isCommentedProseLine(body);
         for (const { name, test, alwaysApplies } of SECRET_MATCHERS) {
           if (!test(body)) continue;
-          if (!alwaysApplies && templatePlaceholder) continue;
+          if (!alwaysApplies && (templatePlaceholder || templateCommentProse)) continue;
           return {
             outcome: 'block',
             reason: 'possible secret in diff',
@@ -961,5 +999,13 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
     },
   };
 
-  return [testsNotGreen, protectedPaths, secretsInDiff, sensitiveContent, newDependencies, diffTooLarge];
+  return [
+    testsNotGreen,
+    protectedPaths,
+    uninspectableBinary,
+    secretsInDiff,
+    sensitiveContent,
+    newDependencies,
+    diffTooLarge,
+  ];
 }

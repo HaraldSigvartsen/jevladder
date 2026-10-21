@@ -229,8 +229,10 @@ function runRoute(args: string[], io: CliIO): number {
     }
   }
   if (explain === undefined) return usageError(io, 'route: --explain <text> is required');
+  if (explain.trim() === '') return usageError(io, 'route: task text is empty');
 
   const result = scoreRoute(explain);
+  if (result.rejected) return usageError(io, `route: ${result.reason}`);
   if (json) {
     io.stdout(`${JSON.stringify(result, null, 2)}\n`);
     return 0;

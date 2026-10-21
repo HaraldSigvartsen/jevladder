@@ -172,24 +172,26 @@ export async function runEval(tasks: readonly EvalTask[] = evalTasks): Promise<E
       });
     } else {
       const routed = scoreRoute(task.input);
-      const actual: Outcome = routed.tier;
+      const actual: Outcome = routed.rejected ? 'reject' : routed.tier;
       jevladder.push({
         id: task.id,
         kind: 'route',
         expected: task.expected,
         outcome: actual,
         correct: actual === task.expected,
-        cost: round6(ROUTE_TIER_PRICE[routed.tier]),
-        modelCalls: 1,
+        cost: routed.rejected ? 0 : round6(ROUTE_TIER_PRICE[routed.tier]),
+        modelCalls: routed.rejected ? 0 : 1,
         escalated: false,
-        reason: `scoreRoute tier=${routed.tier}${routed.abstained ? ' (low-confidence, tier raised)' : ''}`,
+        reason: routed.rejected
+          ? `scoreRoute rejected: ${routed.reason}`
+          : `scoreRoute tier=${routed.tier}${routed.abstained ? ' (low-confidence, tier raised)' : ''}`,
       });
       baseline.push({
         id: task.id,
         kind: 'route',
         expected: task.expected,
         outcome: 'frontier',
-        correct: actual === task.expected,
+        correct: routed.rejected ? false : actual === task.expected,
         cost: PRICES.frontierCall,
         modelCalls: 1,
         escalated: false,

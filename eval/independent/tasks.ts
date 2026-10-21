@@ -289,8 +289,7 @@ export const independentTasks: IndependentTask[] = [
     ].join('\n')),
     expected: 'human',
     policyRef: 'M5',
-    knownWeakness: true,
-    note: 'M5: binary content provides insufficient evidence; never-guess policy requires human review.',
+    note: 'M5: binary content provides insufficient evidence; uninspectable-binary returns human.',
   },
   {
     id: 'ind-m-payments-css-only',
@@ -324,8 +323,7 @@ export const independentTasks: IndependentTask[] = [
     input: '  ',
     expected: 'reject',
     policyRef: 'R5',
-    knownWeakness: true,
-    note: 'R5: empty input must reject or abstain; it cannot silently receive a tier.',
+    note: 'R5: empty input is rejected and does not receive a tier.',
   },
   {
     id: 'ind-m-irreversible-tiny',
