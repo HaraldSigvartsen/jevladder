@@ -218,6 +218,7 @@ const unprotectedBinaryDiff = [
 ].join('\n');
 
 const envTemplateCommentedProseDiff = [
+  'diff --git a/.env.example b/.env.example',
   '--- a/.env.example',
   '+++ b/.env.example',
   '@@ -0,0 +1,3 @@',
@@ -414,8 +415,7 @@ export const evalTasks: EvalTask[] = [
     kind: 'merge',
     input: mergeInput(['src/assets/logo.png'], unprotectedBinaryDiff),
     expected: 'human',
-    knownWeakness: true,
-    note: 'Known weakness: binary content is uninspectable; never-guess policy requires human review.',
+    note: 'Binary content is uninspectable; the uninspectable-binary rule sends it to a human.',
   },
 
   // --- merge: prompt injection as data (diff text can change nothing) ---
@@ -424,12 +424,9 @@ export const evalTasks: EvalTask[] = [
     kind: 'merge',
     input: mergeInput(['.env.example'], envTemplateCommentedProseDiff),
     expected: 'allow',
-    knownWeakness: true,
     note:
-      'Known weakness: a commit-safe env template whose added lines are empty assignments plus a ' +
-      'commented prose line (a key name followed by plain English after =) is hard-blocked by ' +
-      'secrets-in-diff. No credential-shaped value is present, so per the independent policy M1 ' +
-      '(commit-safe templates with empty values are non-sensitive) the ideal outcome is allow.',
+      'Commit-safe .env.example: empty assignments plus a full-line comment whose value is ' +
+      'lowercase prose. secrets-in-diff does not treat that comment as a credential.',
   },
   {
     id: 'm-block-injection-with-secret',
@@ -459,8 +456,7 @@ export const evalTasks: EvalTask[] = [
     kind: 'route',
     input: '',
     expected: 'reject',
-    knownWeakness: true,
-    note: 'Known weakness: empty route input must reject or abstain instead of silently selecting a tier.',
+    note: 'Empty route input is rejected; it does not receive a tier.',
   },
   {
     id: 'route-cheap-license-year',

@@ -42,6 +42,13 @@ const RISKY_SECRET_DIFF = [
   '',
 ].join('\n');
 
+const BINARY_ASSET_DIFF = [
+  'diff --git a/src/assets/logo.png b/src/assets/logo.png',
+  'index 1234567..89abcde 100644',
+  'Binary files a/src/assets/logo.png and b/src/assets/logo.png differ',
+  '',
+].join('\n');
+
 const BINARY_PAYMENTS_DIFF = [
   'diff --git a/src/payments/logo.png b/src/payments/logo.png',
   'index 1234567..89abcde 100644',
@@ -240,6 +247,15 @@ describe('jevladder check', () => {
     expect(err()).toContain('--diff requires a value');
   });
 
+  it('sends an unprotected binary diff to a human instead of allowing it', async () => {
+    const file = writeTempDiff('binary-asset.diff', BINARY_ASSET_DIFF);
+    const { io, out } = captureIO();
+    const code = await runCli(['check', '--diff', file, '--tests-passed'], io);
+    expect(code).toBe(3);
+    expect(out()).toContain('outcome: human');
+    expect(out()).toContain('uninspectable-binary');
+  });
+
   it('blocks a binary diff touching a protected path (B3: no +++ headers)', async () => {
     const file = writeTempDiff('binary-payments.diff', BINARY_PAYMENTS_DIFF);
     const { io, out } = captureIO();
@@ -280,6 +296,15 @@ describe('jevladder route', () => {
     const parsed = JSON.parse(out()) as { tier: string; abstained: boolean };
     expect(parsed.tier).toBe('cheap');
     expect(parsed.abstained).toBe(false);
+  });
+
+  it('usage-errors on empty or whitespace task text', async () => {
+    for (const text of ['', '   ']) {
+      const { io, err } = captureIO();
+      const code = await runCli(['route', '--explain', text], io);
+      expect(code).toBe(1);
+      expect(err()).toContain('empty');
+    }
   });
 
   it('usage-errors without --explain', async () => {

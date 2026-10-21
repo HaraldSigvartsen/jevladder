@@ -4,8 +4,9 @@
 
 - Recognize whole-value env-template placeholders without allowing credential-shaped values through; detect code-shaped auth/session/security changes by content, including in neutral utility paths.
 - Prepare the npm package metadata and include generated plugin assets; npm provenance is disabled because CI OIDC is not available.
-- Add separately reported, policy-labelled eval scenarios for uninspectable binary diffs and empty route tasks; rule fixes remain queued.
-- Add a field-test round 2 known weakness: `secrets-in-diff` fail-closed false positives on commented prose lines in env templates (`.env.example`), labelled `allow` per the independent policy; the eval runner now derives the known-weakness list from task markers instead of hardcoded ids.
+- Uninspectable binary diffs on unprotected paths return `human` (`uninspectable-binary`) instead of an allow. Protected paths still block first.
+- Empty or whitespace-only `scoreRoute` input is rejected. The CLI exits 1 and does not assign a tier.
+- Full-line commented prose in env templates (`.env.example` and the other template basenames) is not a `secrets-in-diff` hit. Credential prefixes, private-key headers, and the same comment outside a template still block.
 
 ## 0.6.0 — 2026-10-19
 

@@ -68,8 +68,10 @@ contents recorded here).
   `# KEY_NAME = plain English explanation of the key`, where the first word
   after `=` is a plain lowercase prose word. No credential-shaped value was
   present. This is a **false positive** (fail-closed direction) and is now
-  tracked as the `m-env-template-commented-prose` eval known weakness. The
+  tracked as the `m-env-template-commented-prose` eval case. The
   same working tree would also have hit `new-dependencies` (package.json
   change) and `diff-too-large` (size), both of which are sensible blocks on
-  their own.
+  their own. Follow-up: a full-line comment of that shape in an env template
+  (`diff --git` file context) is no longer a `secrets-in-diff` hit. Credential-shaped
+  comment values still block.
 

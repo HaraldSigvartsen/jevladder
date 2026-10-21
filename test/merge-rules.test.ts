@@ -339,6 +339,35 @@ describe('rule: secrets-in-diff', () => {
     expect(rule.evaluate({ action: 'merge', files: ['src/.env.example.ts'], diff: '+PASSWORD=changeme' })).toMatchObject({ outcome: 'block' });
   });
 
+  it('does not block commented prose in an env template, and still blocks credentials there', () => {
+    const header = 'diff --git a/.env.example b/.env.example';
+    const prose =
+      '+# EXAMPLE_TOKEN = longlivedaccess token from the settings page (profile -> security).';
+    expect(rule.evaluate({ action: 'merge', diff: `${header}\n+EXAMPLE_TOKEN=\n${prose}` })).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: `diff --git a/src/notes.ts b/src/notes.ts\n${prose}`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: `${header}\n+# EXAMPLE_TOKEN = FAKE_EXAMPLE_ONLY_998273`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    const prefix = ['sk', 'abcdef123456'].join('-');
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: `${header}\n+# EXAMPLE_TOKEN = ${prefix} lives in the comment`,
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({ action: 'merge', diff: `+${prose.slice(1)}` }),
+    ).toMatchObject({ outcome: 'block' });
+  });
+
   it('keeps non-template secret decisions equivalent to HEAD matchers', () => {
     const samples = [
       '+password="hunter2value"',
@@ -915,6 +944,7 @@ describe('makeMergeRules configuration', () => {
     expect(makeMergeRules().map((r) => r.id)).toEqual([
       'tests-not-green',
       'protected-paths',
+      'uninspectable-binary',
       'secrets-in-diff',
       'sensitive-content',
       'new-dependencies',
@@ -927,6 +957,64 @@ describe('makeMergeRules configuration', () => {
     expect(() => makeMergeRules({ maxDiffLinesHard: 1.5 })).toThrow(TypeError);
     expect(() => makeMergeRules({ protectedGlobs: [''] })).toThrow(TypeError);
     expect(() => makeMergeRules({ protectedGlobs: 'src/**' as unknown as string[] })).toThrow(TypeError);
+  });
+});
+
+describe('rule: uninspectable-binary', () => {
+  const rule = ruleById('uninspectable-binary');
+  const asset = [
+    'diff --git a/src/assets/logo.png b/src/assets/logo.png',
+    'Binary files a/src/assets/logo.png and b/src/assets/logo.png differ',
+  ].join('\n');
+
+  it('asks for a human when binary bytes are absent', () => {
+    expect(rule.evaluate({ action: 'merge', diff: asset, files: ['src/assets/logo.png'] })).toMatchObject({
+      outcome: 'human',
+    });
+  });
+
+  it('misses text diffs', () => {
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: 'diff --git a/src/greet.ts b/src/greet.ts\n+++ b/src/greet.ts\n+export const hi = 1;\n',
+      }),
+    ).toBeNull();
+  });
+
+  it('loses to protected-paths when the binary path is protected', async () => {
+    const diff = [
+      'diff --git a/src/payments/logo.png b/src/payments/logo.png',
+      'Binary files a/src/payments/logo.png and b/src/payments/logo.png differ',
+    ].join('\n');
+    const judge = vi.fn(async () => ({ verdict: 'allow', score: 0.99, evidence: 'looks fine' }));
+    const gate = defineGate({ rules: makeMergeRules(), judge: { judge } });
+    const decision = await gate.decide({
+      action: 'merge',
+      diff,
+      files: ['src/payments/logo.png'],
+      context: { testsPassed: true },
+    });
+    expect(decision.outcome).toBe('block');
+    expect(decision.ruleId).toBe('protected-paths');
+    expect(judge).not.toHaveBeenCalled();
+  });
+
+  it('does not let an allowing judge approve an unprotected binary diff', async () => {
+    const judge = vi.fn(async () => ({ verdict: 'allow', score: 0.99, evidence: 'looks fine' }));
+    const gate = defineGate({ rules: makeMergeRules(), judge: { judge } });
+    const decision = await gate.decide({
+      action: 'merge',
+      diff: asset,
+      files: ['src/assets/logo.png'],
+      context: { testsPassed: true },
+    });
+    expect(decision).toMatchObject({
+      outcome: 'human',
+      source: 'rule',
+      ruleId: 'uninspectable-binary',
+    });
+    expect(judge).not.toHaveBeenCalled();
   });
 });
 

@@ -49,6 +49,17 @@ export function parseGitDiffHeader(line: string): GitHeaderPaths | null {
 const BINARY_HEADER_RE = /^Binary files a\/(\S+) and b\/(\S+) differ$/;
 
 /**
+ * Parse a `Binary files a/<old> and b/<new> differ` notice, or `null` when
+ * the line is not one. The bytes themselves are not in the diff, so callers
+ * must not treat the change as inspectable text.
+ */
+export function parseBinaryDiffNotice(line: string): GitHeaderPaths | null {
+  const match = line.match(BINARY_HEADER_RE);
+  if (!match?.[1] || !match?.[2]) return null;
+  return { oldPath: match[1], newPath: match[2] };
+}
+
+/**
  * True when the line is a `+++` file header in the strict format above.
  * `+++ b/x`, `+++ /dev/null`, `+++ x` (no prefix) are headers;
  * `+++password=…`, `+++` alone, `+++ b/x trailing words` are content.
@@ -132,10 +143,10 @@ export function parseDiffFilePaths(diff: string): string[] {
       push(git[2]);
       continue;
     }
-    const binary = rawLine.match(BINARY_HEADER_RE);
+    const binary = parseBinaryDiffNotice(rawLine);
     if (binary) {
-      push(binary[1]);
-      push(binary[2]);
+      push(binary.oldPath);
+      push(binary.newPath);
     }
   }
   return files;

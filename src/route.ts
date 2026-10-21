@@ -18,6 +18,9 @@
  * Low confidence (very short or ambiguous-without-specifics input) moves the
  * tier one step UP (cheap→mid, mid→frontier) and sets `abstained: true`:
  * when in doubt, buy the stronger model and flag the uncertainty.
+ *
+ * Empty or whitespace-only input is not a task. `scoreRoute` rejects it
+ * instead of selecting a tier.
  */
 export type RouteTier = 'cheap' | 'mid' | 'frontier';
 export type RouteAxisName = 'difficulty' | 'consequence' | 'verifiability';
@@ -36,6 +39,7 @@ export interface RouteAxes {
 }
 
 export interface RouteResult {
+  rejected: false;
   tier: RouteTier;
   axes: RouteAxes;
   /** Fired signals, top 5 by weight (ties keep firing order). */
@@ -44,6 +48,14 @@ export interface RouteResult {
   abstained: boolean;
   explanation: string;
 }
+
+/** Empty or whitespace-only input: there is no task to classify. */
+export interface RouteRejection {
+  rejected: true;
+  reason: string;
+}
+
+export type RouteDecision = RouteResult | RouteRejection;
 
 export const SCORE_DIFFICULTY_SHARE = 0.6;
 export const SCORE_CONSEQUENCE_SHARE = 0.4;
@@ -157,11 +169,14 @@ function round2(value: number): number {
 }
 
 /** Score a task string deterministically; throws only on non-string input. */
-export function scoreRoute(task: string): RouteResult {
+export function scoreRoute(task: string): RouteDecision {
   if (typeof task !== 'string') {
     throw new TypeError('scoreRoute: task must be a string');
   }
   const text = task.trim();
+  if (text.length === 0) {
+    return { rejected: true, reason: 'route task is empty' };
+  }
   const words = text.length === 0 ? [] : text.split(/\s+/);
 
   const signals: RouteSignal[] = [];
@@ -265,5 +280,5 @@ export function scoreRoute(task: string): RouteResult {
     `signals: ${topSignals.map((s) => `${s.signal}(+${s.weight})`).join(', ') || 'none'}`,
   ].join(' | ');
 
-  return { tier, axes, signals: topSignals, abstained, explanation };
+  return { rejected: false, tier, axes, signals: topSignals, abstained, explanation };
 }
