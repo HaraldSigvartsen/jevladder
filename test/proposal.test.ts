@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,6 +9,7 @@ import {
   buildConfigProposal,
   formatConfigProposal,
 } from '../src/proposal.js';
+import { configProposalPullRequest, openConfigProposalPullRequest } from '../src/proposal-pr.js';
 
 const NOW = new Date('2026-10-21T12:00:00.000Z');
 const IN_WINDOW = '2026-10-20T12:00:00.000Z';
@@ -49,7 +50,7 @@ describe('buildConfigProposal', () => {
     expect(proposal.appliesConfig).toBe(false);
     expect(proposal.autoMerge).toBe(false);
     expect(JSON.stringify(proposal)).not.toContain(secret);
-    expect(formatConfigProposal(proposal)).toContain('does not open or merge');
+    expect(formatConfigProposal(proposal)).toContain('does not merge');
     expect(formatConfigProposal(proposal)).not.toContain(secret);
   });
 
@@ -118,6 +119,79 @@ describe('jevladder propose', () => {
       delete process.env.JEVLADDER_DECISION_LOG;
       delete process.env.JEVLADDER_NO_LOG;
     }
+  });
+});
+
+describe('config proposal pull request', () => {
+  function reviewLog(): string {
+    const blocks = Array.from({ length: 10 }, () => JSON.stringify({
+      ts: IN_WINDOW, outcome: 'block', source: 'rule', ruleId: 'protected-paths', diff: 'SECRET_DIFF',
+    }));
+    const allows = Array.from({ length: 10 }, () => JSON.stringify({ ts: IN_WINDOW, outcome: 'allow', source: 'judge' }));
+    return [...blocks, ...allows].join('\n');
+  }
+
+  it('opens one pull request and never merges', () => {
+    const proposal = buildConfigProposal(reviewLog(), NOW);
+    const request = configProposalPullRequest(proposal, NOW, 'main');
+    expect(request).not.toBeNull();
+    expect(request?.branch).toBe('jevladder/config-proposal-2026-10-21');
+    expect(request?.path).toBe('docs/config-proposals/2026-10-21.md');
+    expect(request?.content).toContain('Do not auto-merge.');
+    expect(request?.content).not.toContain('SECRET_DIFF');
+    expect(request?.body).toContain('must not be auto-merged');
+
+    const calls: string[][] = [];
+    const opened = openConfigProposalPullRequest(request!, {
+      cwd: '/repo',
+      run(command, args, cwd) {
+        calls.push([command, ...args]);
+        if (command === 'git' && args[0] === 'worktree' && args[1] === 'add') mkdirSync(args[3] as string, { recursive: true });
+        if (command === 'gh') {
+          expect(cwd).not.toBe('/repo');
+          return 'https://github.com/example/jevladder/pull/9\n';
+        }
+        return '';
+      },
+    });
+    expect(opened.url).toBe('https://github.com/example/jevladder/pull/9');
+    const flat = calls.map((call) => call.join(' '));
+    expect(flat.some((call) => call.startsWith('gh pr create'))).toBe(true);
+    expect(calls.some((call) => call.includes('--merge') || (call[0] === 'gh' && call[2] === 'merge'))).toBe(false);
+    expect(flat.some((call) => call.includes('refs/heads/jevladder/config-proposal-2026-10-21'))).toBe(true);
+    expect(flat.some((call) => call.includes('refs/heads/main'))).toBe(false);
+  });
+
+  it('propose --open asks a human and rejects --merge', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'jevladder-propose-open-'));
+    tempDirs.push(dir);
+    const log = join(dir, 'decisions.jsonl');
+    writeFileSync(log, reviewLog(), 'utf8');
+    const expected = configProposalPullRequest(buildConfigProposal(reviewLog(), new Date()), new Date());
+    const opened: string[] = [];
+    const { out, io } = capture();
+    const code = await runCli(['propose', '--log', log, '--open'], io, {
+      openProposal(request) {
+        opened.push(request.branch);
+        expect(request.content).not.toContain('SECRET_DIFF');
+        return { url: 'https://github.com/example/jevladder/pull/9' };
+      },
+    });
+    expect(code).toBe(0);
+    expect(opened).toEqual([expected?.branch]);
+    expect(out()).toContain('pull request: https://github.com/example/jevladder/pull/9');
+    expect(out()).toContain('Not merged.');
+
+    const quiet = capture();
+    expect(await runCli(['propose', '--log', log], quiet.io, {
+      openProposal() {
+        throw new Error('should not open');
+      },
+    })).toBe(0);
+    expect(quiet.out()).toContain('No pull request opened.');
+
+    const refused = capture();
+    expect(await runCli(['propose', '--merge'], refused.io)).toBe(1);
   });
 });
 

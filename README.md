@@ -462,7 +462,16 @@ node dist/src/cli.js propose --log ./decisions.jsonl
 
 The command prints a suggestion only after 20 decisions in the last 7 days,
 and only when one rule accounts for at least half of the blocks (and at least
-10). It does not edit config and does not open or merge a pull request.
+10). It does not edit gate config.
+
+```bash
+node dist/src/cli.js propose --log ./decisions.jsonl --open
+```
+
+`--open` creates `docs/config-proposals/<date>.md` on branch
+`jevladder/config-proposal-<date>` and opens a pull request against `main`.
+A human approves it. The command never merges, and `--merge` is rejected.
+Without a suggestion, no pull request is opened.
 
 ### What it does / does not do
 
@@ -633,8 +642,8 @@ npm run eval:independent # policy-labelled independent eval
   Advisory PreToolUse context runs before file writes and merge-like shell
   commands; it does not approve or deny them. The observe-log cost report is
   available through the advanced CLI.
-- **Later:** opening the weekly config pull request itself (a human approves;
-  never auto-merge). `jevladder propose` already prints the suggestion and
-  does not open the PR. Further hosts beyond Codex, Claude Code, and OpenCode.
+- **Later:** further hosts beyond Codex, Claude Code, and OpenCode.
+  `jevladder propose --open` opens the config-proposal pull request for a human
+  to approve and never merges it.
 
 License: [MIT](LICENSE) © 2026 Harald Sigvartsen.

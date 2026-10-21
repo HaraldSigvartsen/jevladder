@@ -70,8 +70,9 @@ context with no command text and no file contents. PreToolUse never sets
 `ts`, `outcome`, `source`, and an optional `ruleId`. Diff text, paths, and
 reasons are not written. The default path is `~/.jevladder/decisions.jsonl`;
 `JEVLADDER_DECISION_LOG` overrides it. `jevladder propose` reads that log and
-prints a suggestion. It does not edit config and does not open or merge a
-pull request.
+prints a suggestion. It does not edit gate config. `--open` creates a pull
+request and leaves it open; the command has no merge step, and `--merge` is
+rejected. Without a suggestion, no pull request is opened.
 
 Set `JEVLADDER_NO_LOG=1` (or `JEVLADDER_NO_LOG=true`) to disable observe-log
 and decision-log writing while keeping the UserPromptSubmit annotation. By default the observe log is

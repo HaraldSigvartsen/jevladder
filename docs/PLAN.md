@@ -45,7 +45,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 - [x] PreToolUse write/merge hooks — advisory context only; enforcement stays in CI/merge, and the hook never approves or denies the tool.
 - [x] Host adapter for OpenCode — advisory plugin module, local MCP, and bundled skill path. Further hosts stay on demand.
 - [x] Config proposal command — `jevladder propose` reads the privacy-safe decision log and prints a suggestion a human can review. It never edits config and never opens or merges a pull request.
-- [ ] Open the weekly config pull request — defer: the proposal command exists; a scheduler that opens PRs still waits for accumulated real logs and a human approval. Never auto-merge.
+- [x] Open the weekly config pull request — `jevladder propose --open` opens a pull request a human approves. The command never merges, and `--merge` is rejected.
 
 ### v0.3 — Claude Code marketplace + automatic advisory layer — DONE 2026-10-19
 
@@ -120,7 +120,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 - [x] Host adapter for OpenCode — advisory plugin module, local MCP, and bundled skill path. Further hosts stay on demand.
 - [x] Config proposal command — `jevladder propose` reads the privacy-safe decision log and prints a suggestion a human can review. It never edits config and never opens or merges a pull request.
-- [ ] Open the weekly config pull request — defer: the proposal command exists; a scheduler that opens PRs still waits for accumulated real logs and a human approval. Never auto-merge.
+- [x] Open the weekly config pull request — `jevladder propose --open` opens a pull request a human approves. The command never merges, and `--merge` is rejected.
 
 ## Decision log
 
@@ -137,6 +137,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-21 | `jevladder propose --open` opens the config-proposal pull request for a human to approve. It never merges. Without a suggestion, no pull request is opened. |
 | 2026-10-21 | First slice of weekly config proposals: `jevladder check` appends `{ts, outcome, source, ruleId?}` to the decision log, and `jevladder propose` prints a human review suggestion. No config edit, no pull request, no auto-merge. Opening the weekly PR stays deferred. |
 | 2026-10-21 | OpenCode host adapter: generated `opencode/jevladder.mjs` exports `JevLadderPlugin`. Advisory system guidance, route note, and post-tool note for writes and merge-like shell commands. Config hook adds the local MCP server and skills path only when absent. No tool-arg rewrite, no permission denial, no prompt or tool-input logging. Weekly config-proposal PRs remain deferred. |
 | 2026-10-21 | Advisory PreToolUse hooks for file writes (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `apply_patch`) and merge-like shell commands (`git merge`, `git push`, `git rebase`, `gh pr merge`). Context only: no `permissionDecision`, no tool-input logging. Other shell commands stay silent. |

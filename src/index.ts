@@ -10,3 +10,4 @@ export * from './route.js';
 export * from './plugin.js';
 export * from './report.js';
 export * from './proposal.js';
+export * from './proposal-pr.js';

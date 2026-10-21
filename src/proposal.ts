@@ -39,7 +39,7 @@ export interface ConfigProposal {
   suggestions: ConfigSuggestion[];
   /** The command never writes config. */
   appliesConfig: false;
-  /** The command never opens or merges a pull request. */
+  /** A pull request opened from this proposal is never merged by the command. */
   autoMerge: false;
 }
 
@@ -188,7 +188,7 @@ export function formatConfigProposal(proposal: ConfigProposal, json = false): st
     lines.push('suggestions:');
     for (const suggestion of proposal.suggestions) lines.push(`  - ${suggestion.text}`);
   }
-  lines.push('This command does not change config and does not open or merge a pull request.');
+  lines.push('This command does not change config and does not merge.');
   return `${lines.join('\n')}\n`;
 }
 
