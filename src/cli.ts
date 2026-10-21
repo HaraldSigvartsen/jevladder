@@ -7,6 +7,7 @@
  *   jevladder route --explain "<task text>" [--json]
  *   jevladder plugin --out <dir> [--protected <glob> ...]
  *   jevladder report [--log <path>] [--json]
+ *   jevladder propose [--log <path>] [--json]
  *   jevladder --help | --version
  *
  * Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.
@@ -27,6 +28,7 @@ import { MockJudge } from './judge/mock.js';
 import { parseJevLadderPluginConfig, writePluginFiles } from './plugin.js';
 import { scoreRoute } from './route.js';
 import { formatCostReport, readCostReport } from './report.js';
+import { appendDecisionRecord, formatConfigProposal, readConfigProposal } from './proposal.js';
 
 /** Output/input seams so tests can capture everything the CLI emits. */
 export interface CliIO {
@@ -54,6 +56,7 @@ Usage:
   jevladder route --explain "<task text>" [--json]
   jevladder plugin --out <dir> [--config <json>] [--protected <glob> ...]
   jevladder report [--log <path>] [--json]
+  jevladder propose [--log <path>] [--json]
   jevladder --help | --version
 
 check — run the merge gate over a unified diff
@@ -75,6 +78,11 @@ plugin — write the Codex-first advisory plugin files (legacy Claude Code suppo
 report — summarize privacy-safe observe log entries and simulated tier costs
   --log <path>      Observe log path (default ~/.jevladder/observe.jsonl).
   --json            Print the report as JSON.
+
+propose — print a config suggestion from the privacy-safe decision log
+  --log <path>      Decision log path (default ~/.jevladder/decisions.jsonl, or JEVLADDER_DECISION_LOG).
+  --json            Print the proposal as JSON.
+  Does not edit config and does not open or merge a pull request.
 
 The diff must be authoritative git diff output (not agent-authored text);
 empty or non-diff input is a usage error (exit 1), never an implicit allow.
@@ -179,6 +187,7 @@ async function runCheck(args: string[], io: CliIO): Promise<number> {
     irreversible,
     context: { testsPassed: sawPassed },
   });
+  appendDecisionRecord(decision);
 
   if (json) {
     io.stdout(
@@ -335,6 +344,33 @@ function runReport(args: string[], io: CliIO): number {
   return 0;
 }
 
+function runPropose(args: string[], io: CliIO): number {
+  let logPath: string | undefined;
+  let json = false;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] as string;
+    if (arg === '--log') {
+      const value = args[++i];
+      if (value === undefined || value.startsWith('--')) {
+        return usageError(io, 'propose: --log requires a path');
+      }
+      logPath = value;
+    } else if (arg === '--json') {
+      json = true;
+    } else {
+      return usageError(io, `propose: unknown option "${arg}"`);
+    }
+  }
+
+  const result = readConfigProposal(logPath);
+  if (!result.ok) {
+    io.stdout(`${result.message}\n`);
+    return 0;
+  }
+  io.stdout(formatConfigProposal(result.proposal, json));
+  return 0;
+}
+
 /** Run the CLI against explicit arguments and IO; returns the process exit code. */
 export async function runCli(args: string[], io?: CliIO): Promise<number> {
   const channels = io ?? defaultIO();
@@ -356,6 +392,7 @@ export async function runCli(args: string[], io?: CliIO): Promise<number> {
   if (command === 'route') return runRoute(args.slice(1), channels);
   if (command === 'plugin') return runPlugin(args.slice(1), channels);
   if (command === 'report') return runReport(args.slice(1), channels);
+  if (command === 'propose') return runPropose(args.slice(1), channels);
 
   channels.stderr(`jevladder: unknown command "${command}"\n\n${USAGE}\n`);
   return 1;

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `jevladder propose` prints a config suggestion from the privacy-safe decision log. It does not edit config or open a pull request. `jevladder check` appends outcome, source, and rule id only.
 - OpenCode host adapter (`opencode/jevladder.mjs`) adds advisory routing context, write/merge notes, and the local MCP server. It does not rewrite tool arguments or deny permission.
 - Advisory PreToolUse hooks annotate file writes and merge-like shell commands. They do not approve or deny the tool, and they do not log tool input. Enforcement stays in CI/merge.
 - Run `npm test` and `npm run typecheck` on push and pull_request. The workflow does not publish to npm.

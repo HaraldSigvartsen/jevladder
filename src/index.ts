@@ -9,3 +9,4 @@ export * from './rules/merge-rules.js';
 export * from './route.js';
 export * from './plugin.js';
 export * from './report.js';
+export * from './proposal.js';

@@ -66,8 +66,15 @@ the routing annotation, fixed SessionStart guidance, or advisory PreToolUse
 context with no command text and no file contents. PreToolUse never sets
 `permissionDecision`. Malformed and oversized input is silent.
 
+`jevladder check` also appends a separate decision log. Each line is only
+`ts`, `outcome`, `source`, and an optional `ruleId`. Diff text, paths, and
+reasons are not written. The default path is `~/.jevladder/decisions.jsonl`;
+`JEVLADDER_DECISION_LOG` overrides it. `jevladder propose` reads that log and
+prints a suggestion. It does not edit config and does not open or merge a
+pull request.
+
 Set `JEVLADDER_NO_LOG=1` (or `JEVLADDER_NO_LOG=true`) to disable observe-log
-writing while keeping the UserPromptSubmit annotation. By default the log is
+and decision-log writing while keeping the UserPromptSubmit annotation. By default the observe log is
 `~/.jevladder/observe.jsonl`; `JEVLADDER_OBSERVE_LOG` overrides the path. Before
 an append, a log at least 1 MB in size is rotated once to
 `<log-path>.1` (replacing the previous rotated file), then a fresh log is
