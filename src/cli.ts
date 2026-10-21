@@ -29,12 +29,19 @@ import { parseJevLadderPluginConfig, writePluginFiles } from './plugin.js';
 import { scoreRoute } from './route.js';
 import { formatCostReport, readCostReport } from './report.js';
 import { appendDecisionRecord, formatConfigProposal, readConfigProposal } from './proposal.js';
+import { configProposalPullRequest, openConfigProposalPullRequest } from './proposal-pr.js';
+import type { ConfigProposalPullRequest } from './proposal-pr.js';
 
 /** Output/input seams so tests can capture everything the CLI emits. */
 export interface CliIO {
   stdout(text: string): void;
   stderr(text: string): void;
   readStdin?(): string;
+}
+
+/** Test seam. Production opens the proposal pull request with git and gh. */
+export interface CliDependencies {
+  openProposal?: (request: ConfigProposalPullRequest) => { url: string };
 }
 
 const VERSION_FALLBACK = '0.6.0';
@@ -82,7 +89,9 @@ report — summarize privacy-safe observe log entries and simulated tier costs
 propose — print a config suggestion from the privacy-safe decision log
   --log <path>      Decision log path (default ~/.jevladder/decisions.jsonl, or JEVLADDER_DECISION_LOG).
   --json            Print the proposal as JSON.
-  Does not edit config and does not open or merge a pull request.
+  --open            Open a pull request for a human to approve. Refuses when there is no suggestion.
+  --base <branch>   Base branch for --open (default main).
+  Does not edit gate config. Never merges the pull request. --merge is rejected.
 
 The diff must be authoritative git diff output (not agent-authored text);
 empty or non-diff input is a usage error (exit 1), never an implicit allow.
@@ -344,9 +353,11 @@ function runReport(args: string[], io: CliIO): number {
   return 0;
 }
 
-function runPropose(args: string[], io: CliIO): number {
+function runPropose(args: string[], io: CliIO, dependencies: CliDependencies): number {
   let logPath: string | undefined;
   let json = false;
+  let open = false;
+  let base = 'main';
   for (let i = 0; i < args.length; i++) {
     const arg = args[i] as string;
     if (arg === '--log') {
@@ -355,8 +366,18 @@ function runPropose(args: string[], io: CliIO): number {
         return usageError(io, 'propose: --log requires a path');
       }
       logPath = value;
+    } else if (arg === '--base') {
+      const value = args[++i];
+      if (value === undefined || value.startsWith('--')) {
+        return usageError(io, 'propose: --base requires a branch');
+      }
+      base = value;
     } else if (arg === '--json') {
       json = true;
+    } else if (arg === '--open') {
+      open = true;
+    } else if (arg === '--merge') {
+      return usageError(io, 'propose: refusing to merge; a human approves the pull request');
     } else {
       return usageError(io, `propose: unknown option "${arg}"`);
     }
@@ -368,11 +389,30 @@ function runPropose(args: string[], io: CliIO): number {
     return 0;
   }
   io.stdout(formatConfigProposal(result.proposal, json));
-  return 0;
+  if (!open) {
+    io.stdout('No pull request opened.\n');
+    return 0;
+  }
+  const request = configProposalPullRequest(result.proposal, new Date(), base);
+  if (request === null) {
+    io.stdout('No pull request opened.\n');
+    return 0;
+  }
+  try {
+    const opened = dependencies.openProposal
+      ? dependencies.openProposal(request)
+      : openConfigProposalPullRequest(request, { cwd: process.cwd() });
+    io.stdout(`pull request: ${opened.url}\n`);
+    io.stdout('Left open for a human. Not merged.\n');
+    return 0;
+  } catch (error) {
+    io.stderr(`jevladder: cannot open config proposal pull request: ${errorMessage(error)}\n`);
+    return 1;
+  }
 }
 
 /** Run the CLI against explicit arguments and IO; returns the process exit code. */
-export async function runCli(args: string[], io?: CliIO): Promise<number> {
+export async function runCli(args: string[], io?: CliIO, dependencies: CliDependencies = {}): Promise<number> {
   const channels = io ?? defaultIO();
   const command: string | undefined = args[0];
 
@@ -392,7 +432,7 @@ export async function runCli(args: string[], io?: CliIO): Promise<number> {
   if (command === 'route') return runRoute(args.slice(1), channels);
   if (command === 'plugin') return runPlugin(args.slice(1), channels);
   if (command === 'report') return runReport(args.slice(1), channels);
-  if (command === 'propose') return runPropose(args.slice(1), channels);
+  if (command === 'propose') return runPropose(args.slice(1), channels, dependencies);
 
   channels.stderr(`jevladder: unknown command "${command}"\n\n${USAGE}\n`);
   return 1;
