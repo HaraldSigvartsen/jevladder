@@ -450,6 +450,20 @@ Tier counts and percentages are **measured (from log)**. Cost per routed task
 and cumulative costs are **simulated** using JevLadder's mock tier prices; they are
 not actual provider spend. Missing logs are reported as an advisory message.
 
+### Config proposal
+
+`jevladder check` appends `{ts, outcome, source, ruleId?}` to
+`~/.jevladder/decisions.jsonl` (override with `JEVLADDER_DECISION_LOG`). Diff
+text, paths, and reasons are not stored. `JEVLADDER_NO_LOG=1` skips the write.
+
+```bash
+node dist/src/cli.js propose --log ./decisions.jsonl
+```
+
+The command prints a suggestion only after 20 decisions in the last 7 days,
+and only when one rule accounts for at least half of the blocks (and at least
+10). It does not edit config and does not open or merge a pull request.
+
 ### What it does / does not do
 
 On `UserPromptSubmit` it scores the prompt with miniature route signals,
@@ -619,7 +633,8 @@ npm run eval:independent # policy-labelled independent eval
   Advisory PreToolUse context runs before file writes and merge-like shell
   commands; it does not approve or deny them. The observe-log cost report is
   available through the advanced CLI.
-- **Later:** weekly config-proposal PRs from the decision log (human approves;
-  never auto-merge). Further hosts beyond Codex, Claude Code, and OpenCode.
+- **Later:** opening the weekly config pull request itself (a human approves;
+  never auto-merge). `jevladder propose` already prints the suggestion and
+  does not open the PR. Further hosts beyond Codex, Claude Code, and OpenCode.
 
 License: [MIT](LICENSE) © 2026 Harald Sigvartsen.
