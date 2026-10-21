@@ -7,6 +7,7 @@ description: Applies automatically when delegating or choosing effort for coding
 
 JevLadder provides advisory routing for Codex first, with Claude Code also supported.
 Call `jevladder_route` or `jevladder_explain` to size a task. Before merge, use `jevladder_decide` as an advisory pre-merge check when available; enforcement stays in CI/merge.
+PreToolUse adds advisory context before a file write or a merge-like shell command. It does not approve or deny the tool.
 Start specific, well-scoped coding work at cheap effort; delegate automatically
 when the host supports it and its instructions allow delegation.
 

@@ -3,7 +3,8 @@
 Version 0.6.0. JevLadder is active automatically with sensible defaults;
 no CLI commands are needed after installation and hook trust review.
 SessionStart provides automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
-Never blocks or changes the main session model.
+PreToolUse adds advisory context before file writes and merge-like shell commands.
+It never approves or denies the tool call. Never blocks or changes the main session model.
 
 ## Install
 
@@ -38,6 +39,12 @@ On `UserPromptSubmit`, runs `scripts/jevladder-observe.mjs`:
    never the full prompt text).
 3. Prints advisory routing context; the host performs any delegation.
 
+On `PreToolUse` for `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `apply_patch`, and
+`Bash`, the same script prints advisory context for file writes and for
+merge-like commands (`git merge`, `git push`, `git rebase`, `gh pr merge`).
+Other shell commands produce no output. The hook does not log tool input,
+file contents, or command text, and it never sets `permissionDecision`.
+
 The hook launcher checks for Node and exits silently with status 0 when Node is
 unavailable, so plugin loading remains fail-open. The CLI is not needed for
 normal use.
@@ -66,7 +73,7 @@ config changes. Editing the emitted `config.json` does not change agent models.
 
 ## What it does NOT do
 
-- Does **not** block prompts or tool use.
+- Does **not** block prompts or tool use. PreToolUse is context only.
 - Does **not** swap the host model mid-session (a plugin cannot do that —
   see the main jevladder README honesty section).
 - Does **not** call remote APIs or send prompt text anywhere.
