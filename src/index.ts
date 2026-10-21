@@ -1,5 +1,5 @@
 /**
- * TierClef public API: gate core, diff parsing, judge adapters.
+ * JevLadder public API: gate core, diff parsing, judge adapters.
  */
 export * from './gate.js';
 export * from './diff-parse.js';

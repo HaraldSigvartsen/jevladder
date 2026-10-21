@@ -1,5 +1,5 @@
 /**
- * Merge-time rule pack for the tierclef gate.
+ * Merge-time rule pack for the jevladder gate.
  *
  * `block` in this pack means "stop and require a human" — it is the safe
  * direction, never a judgment that the change itself is bad. Rules are

@@ -1,8 +1,8 @@
-# TierClef plugin and MCP security
+# JevLadder plugin and MCP security
 
 ## Threat model
 
-TierClef hooks run as part of the host application with the same operating
+JevLadder hooks run as part of the host application with the same operating
 system privileges as the user running that application. They can read their
 standard input and write the local observe log. Installing a plugin does not
 put it in a separate security sandbox. Only install and configure code you
@@ -20,7 +20,7 @@ The merge gate has one placeholder exception, granted only when BOTH conditions 
 
 The merge gate also scans changed added and removed lines for code-shaped auth, session, and security operations. It blocks patterns such as session/token expiry or lifetime settings, JWT signing or verification, password hash/compare operations, permission/role checks, and auth/CSRF middleware even when the path is neutral. Middleware detection reads the full `app/router/server . use(...)` argument list with comment- and string-aware parenthesis balancing: `//` and block-comment contents are ignored (a `)` inside a comment cannot terminate the argument list), quoted-string text is never read as identifiers, and template-literal text (for example `` `/session` ``) is treated as a string — while `${...}` interpolation expressions are still inspected using the same string/comment-aware lexing (interpolation strings and comments are stripped, nested templates recurse), so `` app.use(`/x/${authMiddleware}`) `` blocks but `` app.use(`${base}/${section ?? "session"}`, publicRouter) `` and `` app.use(`${base /* session routes */}`, publicRouter) `` do not. Regex literal contents (for example `/session/` in `` app.use(/session/, publicRouter) ``) are likewise excluded from identifier scanning and parenthesis balancing, and the raw call-shaped auth/CSRF/session checks run over the line with regex-literal contents stripped too, so regex pattern source such as `/auth(?:ors)?/` or `/session(.*)/` in a middleware route never reads as an `auth(` or `session(` call while real calls (including `` app.use(session({ ... })) ``) still block. Known limitation: a regex literal nested inside a `${...}` interpolation (for example `` app.use(`${prefix.replace(/session/g, "talk")}`, publicRouter) ``) is not yet regex-stripped and may ask for human review; this errs toward blocking, never toward allowing. Auth identifiers are constrained to auth/authn/authz/authentication/authorization/session/CSRF families, so author/content identifiers such as `authorsRouter` do not match. Standalone `sign(`/`verify(` calls with jwt/token arguments block, as do member calls on any receiver except the exact `Math` receiver: `Math.sign`, `Math . sign`, and `Math. sign` stay exempt, while `crypto.verify(token)`, `session.verify(token)`, and `jwt.sign(token, …)` block. This content detection is heuristic and block-only: a match asks for human review and never allows a change. Markdown files are excluded for changed lines using the file path from the `diff --git` header of the file they belong to (old path for removed lines, new path for added lines), and that exclusion resets at every header — a source file following a Markdown file in the same diff is scanned normally. Detection happens line by line: logic split across multiple physical diff lines (for example a middleware call continued onto the next line) is not reassembled. The rule may also miss sensitive semantics without recognizable code-shaped signals, including unfamiliar implementations or dynamically constructed operations; code that closely resembles these patterns may also require human review.
 
-The optional judge client in the TierClef library is library-only: the plugin
+The optional judge client in the JevLadder library is library-only: the plugin
 and MCP server do not invoke it. If an application using the library
 explicitly configures the client, it makes a request to that configured
 endpoint with a 15-second timeout. Missing, malformed, or unavailable judge
@@ -73,9 +73,9 @@ including matched secret values. Hook stdout contains only the routing
 annotation (or fixed SessionStart guidance); malformed and oversized input is
 silent.
 
-Set `TIERCLEF_NO_LOG=1` (or `TIERCLEF_NO_LOG=true`) to disable observe-log
+Set `JEVLADDER_NO_LOG=1` (or `JEVLADDER_NO_LOG=true`) to disable observe-log
 writing while keeping the UserPromptSubmit annotation. By default the log is
-`~/.tierclef/observe.jsonl`; `TIERCLEF_OBSERVE_LOG` overrides the path. Before
+`~/.jevladder/observe.jsonl`; `JEVLADDER_OBSERVE_LOG` overrides the path. Before
 an append, a log at least 1 MB in size is rotated once to
 `<log-path>.1` (replacing the previous rotated file), then a fresh log is
 started. Rotation or write errors are ignored by the fail-open hook.
@@ -95,9 +95,9 @@ The checked-in generated plugin inventory is:
 - `agents/` — routing guidance for supported host agents.
 - `hooks/` — hook event registration.
 - `hooks/hooks.json` — hook event registration.
-- `scripts/tierclef-hook.sh` — silent Node launcher.
-- `scripts/tierclef-observe.mjs` — standalone observe hook.
-- `scripts/tierclef-mcp.mjs` — standalone advisory MCP server.
+- `scripts/jevladder-hook.sh` — silent Node launcher.
+- `scripts/jevladder-observe.mjs` — standalone observe hook.
+- `scripts/jevladder-mcp.mjs` — standalone advisory MCP server.
 - `skills/` — routing usage guidance.
 - `config.json` — generated plugin settings.
 - `README.md` — plugin setup and usage.
@@ -107,13 +107,13 @@ other install-time script. Node.js is required to run the hook and MCP server.
 
 ## Disable or uninstall
 
-- **Codex:** remove the TierClef plugin from the enabled plugins in Codex
+- **Codex:** remove the JevLadder plugin from the enabled plugins in Codex
   settings, or stop supplying its plugin directory to the host.
-- **Claude Code:** remove TierClef from the enabled plugin list, or uninstall it
+- **Claude Code:** remove JevLadder from the enabled plugin list, or uninstall it
   with the Claude Code plugin manager used for installation.
 - **Manual/local install:** remove the generated plugin directory and remove
   its `.mcp.json` server entry from the host project configuration.
-- **Stop logging only:** set `TIERCLEF_NO_LOG=1`. To remove existing local logs,
-  delete `~/.tierclef/observe.jsonl` and its optional `.1` rotated file.
+- **Stop logging only:** set `JEVLADDER_NO_LOG=1`. To remove existing local logs,
+  delete `~/.jevladder/observe.jsonl` and its optional `.1` rotated file.
 
 Disabling a plugin does not delete logs already written to disk.

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/tierclef-hook.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/jevladder-hook.sh\"",
             "timeout": 5
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/tierclef-hook.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/jevladder-hook.sh\"",
             "timeout": 5
           }
         ]

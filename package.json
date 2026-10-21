@@ -1,12 +1,12 @@
 {
-  "name": "tierclef",
+  "name": "jevladder",
   "version": "0.6.0",
-  "description": "Clef-gate for AI agents: deterministic rules first, an AI judge for the grey zone, and a hard human fallback.",
+  "description": "Ladder-gate for AI agents: deterministic rules first, an AI judge for the grey zone, and a hard human fallback.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/HaraldSigvartsen/tierclef.git"
+    "url": "git+https://github.com/HaraldSigvartsen/jevladder.git"
   },
   "exports": {
     ".": {
@@ -18,7 +18,7 @@
     "node": ">=20"
   },
   "bin": {
-    "tierclef": "dist/src/cli.js"
+    "jevladder": "dist/src/cli.js"
   },
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -30,9 +30,9 @@
     "docs/SECURITY.md",
     "CHANGELOG.md"
   ],
-  "homepage": "https://github.com/HaraldSigvartsen/tierclef#readme",
+  "homepage": "https://github.com/HaraldSigvartsen/jevladder#readme",
   "bugs": {
-    "url": "https://github.com/HaraldSigvartsen/tierclef/issues"
+    "url": "https://github.com/HaraldSigvartsen/jevladder/issues"
   },
   "keywords": ["ai-agents", "model-routing", "merge-gate", "cli", "codex", "claude-code"],
   "publishConfig": {

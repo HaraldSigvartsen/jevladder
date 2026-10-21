@@ -137,10 +137,10 @@ unquoted secrets; fixes applied in this pass.
   `**/payments/**`; `.env.example/secret.key` is not path-protected
   (no matching glob — not a fail-open via template exemption). Documented
   on `isEnvTemplatePath` / `isProtected`; regression tests added.
-- **`JevPluginConfig.logFileName` unwired.** Observe script now embeds the
-  sanitized basename (`~/.jev/<logFileName>`); basename-only, slash-strip,
+- **`JevLadderPluginConfig.logFileName` unwired.** Observe script now embeds the
+  sanitized basename (`~/.jevladder/<logFileName>`); basename-only, slash-strip,
   fallback to `observe.jsonl` on weird input. Config + README stay
-  consistent. `JEV_OBSERVE_LOG` env override always wins (documented).
+  consistent. `JEVLADDER_OBSERVE_LOG` env override always wins (documented).
 - **Unquoted secret FPs on type ids / constant refs.**
   `token: JwtPayload;`, `password: PasswordHash;`,
   `const token = ACCESS_TOKEN_DEFAULT;` no longer block (PascalCase type

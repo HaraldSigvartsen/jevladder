@@ -15,7 +15,7 @@ function record(overrides: Partial<ArmOutcome> & Pick<ArmOutcome, 'id' | 'kind' 
 
 const fixtureRun: EvalRun = {
   tasks: [],
-  tierclef: [
+  jevladder: [
     record({ id: 't1', kind: 'merge', expected: 'allow', outcome: 'allow', cost: PRICES.cheapCall, modelCalls: 1 }),
     record({ id: 't2', kind: 'merge', expected: 'human', outcome: 'human', cost: 0.252, modelCalls: 1, escalated: true }),
     record({ id: 't3', kind: 'merge', expected: 'allow', outcome: 'block' }),
@@ -33,29 +33,29 @@ describe('computeMetrics (hand-built fixture)', () => {
   const metrics = computeMetrics(fixtureRun);
 
   it('computes per-arm accuracy and quality parity', () => {
-    expect(metrics.tierclef.accuracy).toBeCloseTo(0.75, 10);
-    expect(metrics.tierclef.mergeAccuracy).toBeCloseTo(2 / 3, 10);
-    expect(metrics.tierclef.routeAccuracy).toBe(1);
+    expect(metrics.jevladder.accuracy).toBeCloseTo(0.75, 10);
+    expect(metrics.jevladder.mergeAccuracy).toBeCloseTo(2 / 3, 10);
+    expect(metrics.jevladder.routeAccuracy).toBe(1);
     expect(metrics.baseline.accuracy).toBe(0.5);
     expect(metrics.qualityParity).toBeCloseTo(0.25, 10);
   });
 
   it('computes costs, approvals and token estimates', () => {
-    expect(metrics.tierclef.totalCost).toBeCloseTo(0.256, 6);
-    expect(metrics.tierclef.approvedCount).toBe(1);
-    expect(metrics.tierclef.costPerApproved).toBeCloseTo(0.256, 6);
-    expect(metrics.tierclef.modelCalls).toBe(3);
-    expect(metrics.tierclef.estimatedTokens).toBe(3 * PRICES.tokensPerCall);
+    expect(metrics.jevladder.totalCost).toBeCloseTo(0.256, 6);
+    expect(metrics.jevladder.approvedCount).toBe(1);
+    expect(metrics.jevladder.costPerApproved).toBeCloseTo(0.256, 6);
+    expect(metrics.jevladder.modelCalls).toBe(3);
+    expect(metrics.jevladder.estimatedTokens).toBe(3 * PRICES.tokensPerCall);
     expect(metrics.baseline.totalCost).toBeCloseTo(0.2, 6);
     expect(metrics.baseline.approvedCount).toBe(3);
     expect(metrics.baseline.costPerApproved).toBeCloseTo(0.2 / 3, 6);
   });
 
   it('computes false-block rate and escalation precision', () => {
-    expect(metrics.tierclef.falseBlocks).toBe(1);
-    expect(metrics.tierclef.falseBlockRate).toBe(0.5);
-    expect(metrics.tierclef.escalations).toBe(1);
-    expect(metrics.tierclef.escalationPrecision).toBe(1);
+    expect(metrics.jevladder.falseBlocks).toBe(1);
+    expect(metrics.jevladder.falseBlockRate).toBe(0.5);
+    expect(metrics.jevladder.escalations).toBe(1);
+    expect(metrics.jevladder.escalationPrecision).toBe(1);
     expect(metrics.baseline.escalations).toBe(0);
     expect(metrics.baseline.escalationPrecision).toBeNull();
   });
@@ -71,9 +71,9 @@ describe('known weakness scenarios', () => {
     ]);
     expect(cases.map((task) => task.expected)).toEqual(['human', 'allow', 'reject']);
     const run = await runEval(cases);
-    expect(run.tierclef.every((result) => !result.correct)).toBe(true);
+    expect(run.jevladder.every((result) => !result.correct)).toBe(true);
     const metrics = computeMetrics({ ...run, tasks: run.tasks });
-    expect(metrics.tierclef.total).toBe(0);
+    expect(metrics.jevladder.total).toBe(0);
   });
 
   it('excludes the new env-template weakness from scored accuracy and reports it separately', async () => {
@@ -83,14 +83,14 @@ describe('known weakness scenarios', () => {
     if (task?.kind !== 'merge') throw new Error('expected merge task');
     expect(task.input.files).toEqual(['.env.example']);
     const run = await runEval([task]);
-    const record = run.tierclef[0];
+    const record = run.jevladder[0];
     expect(record.expected).toBe('allow');
     expect(record.outcome).toBe('block');
     expect(record.correct).toBe(false);
     const metrics = computeMetrics({ ...run, tasks: run.tasks });
-    expect(metrics.tierclef.total).toBe(0);
-    expect(metrics.tierclef.falseBlocks).toBe(0);
-    expect(metrics.tierclef.falseBlockRate).toBeNull();
+    expect(metrics.jevladder.total).toBe(0);
+    expect(metrics.jevladder.falseBlocks).toBe(0);
+    expect(metrics.jevladder.falseBlockRate).toBeNull();
   });
 });
 
@@ -126,10 +126,10 @@ describe('eval tasks', () => {
 });
 
 describe('runEval (mock arms, full task set)', () => {
-  it('achieves tierclef accuracy >= 0.8 and >= baseline', async () => {
+  it('achieves jevladder accuracy >= 0.8 and >= baseline', async () => {
     const metrics = computeMetrics(await runEval());
-    expect(metrics.tierclef.accuracy).toBeGreaterThanOrEqual(0.8);
-    expect(metrics.tierclef.accuracy).toBeGreaterThanOrEqual(metrics.baseline.accuracy);
+    expect(metrics.jevladder.accuracy).toBeGreaterThanOrEqual(0.8);
+    expect(metrics.jevladder.accuracy).toBeGreaterThanOrEqual(metrics.baseline.accuracy);
   });
 
   it('is deterministic across runs', async () => {

@@ -1,18 +1,18 @@
 {
-  "name": "tierclef",
+  "name": "jevladder",
   "version": "0.6.0",
   "description": "Codex-first automatic advisory routing, lifecycle guidance, and voluntary MCP decide/route/explain tools. Never blocks or swaps the main model.",
   "author": {
     "name": "Harald Sigvartsen"
   },
-  "homepage": "https://github.com/HaraldSigvartsen/tierclef",
-  "repository": "https://github.com/HaraldSigvartsen/tierclef",
+  "homepage": "https://github.com/HaraldSigvartsen/jevladder",
+  "repository": "https://github.com/HaraldSigvartsen/jevladder",
   "license": "MIT",
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "TierClef",
+    "displayName": "JevLadder",
     "shortDescription": "Cheap-first advisory routing for Codex.",
     "longDescription": "Automatic lifecycle guidance and a routing skill, with voluntary local MCP decide/route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host.",
     "developerName": "Harald Sigvartsen",
@@ -22,7 +22,7 @@
       "Lifecycle hooks"
     ],
     "defaultPrompt": [
-      "Size this coding task with TierClef.",
+      "Size this coding task with JevLadder.",
       "Explain the recommended effort tier.",
       "Start cheap and escalate when verification is weak."
     ],

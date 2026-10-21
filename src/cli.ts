@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * `tierclef` CLI: merge-gate checks, deterministic task routing, and plugin emit.
+ * `jevladder` CLI: merge-gate checks, deterministic task routing, and plugin emit.
  *
  * Commands:
- *   tierclef check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
- *   tierclef route --explain "<task text>" [--json]
- *   tierclef plugin --out <dir> [--protected <glob> ...]
- *   tierclef report [--log <path>] [--json]
- *   tierclef --help | --version
+ *   jevladder check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
+ *   jevladder route --explain "<task text>" [--json]
+ *   jevladder plugin --out <dir> [--protected <glob> ...]
+ *   jevladder report [--log <path>] [--json]
+ *   jevladder --help | --version
  *
  * Exit codes: 0 allow, 1 usage/IO error, 2 block, 3 human decision required.
  * Unspecified test status counts as not green (never fail open).
  *
- * TRUST BOUNDARY: `tierclef check` expects an authoritative unified diff (e.g.
+ * TRUST BOUNDARY: `jevladder check` expects an authoritative unified diff (e.g.
  * `git diff` output piped or saved to a file), never agent-authored prose.
  * File paths are parsed from the diff itself (`diff --git`, `+++` headers,
  * `Binary files … differ` notices, including both sides of renames).
@@ -24,7 +24,7 @@ import { defineGate } from './gate.js';
 import { isStructuredDiff, parseDiffFilePaths } from './diff-parse.js';
 import { makeMergeRules } from './rules/merge-rules.js';
 import { MockJudge } from './judge/mock.js';
-import { parseTierClefPluginConfig, writePluginFiles } from './plugin.js';
+import { parseJevLadderPluginConfig, writePluginFiles } from './plugin.js';
 import { scoreRoute } from './route.js';
 import { formatCostReport, readCostReport } from './report.js';
 
@@ -47,14 +47,14 @@ function readVersion(): string {
   }
 }
 
-const USAGE = `tierclef — clef-gate for AI agents
+const USAGE = `jevladder — ladder-gate for AI agents
 
 Usage:
-  tierclef check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
-  tierclef route --explain "<task text>" [--json]
-  tierclef plugin --out <dir> [--config <json>] [--protected <glob> ...]
-  tierclef report [--log <path>] [--json]
-  tierclef --help | --version
+  jevladder check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
+  jevladder route --explain "<task text>" [--json]
+  jevladder plugin --out <dir> [--config <json>] [--protected <glob> ...]
+  jevladder report [--log <path>] [--json]
+  jevladder --help | --version
 
 check — run the merge gate over a unified diff
   --diff <file>     Path to a unified diff (e.g. git diff output), or "-" to read stdin (default stdin).
@@ -73,7 +73,7 @@ plugin — write the Codex-first advisory plugin files (legacy Claude Code suppo
   --protected <g>   Protected-path glob embedded in config.json (repeatable).
 
 report — summarize privacy-safe observe log entries and simulated tier costs
-  --log <path>      Observe log path (default ~/.tierclef/observe.jsonl).
+  --log <path>      Observe log path (default ~/.jevladder/observe.jsonl).
   --json            Print the report as JSON.
 
 The diff must be authoritative git diff output (not agent-authored text);
@@ -103,8 +103,8 @@ function defaultIO(): CliIO {
 }
 
 function usageError(io: CliIO, message: string): number {
-  io.stderr(`tierclef: ${message}\n`);
-  io.stderr(`Run "tierclef --help" for usage.\n`);
+  io.stderr(`jevladder: ${message}\n`);
+  io.stderr(`Run "jevladder --help" for usage.\n`);
   return 1;
 }
 
@@ -145,7 +145,7 @@ async function runCheck(args: string[], io: CliIO): Promise<number> {
     try {
       diff = readFileSync(diffArg, 'utf8');
     } catch (error) {
-      io.stderr(`tierclef: cannot read diff "${diffArg}": ${errorMessage(error)}\n`);
+      io.stderr(`jevladder: cannot read diff "${diffArg}": ${errorMessage(error)}\n`);
       return 1;
     }
   } else {
@@ -153,7 +153,7 @@ async function runCheck(args: string[], io: CliIO): Promise<number> {
     try {
       diff = io.readStdin();
     } catch (error) {
-      io.stderr(`tierclef: cannot read diff from stdin: ${errorMessage(error)}\n`);
+      io.stderr(`jevladder: cannot read diff from stdin: ${errorMessage(error)}\n`);
       return 1;
     }
   }
@@ -290,7 +290,7 @@ function runPlugin(args: string[], io: CliIO): number {
   try {
     const config = configPath === undefined
       ? {}
-      : parseTierClefPluginConfig(JSON.parse(readFileSync(configPath, 'utf8')));
+      : parseJevLadderPluginConfig(JSON.parse(readFileSync(configPath, 'utf8')));
     const abs = resolve(outDir);
     const written = writePluginFiles(abs, {
       ...config,
@@ -301,7 +301,7 @@ function runPlugin(args: string[], io: CliIO): number {
     }
     return 0;
   } catch (error) {
-    io.stderr(`tierclef: cannot write plugin to "${outDir}": ${errorMessage(error)}\n`);
+    io.stderr(`jevladder: cannot write plugin to "${outDir}": ${errorMessage(error)}\n`);
     return 1;
   }
 }
@@ -355,7 +355,7 @@ export async function runCli(args: string[], io?: CliIO): Promise<number> {
   if (command === 'plugin') return runPlugin(args.slice(1), channels);
   if (command === 'report') return runReport(args.slice(1), channels);
 
-  channels.stderr(`tierclef: unknown command "${command}"\n\n${USAGE}\n`);
+  channels.stderr(`jevladder: unknown command "${command}"\n\n${USAGE}\n`);
   return 1;
 }
 

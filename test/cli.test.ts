@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 function writeTempDiff(name: string, content: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'tierclef-cli-'));
+  const dir = mkdtempSync(join(tmpdir(), 'jevladder-cli-'));
   tempDirs.push(dir);
   const file = join(dir, name);
   writeFileSync(file, content, 'utf8');
@@ -88,7 +88,7 @@ function captureIO(stdin?: string): { io: CliIO; out: () => string; err: () => s
   return { io, out: () => out, err: () => err };
 }
 
-describe('tierclef check', () => {
+describe('jevladder check', () => {
   it('allows a small safe diff with green tests (exit 0, judge source)', async () => {
     const file = writeTempDiff('safe.diff', SAFE_DIFF);
     const { io, out } = captureIO();
@@ -183,7 +183,7 @@ describe('tierclef check', () => {
   it('returns 1 when the diff file cannot be read', async () => {
     const { io, err } = captureIO();
     const code = await runCli(
-      ['check', '--diff', '/nonexistent/tierclef-cli-test.diff', '--tests-passed'],
+      ['check', '--diff', '/nonexistent/jevladder-cli-test.diff', '--tests-passed'],
       io,
     );
     expect(code).toBe(1);
@@ -261,7 +261,7 @@ describe('tierclef check', () => {
   });
 });
 
-describe('tierclef route', () => {
+describe('jevladder route', () => {
   it('routes a docs typo to cheap', async () => {
     const { io, out } = captureIO();
     const code = await runCli(['route', '--explain', 'Rename a typo in the docs'], io);
@@ -305,7 +305,7 @@ describe('tierclef route', () => {
   });
 });
 
-describe('tierclef top-level', () => {
+describe('jevladder top-level', () => {
   it('prints the version (exit 0)', async () => {
     const { io, out } = captureIO();
     const code = await runCli(['--version'], io);

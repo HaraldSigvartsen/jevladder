@@ -9,7 +9,6 @@
 
 ## 0.6.0 — 2026-10-19
 
-- Renamed Jev to TierClef across package, CLI, plugin, and MCP surfaces.
 - Hardened observer input bounds, log controls, and MCP payload validation with privacy-safe errors.
 - Added adversarial coverage for diff injection, path handling, credentials, invalid judge/MCP inputs, and empty CLI/report inputs.
 - Documented security boundaries, troubleshooting, and verified plugin uninstall steps.

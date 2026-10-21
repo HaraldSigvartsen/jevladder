@@ -12,13 +12,13 @@ export interface OpenAICompatibleJudgeConfig {
   baseUrl: string;
   /** Model id to send in the chat-completion request. */
   model: string;
-  /** Environment variable holding the API key. Default `TIERCLEF_JUDGE_API_KEY`. */
+  /** Environment variable holding the API key. Default `JEVLADDER_JUDGE_API_KEY`. */
   apiKeyEnv?: string;
   /** Request timeout in milliseconds. Default 15000. */
   timeoutMs?: number;
 }
 
-export const DEFAULT_JUDGE_API_KEY_ENV = 'TIERCLEF_JUDGE_API_KEY';
+export const DEFAULT_JUDGE_API_KEY_ENV = 'JEVLADDER_JUDGE_API_KEY';
 export const DEFAULT_JUDGE_TIMEOUT_MS = 15_000;
 
 const MAX_DIFF_CHARS = 10_000;

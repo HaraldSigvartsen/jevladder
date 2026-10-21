@@ -1,23 +1,23 @@
-# TierClef — Codex-first advisory plugin
+# JevLadder — Codex-first advisory plugin
 
-Version 0.6.0. TierClef is active automatically with sensible defaults;
+Version 0.6.0. JevLadder is active automatically with sensible defaults;
 no CLI commands are needed after installation and hook trust review.
 SessionStart provides automatic delegation guidance, and UserPromptSubmit adds an advisory route tier.
 Never blocks or changes the main session model.
 
 ## Install
 
-Install from the TierClef marketplace in Codex:
+Install from the JevLadder marketplace in Codex:
 
 ```bash
-codex plugin marketplace add HaraldSigvartsen/tierclef
-codex plugin add tierclef@tierclef
+codex plugin marketplace add HaraldSigvartsen/jevladder
+codex plugin add jevladder@jevladder
 ```
 
 Then just use Codex normally. Codex asks you to review/trust the plugin's hooks
 once (`/hooks`); this is Codex's safety prompt, not config editing. The bundled
-MCP server needs Node and exposes voluntary `tierclef_decide`, `tierclef_route` /
-`tierclef_explain` tools; it logs no task or diff text. `tierclef_decide` is an
+MCP server needs Node and exposes voluntary `jevladder_decide`, `jevladder_route` /
+`jevladder_explain` tools; it logs no task or diff text. `jevladder_decide` is an
 advisory miniature pre-merge check; enforcement stays in CI/merge.
 
 ## What it does
@@ -29,7 +29,7 @@ verification is weak. Reserve frontier for cross-cutting, unclear-cause, or
 orchestration work. A tier is never permission; irreversible or uncertain work
 goes to a human, and the main session model is never swapped.
 
-On `UserPromptSubmit`, runs `scripts/tierclef-observe.mjs`:
+On `UserPromptSubmit`, runs `scripts/jevladder-observe.mjs`:
 
 1. Scores the prompt with simple signals (payments / auth / migration /
    delete / production, ambiguity, length) → tier `cheap` | `mid` |
@@ -44,20 +44,20 @@ normal use.
 
 ## Claude Code (secondary host)
 
-Install using `/plugin marketplace add HaraldSigvartsen/tierclef`, then
-`/plugin install tierclef@tierclef`. The agents below are Claude-only; Codex custom
+Install using `/plugin marketplace add HaraldSigvartsen/jevladder`, then
+`/plugin install jevladder@jevladder`. The agents below are Claude-only; Codex custom
 agents are TOML in ~/.codex/agents and are not bundled by this plugin.
 
 ### Subagent models
 
 | Tier | Agent | Claude Code model alias |
 | --- | --- | --- |
-| cheap | tierclef-cheap | haiku |
-| mid | tierclef-mid | sonnet |
-| frontier | tierclef-frontier | inherit |
+| cheap | jevladder-cheap | haiku |
+| mid | jevladder-mid | sonnet |
+| frontier | jevladder-frontier | inherit |
 
 Set `subagentModels` in the JSON passed to `--config` (or in
-`TierClefPluginConfig` passed to `buildPluginFiles` / `writePluginFiles`).
+`JevLadderPluginConfig` passed to `buildPluginFiles` / `writePluginFiles`).
 Allowed aliases: `haiku`, `sonnet`, `opus`, `inherit`; omitted tiers default
 to haiku / sonnet / inherit. `inherit` uses the main session's model for the
 subagent; it does not guarantee a frontier-class model or a lower cost.
@@ -68,14 +68,14 @@ config changes. Editing the emitted `config.json` does not change agent models.
 
 - Does **not** block prompts or tool use.
 - Does **not** swap the host model mid-session (a plugin cannot do that —
-  see the main tierclef README honesty section).
+  see the main jevladder README honesty section).
 - Does **not** call remote APIs or send prompt text anywhere.
 
 ## Log location and privacy
 
-- Default: `~/.tierclef/observe.jsonl` (configured basename; path segments and
+- Default: `~/.jevladder/observe.jsonl` (configured basename; path segments and
   weird names are sanitized to `observe.jsonl`).
-- Override (wins): set env `TIERCLEF_OBSERVE_LOG` to any file path — the env
+- Override (wins): set env `JEVLADDER_OBSERVE_LOG` to any file path — the env
   value always takes priority over the configured basename.
 - Each line is `{ts, session_id, cwd, tier, signals, promptChars}` —
   **no prompt text** is written.
@@ -83,5 +83,5 @@ config changes. Editing the emitted `config.json` does not change agent models.
 ## Uninstall
 
 Remove the plugin directory from your Claude Code plugins location (or stop
-passing `--plugin-dir`), and delete `~/.tierclef` if you no longer want local
+passing `--plugin-dir`), and delete `~/.jevladder` if you no longer want local
 observe logs.

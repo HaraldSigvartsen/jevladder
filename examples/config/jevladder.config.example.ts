@@ -1,14 +1,14 @@
 /**
- * Example tierclef configuration — typed, illustrative only.
+ * Example jevladder configuration — typed, illustrative only.
  *
- * Copy to `tierclef.config.ts` (or import from your own setup code) and edit for
- * your project. Model names are GENERIC PLACEHOLDERS: tierclef does not endorse
+ * Copy to `jevladder.config.ts` (or import from your own setup code) and edit for
+ * your project. Model names are GENERIC PLACEHOLDERS: jevladder does not endorse
  * any provider, and the prices are invented round numbers, not quotes. See
  * examples/config/README.md for how each field maps to gate/route/cli
  * concepts.
  */
 
-import type { TierClefPluginConfig } from '../../src/plugin.js';
+import type { JevLadderPluginConfig } from '../../src/plugin.js';
 
 export type ModelTier = 'cheap' | 'mid' | 'frontier';
 
@@ -23,9 +23,9 @@ export interface ModelLadderEntry {
   outputPer1M: number;
 }
 
-export interface TierClefConfig {
+export interface JevLadderConfig {
   /** Passed explicitly to buildPluginFiles/writePluginFiles; not auto-loaded. */
-  plugin?: TierClefPluginConfig;
+  plugin?: JevLadderPluginConfig;
   /**
    * Glob patterns (`*` within a segment, `**` across segments; slash-free
    * patterns also match basenames) for paths that always require human
@@ -55,7 +55,7 @@ export interface TierClefConfig {
   };
 }
 
-export const config: TierClefConfig = {
+export const config: JevLadderConfig = {
   plugin: { subagentModels: { cheap: 'haiku', mid: 'sonnet', frontier: 'inherit' } },
   protectedPaths: [
     '**/payments/**',

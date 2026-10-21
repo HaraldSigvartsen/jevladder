@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * TierClef eval runner: two arms over the labelled synthetic tasks in tasks.ts.
+ * JevLadder eval runner: two arms over the labelled synthetic tasks in tasks.ts.
  *
- * Arm TIERCLEF (the thing being evaluated):
+ * Arm JEVLADDER (the thing being evaluated):
  * - merge tasks: deterministic merge rules first (free, first hit decides),
  *   grey zone to a cheap mock judge that can abstain; abstentions and
  *   irreversible judge-allows defer to a human (human-review cost proxy).
@@ -97,7 +97,7 @@ export interface ArmOutcome {
 
 export interface EvalRun {
   tasks: readonly EvalTask[];
-  tierclef: ArmOutcome[];
+  jevladder: ArmOutcome[];
   baseline: ArmOutcome[];
 }
 
@@ -136,20 +136,20 @@ function mergeCost(
 
 /** Run both arms over `tasks` (defaults to the full synthetic set). */
 export async function runEval(tasks: readonly EvalTask[] = evalTasks): Promise<EvalRun> {
-  const tierclefGate = defineGate({ rules: makeMergeRules(), judge: new MockJudge() });
+  const jevladderGate = defineGate({ rules: makeMergeRules(), judge: new MockJudge() });
   const baselineGate = defineGate({
     rules: makeMergeRules(),
     judge: new PermissiveFrontierMock(),
   });
 
-  const tierclef: ArmOutcome[] = [];
+  const jevladder: ArmOutcome[] = [];
   const baseline: ArmOutcome[] = [];
 
   for (const task of tasks) {
     if (task.kind === 'merge') {
-      const decision = await tierclefGate.decide(task.input);
+      const decision = await jevladderGate.decide(task.input);
       const priced = mergeCost(decision, PRICES.cheapCall);
-      tierclef.push({
+      jevladder.push({
         id: task.id,
         kind: 'merge',
         expected: task.expected,
@@ -173,7 +173,7 @@ export async function runEval(tasks: readonly EvalTask[] = evalTasks): Promise<E
     } else {
       const routed = scoreRoute(task.input);
       const actual: Outcome = routed.tier;
-      tierclef.push({
+      jevladder.push({
         id: task.id,
         kind: 'route',
         expected: task.expected,
@@ -198,7 +198,7 @@ export async function runEval(tasks: readonly EvalTask[] = evalTasks): Promise<E
     }
   }
 
-  return { tasks, tierclef, baseline };
+  return { tasks, jevladder, baseline };
 }
 
 /* ------------------------------------------------------------------ *
@@ -232,14 +232,14 @@ export interface ArmMetrics {
 }
 
 export interface EvalMetrics {
-  tierclef: ArmMetrics;
+  jevladder: ArmMetrics;
   baseline: ArmMetrics;
-  /** tierclef.accuracy - baseline.accuracy (quality parity; positive = tierclef better). */
+  /** jevladder.accuracy - baseline.accuracy (quality parity; positive = jevladder better). */
   qualityParity: number;
 }
 
 export function computeMetrics(run: {
-  tierclef: ArmOutcome[];
+  jevladder: ArmOutcome[];
   baseline: ArmOutcome[];
   tasks?: readonly EvalTask[];
 }): EvalMetrics {
@@ -289,9 +289,9 @@ export function computeMetrics(run: {
     };
   };
 
-  const tierclef = arm(run.tierclef);
+  const jevladder = arm(run.jevladder);
   const baseline = arm(run.baseline);
-  return { tierclef, baseline, qualityParity: round6(tierclef.accuracy - baseline.accuracy) };
+  return { jevladder, baseline, qualityParity: round6(jevladder.accuracy - baseline.accuracy) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -310,25 +310,25 @@ function mark(ok: boolean): string {
   return ok ? 'ok' : 'X';
 }
 
-export function formatReport(run: { tierclef: ArmOutcome[]; baseline: ArmOutcome[]; tasks?: readonly EvalTask[] }, metrics: EvalMetrics): string {
+export function formatReport(run: { jevladder: ArmOutcome[]; baseline: ArmOutcome[]; tasks?: readonly EvalTask[] }, metrics: EvalMetrics): string {
   const lines: string[] = [];
   const push = (text = ''): void => {
     lines.push(text);
   };
 
-  const mergeCount = run.tierclef.filter((r) => r.kind === 'merge').length;
-  const routeCount = run.tierclef.filter((r) => r.kind === 'route').length;
+  const mergeCount = run.jevladder.filter((r) => r.kind === 'merge').length;
+  const routeCount = run.jevladder.filter((r) => r.kind === 'route').length;
 
-  push('# tierclef eval report (generatedFrom: mock)');
+  push('# jevladder eval report (generatedFrom: mock)');
   push();
   push(
-    `Tasks: ${run.tierclef.length} synthetic (${mergeCount} merge, ${routeCount} route). ` +
+    `Tasks: ${run.jevladder.length} synthetic (${mergeCount} merge, ${routeCount} route). ` +
       'Deterministic: mock judges and keyword routing only, no network, no API keys, fake secrets only.',
   );
   push();
   push('## Arms');
   push(
-    '- TIERCLEF: merge rules first (free), grey zone to a cheap mock judge that can abstain; ' +
+    '- JEVLADDER: merge rules first (free), grey zone to a cheap mock judge that can abstain; ' +
       'uncertain or irreversible grey merges go to a human. Route tasks tiered by scoreRoute.',
   );
   push(
@@ -339,16 +339,16 @@ export function formatReport(run: { tierclef: ArmOutcome[]; baseline: ArmOutcome
   push('## Quality parity');
   push('arm            accuracy   merge     route');
   push(
-    `tierclef            ${pct(metrics.tierclef.accuracy).padEnd(10)} ${pct(metrics.tierclef.mergeAccuracy).padEnd(9)} ${pct(metrics.tierclef.routeAccuracy)}`,
+    `jevladder            ${pct(metrics.jevladder.accuracy).padEnd(10)} ${pct(metrics.jevladder.mergeAccuracy).padEnd(9)} ${pct(metrics.jevladder.routeAccuracy)}`,
   );
   push(
     `all-frontier   ${pct(metrics.baseline.accuracy).padEnd(10)} ${pct(metrics.baseline.mergeAccuracy).padEnd(9)} ${pct(metrics.baseline.routeAccuracy)}`,
   );
-  push(`parity (tierclef - baseline): ${(100 * metrics.qualityParity).toFixed(2)}pp`);
+  push(`parity (jevladder - baseline): ${(100 * metrics.qualityParity).toFixed(2)}pp`);
   push();
   push('## Known weaknesses');
   const knownIds = new Set((run.tasks ?? []).filter((t) => t.knownWeakness === true).map((t) => t.id));
-  const known = run.tierclef.filter((r) => knownIds.has(r.id));
+  const known = run.jevladder.filter((r) => knownIds.has(r.id));
   push(`count: ${known.length}`);
   for (const r of known) push(`- ${r.id}: expected=${r.expected} actual=${r.outcome}${r.correct ? ' — fixed — remove marker' : ''}`);
   push();
@@ -358,24 +358,24 @@ export function formatReport(run: { tierclef: ArmOutcome[]; baseline: ArmOutcome
   );
   push('arm            totalCost   approved(allow)   costPerApproved   modelCalls   estTokens');
   push(
-    `tierclef            ${money(metrics.tierclef.totalCost).padEnd(11)} ${String(metrics.tierclef.approvedCount).padEnd(17)} ${money(metrics.tierclef.costPerApproved).padEnd(17)} ${String(metrics.tierclef.modelCalls).padEnd(12)} ${metrics.tierclef.estimatedTokens}`,
+    `jevladder            ${money(metrics.jevladder.totalCost).padEnd(11)} ${String(metrics.jevladder.approvedCount).padEnd(17)} ${money(metrics.jevladder.costPerApproved).padEnd(17)} ${String(metrics.jevladder.modelCalls).padEnd(12)} ${metrics.jevladder.estimatedTokens}`,
   );
   push(
     `all-frontier   ${money(metrics.baseline.totalCost).padEnd(11)} ${String(metrics.baseline.approvedCount).padEnd(17)} ${money(metrics.baseline.costPerApproved).padEnd(17)} ${String(metrics.baseline.modelCalls).padEnd(12)} ${metrics.baseline.estimatedTokens}`,
   );
   push(
-    `route cost per task: tierclef ${metrics.tierclef.routeCostPerTask === null ? 'n/a' : money(metrics.tierclef.routeCostPerTask)} vs baseline ${metrics.baseline.routeCostPerTask === null ? 'n/a' : money(metrics.baseline.routeCostPerTask)}`,
+    `route cost per task: jevladder ${metrics.jevladder.routeCostPerTask === null ? 'n/a' : money(metrics.jevladder.routeCostPerTask)} vs baseline ${metrics.baseline.routeCostPerTask === null ? 'n/a' : money(metrics.baseline.routeCostPerTask)}`,
   );
   push();
   push('## Safety');
-  const expectedAllowCount = run.tierclef.filter(
+  const expectedAllowCount = run.jevladder.filter(
     (r) => r.kind === 'merge' && r.expected === 'allow',
   ).length;
   push(
-    `- false-block rate (tierclef): ${pct(metrics.tierclef.falseBlockRate)} (${metrics.tierclef.falseBlocks} of ${expectedAllowCount} expected-allow merge tasks blocked or sent to human)`,
+    `- false-block rate (jevladder): ${pct(metrics.jevladder.falseBlockRate)} (${metrics.jevladder.falseBlocks} of ${expectedAllowCount} expected-allow merge tasks blocked or sent to human)`,
   );
   push(
-    `- escalation precision (tierclef): ${pct(metrics.tierclef.escalationPrecision)} (${metrics.tierclef.escalations} human escalations, warranted when expected is human/block)`,
+    `- escalation precision (jevladder): ${pct(metrics.jevladder.escalationPrecision)} (${metrics.jevladder.escalations} human escalations, warranted when expected is human/block)`,
   );
   push();
   push('## Limitations');
@@ -385,7 +385,7 @@ export function formatReport(run: { tierclef: ArmOutcome[]; baseline: ArmOutcome
       'directional — it illustrates confident permissiveness without an abstention channel.',
   );
   push(
-    '- costPerApproved rewards rubber-stamping (the baseline "approves" tasks tierclef correctly escalates). ' +
+    '- costPerApproved rewards rubber-stamping (the baseline "approves" tasks jevladder correctly escalates). ' +
       'Read it next to total cost, accuracy and the safety metrics, never alone.',
   );
   push(
@@ -394,12 +394,12 @@ export function formatReport(run: { tierclef: ArmOutcome[]; baseline: ArmOutcome
   );
   push();
   push('## Per task');
-  push('id                                kind   expected   tierclef       ok  baseline  ok');
-  run.tierclef.forEach((tierclefRecord, i) => {
+  push('id                                kind   expected   jevladder       ok  baseline  ok');
+  run.jevladder.forEach((jevladderRecord, i) => {
     const base = run.baseline[i];
     if (!base) return;
     push(
-      `${tierclefRecord.id.padEnd(33)} ${tierclefRecord.kind.padEnd(6)} ${tierclefRecord.expected.padEnd(10)} ${String(tierclefRecord.outcome).padEnd(9)} ${mark(tierclefRecord.correct).padEnd(3)} ${String(base.outcome).padEnd(9)} ${mark(base.correct)}`,
+      `${jevladderRecord.id.padEnd(33)} ${jevladderRecord.kind.padEnd(6)} ${jevladderRecord.expected.padEnd(10)} ${String(jevladderRecord.outcome).padEnd(9)} ${mark(jevladderRecord.correct).padEnd(3)} ${String(base.outcome).padEnd(9)} ${mark(base.correct)}`,
     );
   });
   return lines.join('\n') + '\n';
@@ -417,7 +417,7 @@ export interface PerTaskReport {
   expected: ExpectedOutcome;
   note: string;
   knownWeakness?: true;
-  tierclef: { outcome: Outcome; correct: boolean; cost: number; reason: string };
+  jevladder: { outcome: Outcome; correct: boolean; cost: number; reason: string };
   baseline: { outcome: Outcome; correct: boolean; cost: number; reason: string };
 }
 
@@ -430,7 +430,7 @@ export interface EvalReport {
 }
 
 export function buildReport(run: EvalRun, metrics: EvalMetrics): EvalReport {
-  const perTask: PerTaskReport[] = run.tierclef.map((tierclefRecord, i) => {
+  const perTask: PerTaskReport[] = run.jevladder.map((jevladderRecord, i) => {
     const base = run.baseline[i];
     const task = run.tasks[i];
     if (!base || !task) {
@@ -442,11 +442,11 @@ export function buildReport(run: EvalRun, metrics: EvalMetrics): EvalReport {
       expected: task.expected,
       note: task.note,
       ...(task.knownWeakness ? { knownWeakness: true as const } : {}),
-      tierclef: {
-        outcome: tierclefRecord.outcome,
-        correct: tierclefRecord.correct,
-        cost: tierclefRecord.cost,
-        reason: tierclefRecord.reason,
+      jevladder: {
+        outcome: jevladderRecord.outcome,
+        correct: jevladderRecord.correct,
+        cost: jevladderRecord.cost,
+        reason: jevladderRecord.reason,
       },
       baseline: {
         outcome: base.outcome,
@@ -459,8 +459,8 @@ export function buildReport(run: EvalRun, metrics: EvalMetrics): EvalReport {
   const knownWeaknesses = perTask.filter((t) => t.knownWeakness).map((t) => ({
     id: t.id,
     expected: t.expected,
-    actual: t.tierclef.outcome,
-    fixed: t.tierclef.correct,
+    actual: t.jevladder.outcome,
+    fixed: t.jevladder.correct,
   }));
   return { generatedFrom: 'mock', prices: PRICES, metrics, perTask, knownWeaknesses };
 }
@@ -487,7 +487,7 @@ const invokedAsScript = (() => {
 
 if (invokedAsScript) {
   main().catch((err: unknown) => {
-    process.stderr.write(`tierclef eval: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.stderr.write(`jevladder eval: ${err instanceof Error ? err.message : String(err)}\n`);
     process.exitCode = 1;
   });
 }

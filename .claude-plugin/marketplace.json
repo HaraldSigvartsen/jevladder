@@ -1,12 +1,12 @@
 {
-  "name": "tierclef",
-  "description": "TierClef automatic advisory routing and observe-only decision context for Claude Code.",
+  "name": "jevladder",
+  "description": "JevLadder automatic advisory routing and observe-only decision context for Claude Code.",
   "owner": {
     "name": "Harald Sigvartsen"
   },
   "plugins": [
     {
-      "name": "tierclef",
+      "name": "jevladder",
       "source": "./plugin",
       "description": "Automatic advisory routing and observe-only context for Claude Code.",
       "version": "0.6.0",

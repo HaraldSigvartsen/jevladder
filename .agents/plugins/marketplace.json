@@ -1,11 +1,11 @@
 {
-  "name": "tierclef",
+  "name": "jevladder",
   "interface": {
-    "displayName": "TierClef"
+    "displayName": "JevLadder"
   },
   "plugins": [
     {
-      "name": "tierclef",
+      "name": "jevladder",
       "source": {
         "source": "local",
         "path": "./plugin"

@@ -1,14 +1,14 @@
-<img src="docs/assets/icon.svg" width="96" alt="TierClef icon">
+<img src="docs/assets/icon.svg" width="96" alt="JevLadder icon">
 
-# TierClef
+# JevLadder
 
-**TierClef — rules first, a judge only when in doubt, humans for the irreversible. Measurable model routing and merge gates for coding agents.**
+**JevLadder — rules first, a judge only when in doubt, humans for the irreversible. Measurable model routing and merge gates for coding agents.**
 
-TierClef is a small decision authority for coding agents: deterministic rules run
+JevLadder is a small decision authority for coding agents: deterministic rules run
 first (free, auditable), a cheap judge covers only the grey zone, and every
 uncertain or irreversible action goes to a human. Use it as a
 Codex-first advisory plugin, a TypeScript library, or a CLI merge gate / router.
-The maintainer develops and tests TierClef on Codex; Claude Code support is validated structurally (manifest validation + hook simulation).
+The maintainer develops and tests JevLadder on Codex; Claude Code support is validated structurally (manifest validation + hook simulation).
 
 **Who it is for:** anyone wiring merge safety or model-tier routing into an
 agent workflow who wants measurable exits (`allow` / `block` / `human`) instead
@@ -28,18 +28,14 @@ of free-text "LGTM".
 
 ---
 
-The product was renamed from Jev to TierClef on 2026-10-19. MCP tools were
-breaking-renamed to the `tierclef_*` names while the project is still a v0.x
-draft; no legacy tool aliases are provided.
-
 ## Install: Codex
 
 ```bash
-codex plugin marketplace add HaraldSigvartsen/tierclef
-codex plugin add tierclef@tierclef
+codex plugin marketplace add HaraldSigvartsen/jevladder
+codex plugin add jevladder@jevladder
 ```
 
-Then just use Codex normally. TierClef supplies:
+Then just use Codex normally. JevLadder supplies:
 
 - **SessionStart guidance:** start well-scoped tasks cheap and escalate one
   tier at a time when work fails or verification is weak.
@@ -48,8 +44,8 @@ Then just use Codex normally. TierClef supplies:
 - **Advisory hooks:** prompt submission adds tier/signals and writes a local
   observe log containing only `ts`, `session_id`, `cwd`, `tier`, `signals`, and
   `promptChars` — never prompt text. SessionStart does not log.
-- **Voluntary MCP tools:** `tierclef_decide` runs an advisory miniature pre-merge
-  check; `tierclef_route` returns tier/signals; `tierclef_explain` adds explanation
+- **Voluntary MCP tools:** `jevladder_decide` runs an advisory miniature pre-merge
+  check; `jevladder_route` returns tier/signals; `jevladder_explain` adds explanation
   lines. They run locally, make no remote calls, and log no task or diff text.
   Merge enforcement stays in CI/merge.
 
@@ -68,11 +64,11 @@ not plugin-bundled agents.
 
 ## Advanced: CLI / CI
 
-Install the published CLI with `npm i -D tierclef` (available once the
+Install the published CLI with `npm i -D jevladder` (available once the
 maintainer completes npm login), or try its help after publication:
 
 ```bash
-npx tierclef --help
+npx jevladder --help
 ```
 
 ### Clone and build
@@ -80,7 +76,7 @@ npx tierclef --help
 **Prerequisites:** Node `>=20` (`package.json` `engines.node`).
 
 ```bash
-git clone https://github.com/HaraldSigvartsen/tierclef.git && cd tierclef
+git clone https://github.com/HaraldSigvartsen/jevladder.git && cd jevladder
 npm install
 npm run build
 ```
@@ -135,7 +131,7 @@ signals:
 explanation:   score=0.73 (= 0.6·difficulty + 0.4·consequence) | axes: …
 ```
 
-![Terminal demo: real tierclef CLI outputs for allow, block, and frontier route](docs/assets/terminal-demo.svg)
+![Terminal demo: real jevladder CLI outputs for allow, block, and frontier route](docs/assets/terminal-demo.svg)
 
 ### Eval (optional)
 
@@ -147,7 +143,7 @@ npm run eval:independent
 | Eval | Accuracy | What it measures |
 | --- | --- | --- |
 | Consistency (`npm run eval`) | **100%** (32/32) | Labels aligned with the same heuristics under test — intended-policy **consistency**, not external validity. |
-| Independent (`npm run eval:independent`) | 31 scenarios | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R4) **before** running tierclef, including predicted adversarial misses. Latest run: 23/31 correct (74%). |
+| Independent (`npm run eval:independent`) | 31 scenarios | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R4) **before** running jevladder, including predicted adversarial misses. Latest run: 23/31 correct (74%). |
 
 They differ on purpose: 100% consistency means the gate matches its own rule
 pack; the independent result preserves policy-labelled disagreements without
@@ -181,7 +177,7 @@ claims green). Empty or non-diff input is exit `1`, never an implicit allow.
 ### a) Library
 
 After `npm run build` in a clone, import from the built package (path / git
-dependency — not `npm install tierclef`). Real exports from `src/index.ts`:
+dependency — not `npm install jevladder`). Real exports from `src/index.ts`:
 
 ```ts
 import {
@@ -189,7 +185,7 @@ import {
   makeMergeRules,
   MockJudge,
   type Decision,
-} from 'tierclef'; // or: from './dist/src/index.js' in a clone
+} from 'jevladder'; // or: from './dist/src/index.js' in a clone
 
 const gate = defineGate({
   rules: makeMergeRules(),
@@ -213,7 +209,7 @@ const decision: Decision = await gate.decide({
 // decision.log:     structured audit trail
 ```
 
-The judge is TierClef's type-safe contract: the TypeScript `Judge` interface is
+The judge is JevLadder's type-safe contract: the TypeScript `Judge` interface is
 validated at runtime by `parseJudgeVerdict` (verdict must be `allow`, `block`,
 or `abstain`; score must be finite and in `[0,1]`; evidence must be
 non-empty). Invalid output abstains and goes to a human. The default documented
@@ -221,17 +217,17 @@ path remains `MockJudge` with no API key; a missing key also abstains to a
 human.
 
 Advanced example (use a model selected from your own configured model ladder,
-starting with its cheap tier; TierClef does not recommend a vendor model):
+starting with its cheap tier; JevLadder does not recommend a vendor model):
 
 ```ts
-import { defineGate, makeMergeRules, OpenAICompatibleJudge } from 'tierclef';
+import { defineGate, makeMergeRules, OpenAICompatibleJudge } from 'jevladder';
 
 const gate = defineGate({
   rules: makeMergeRules(),
   judge: new OpenAICompatibleJudge({
-    baseUrl: process.env.TIERCLEF_JUDGE_BASE_URL ?? 'https://provider.example/v1',
-    model: process.env.TIERCLEF_JUDGE_MODEL ?? '', // Empty/missing throws; no key → abstain → human.
-    apiKeyEnv: 'TIERCLEF_JUDGE_API_KEY', // default if omitted
+    baseUrl: process.env.JEVLADDER_JUDGE_BASE_URL ?? 'https://provider.example/v1',
+    model: process.env.JEVLADDER_JUDGE_MODEL ?? '', // Empty/missing throws; no key → abstain → human.
+    apiKeyEnv: 'JEVLADDER_JUDGE_API_KEY', // default if omitted
   }),
   threshold: 0.7,
 });
@@ -254,28 +250,28 @@ const decision = await gate.decide({
 
 ```bash
 git diff > /tmp/change.diff
-node /path/to/tierclef/dist/src/cli.js check --diff /tmp/change.diff --tests-passed
+node /path/to/jevladder/dist/src/cli.js check --diff /tmp/change.diff --tests-passed
 echo $?
 ```
 
 Pipe / stdin (supported — `--diff -` or omit `--diff`):
 
 ```bash
-git diff | node /path/to/tierclef/dist/src/cli.js check --diff - --tests-passed
-# same: git diff | node /path/to/tierclef/dist/src/cli.js check --tests-passed
+git diff | node /path/to/jevladder/dist/src/cli.js check --diff - --tests-passed
+# same: git diff | node /path/to/jevladder/dist/src/cli.js check --tests-passed
 ```
 
 **Example** GitHub Actions job (adapt paths / base branch; not a drop-in for
-every repo). Exit `2` or `3` fails the job (= needs human review). No tierclef
+every repo). Exit `2` or `3` fails the job (= needs human review). No jevladder
 secrets required for the default `MockJudge` CLI:
 
 ```yaml
-# .github/workflows/tierclef-check.yml — EXAMPLE to adapt
-name: tierclef merge gate
+# .github/workflows/jevladder-check.yml — EXAMPLE to adapt
+name: jevladder merge gate
 on:
   pull_request:
 jobs:
-  tierclef-check:
+  jevladder-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -284,19 +280,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Build tierclef (from clone / submodule / path)
+      - name: Build jevladder (from clone / submodule / path)
         run: |
-          git clone --depth 1 https://github.com/HaraldSigvartsen/tierclef.git /tmp/tierclef
-          cd /tmp/tierclef && npm ci && npm run build
+          git clone --depth 1 https://github.com/HaraldSigvartsen/jevladder.git /tmp/jevladder
+          cd /tmp/jevladder && npm ci && npm run build
       - name: Diff vs base and run gate
         run: |
           git diff origin/${{ github.base_ref }}...HEAD > /tmp/change.diff
-          node /tmp/tierclef/dist/src/cli.js check --diff /tmp/change.diff --tests-passed
+          node /tmp/jevladder/dist/src/cli.js check --diff /tmp/change.diff --tests-passed
           # exit 0 allow · 2 block · 3 human · 1 usage error
 ```
 
 If you later wire `OpenAICompatibleJudge` into a custom gate in CI, put the
-key in Actions secrets (`TIERCLEF_JUDGE_API_KEY`) — never commit it. The stock CLI
+key in Actions secrets (`JEVLADDER_JUDGE_API_KEY`) — never commit it. The stock CLI
 uses `MockJudge` only.
 
 ### c) Write your own rule
@@ -305,7 +301,7 @@ Shape from `src/gate.ts`: `id` + `evaluate` returning a `RuleHit` or `null`.
 **First hit wins** — put stricter / cheaper checks first.
 
 ```ts
-import { defineGate, makeMergeRules, MockJudge, type Rule } from 'tierclef';
+import { defineGate, makeMergeRules, MockJudge, type Rule } from 'jevladder';
 
 const blockLockfiles: Rule = {
   id: 'block-lockfiles',
@@ -332,12 +328,12 @@ const gate = defineGate({
 
 ### Config
 
-There is **no auto-loaded config file**. The CLI does not read `tierclef.config.ts`;
-`tierclef plugin --config <json>` explicitly reads a plugin-only JSON config.
+There is **no auto-loaded config file**. The CLI does not read `jevladder.config.ts`;
+`jevladder plugin --config <json>` explicitly reads a plugin-only JSON config.
 The typed example is for you to copy fields into `defineGate` /
 `makeMergeRules({ protectedGlobs })` / your own wiring. See
 [examples/config/README.md](examples/config/README.md) and
-[examples/config/tierclef.config.example.ts](examples/config/tierclef.config.example.ts).
+[examples/config/jevladder.config.example.ts](examples/config/jevladder.config.example.ts).
 
 | Field | Purpose | Honesty (v0.2) |
 | --- | --- | --- |
@@ -355,8 +351,8 @@ The typed example is for you to copy fields into `defineGate` /
 Claude Code is also supported:
 
 ```text
-/plugin marketplace add HaraldSigvartsen/tierclef
-/plugin install tierclef@tierclef
+/plugin marketplace add HaraldSigvartsen/jevladder
+/plugin install jevladder@jevladder
 ```
 
 The plugin runs automatically with sensible defaults. SessionStart provides
@@ -370,18 +366,18 @@ For contributors who need a generated copy, see the CLI commands below.
 Tree (relative to the out dir):
 
 ```text
-my-tierclef-plugin/
+my-jevladder-plugin/
   .codex-plugin/plugin.json
   .claude-plugin/plugin.json
   .mcp.json
   hooks/hooks.json
-  scripts/tierclef-hook.sh
-  scripts/tierclef-observe.mjs
-  scripts/tierclef-mcp.mjs
-  skills/tierclef-routing/SKILL.md
-  agents/tierclef-cheap.md
-  agents/tierclef-mid.md
-  agents/tierclef-frontier.md
+  scripts/jevladder-hook.sh
+  scripts/jevladder-observe.mjs
+  scripts/jevladder-mcp.mjs
+  skills/jevladder-routing/SKILL.md
+  agents/jevladder-cheap.md
+  agents/jevladder-mid.md
+  agents/jevladder-frontier.md
   config.json
   README.md
 ```
@@ -390,11 +386,11 @@ Optional protected globs (embedded in `config.json` for the plugin; observe-only
 today — informational until blocking hooks land):
 
 ```bash
-node dist/src/cli.js plugin --out ./my-tierclef-plugin --protected '**/payments/**' --protected '*.lock'
+node dist/src/cli.js plugin --out ./my-jevladder-plugin --protected '**/payments/**' --protected '*.lock'
 ```
 
 The agents use Claude Code model aliases, configurable through
-`TierClefPluginConfig.subagentModels` or an explicit plugin JSON file:
+`JevLadderPluginConfig.subagentModels` or an explicit plugin JSON file:
 
 ```json
 {
@@ -402,10 +398,10 @@ The agents use Claude Code model aliases, configurable through
 }
 ```
 
-Save as `tierclef-plugin.json`, then generate with:
+Save as `jevladder-plugin.json`, then generate with:
 
 ```bash
-node dist/src/cli.js plugin --out ./my-tierclef-plugin --config ./tierclef-plugin.json
+node dist/src/cli.js plugin --out ./my-jevladder-plugin --config ./jevladder-plugin.json
 ```
 
 Omitted tiers use the defaults shown. Allowed values are `haiku`, `sonnet`,
@@ -424,8 +420,8 @@ What is verified today:
 
 ```bash
 npm run build
-node dist/src/cli.js plugin --out ./my-tierclef-plugin
-claude plugin validate ./my-tierclef-plugin
+node dist/src/cli.js plugin --out ./my-jevladder-plugin
+claude plugin validate ./my-jevladder-plugin
 ```
 
 The repository marketplace points at the checked-in generated plugin under
@@ -445,14 +441,14 @@ node dist/src/cli.js report --log ./observe.jsonl --json
 ```
 
 Tier counts and percentages are **measured (from log)**. Cost per routed task
-and cumulative costs are **simulated** using TierClef's mock tier prices; they are
+and cumulative costs are **simulated** using JevLadder's mock tier prices; they are
 not actual provider spend. Missing logs are reported as an advisory message.
 
 ### What it does / does not do
 
 On `UserPromptSubmit` it scores the prompt with miniature route signals,
 prints `additionalContext` with the tier and suggested subagent, and appends **one JSON line** to
-`~/.tierclef/observe.jsonl` (or `TIERCLEF_OBSERVE_LOG`):
+`~/.jevladder/observe.jsonl` (or `JEVLADDER_OBSERVE_LOG`):
 
 ```json
 {"ts":"2026-10-19T14:22:41.407Z","session_id":"demo-session","cwd":"/tmp","tier":"mid","signals":["ambiguous"],"promptChars":20}
@@ -461,8 +457,8 @@ prints `additionalContext` with the tier and suggested subagent, and appends **o
 Fields: `ts`, `session_id`, `cwd`, `tier`, `signals`, `promptChars` only —
 **never the prompt text**. It never blocks and never swaps the host model.
 
-For example, a frontier annotation suggests `tierclef:tierclef-frontier` (the plugin-scoped
-name of `tierclef-frontier`). This is **advisory
+For example, a frontier annotation suggests `jevladder:jevladder-frontier` (the plugin-scoped
+name of `jevladder-frontier`). This is **advisory
 delegation only**: the hook never spawns an agent, and the host decides whether
 to delegate when subagents are available. Agent files carry YAML frontmatter
 (`name`, `description`, `model`) and instructions to follow host permissions
@@ -470,19 +466,19 @@ and return uncertain or irreversible actions for human review. The observe
 hook still uses its existing miniature scorer, not the full `scoreRoute` API.
 
 ```bash
-tail -f ~/.tierclef/observe.jsonl
+tail -f ~/.jevladder/observe.jsonl
 ```
 
 ### Turn off
 
 Stop passing `--plugin-dir`, delete the generated plugin directory, and
-optionally `rm -rf ~/.tierclef` if you no longer want local observe logs.
+optionally `rm -rf ~/.jevladder` if you no longer want local observe logs.
 
 ---
 
 ## How it works
 
-![TierClef architecture: rules first, cheap judge for the grey zone, humans for the irreversible](docs/assets/architecture.svg)
+![JevLadder architecture: rules first, cheap judge for the grey zone, humans for the irreversible](docs/assets/architecture.svg)
 
 1. **Rules (deterministic, free).** Ordered checks; first hit decides; judge
    skipped. Shipped pack (`makeMergeRules()`): tests-not-green →
@@ -498,7 +494,7 @@ Every decision appends a structured log (`stage` / `detail`).
 
 **Security:** injection treated as data; fail closed to human; secrets in
 tests/examples are fakes (`FAKE_EXAMPLE_ONLY_*`); judge key via env only
-(`TIERCLEF_JUDGE_API_KEY`).
+(`JEVLADDER_JUDGE_API_KEY`).
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the plugin/MCP threat model,
 privacy controls, bundled inventory, and disable/uninstall steps.
@@ -544,10 +540,10 @@ node dist/src/cli.js check --diff examples/merge-gate/sample-risky.diff --tests-
 misses; see [eval/independent/policy.md](eval/independent/policy.md).
 
 **Judge / no API key?** CLI and eval default to `MockJudge` (free, offline).
-`OpenAICompatibleJudge` with a missing `TIERCLEF_JUDGE_API_KEY` abstains → gate
+`OpenAICompatibleJudge` with a missing `JEVLADDER_JUDGE_API_KEY` abstains → gate
 returns `human` (never throws into allow).
 
-**Disable the gate for one change?** Don’t run `tierclef check`, or temporarily
+**Disable the gate for one change?** Don’t run `jevladder check`, or temporarily
 adjust/remove rules in the code that builds your gate. Plugin: stop loading
 it (`--plugin-dir` off) / delete the plugin dir.
 
@@ -565,18 +561,18 @@ open).
 **Forgot `--tests-passed`?** Treated as not green → `tests-not-green` blocks
 (exit `2`).
 
-**Where is the observe log?** By default it is `~/.tierclef/observe.jsonl`.
-Set `TIERCLEF_OBSERVE_LOG` to choose another path, or set `TIERCLEF_NO_LOG=1`
+**Where is the observe log?** By default it is `~/.jevladder/observe.jsonl`.
+Set `JEVLADDER_OBSERVE_LOG` to choose another path, or set `JEVLADDER_NO_LOG=1`
 to disable writes.
 
 **Hook not firing?** In Codex, complete the hook trust step and check `/hooks`
-to confirm the hook is enabled. In Claude Code, confirm the TierClef plugin is
+to confirm the hook is enabled. In Claude Code, confirm the JevLadder plugin is
 installed and enabled (`claude plugin list`); restart the host after changes.
 
-**Uninstalling:** In Codex, run `codex plugin remove tierclef` (add
+**Uninstalling:** In Codex, run `codex plugin remove jevladder` (add
 `--marketplace <name>` if needed), then `codex plugin marketplace remove <name>`
 to remove its marketplace. In Claude Code, run
-`claude plugin uninstall tierclef@<marketplace>`; remove the marketplace with
+`claude plugin uninstall jevladder@<marketplace>`; remove the marketplace with
 `claude plugin marketplace remove <name>` if it is no longer used.
 
 **MCP tools not visible?** Restart Codex or Claude Code after installing or
@@ -608,7 +604,7 @@ npm run eval:independent # policy-labelled independent eval
 ### Roadmap (short)
 
 - **v0.5 (this):** Codex marketplace, automatic hooks and skill, and bundled
-  voluntary MCP `tierclef_decide` / `tierclef_route` / `tierclef_explain`. Claude Code is
+  voluntary MCP `jevladder_decide` / `jevladder_route` / `jevladder_explain`. Claude Code is
   also supported as a secondary host.
   Merge/action hooks remain future work; the observe-log cost report is available
   through the advanced CLI.

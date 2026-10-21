@@ -2,7 +2,7 @@
 
 Written criteria for the independently labelled eval set in this directory.
 Labels are assigned from the **prose scenario + this policy only**, before any
-tierclef run. They are **not** derived from which merge rule, MockJudge marker, or
+jevladder run. They are **not** derived from which merge rule, MockJudge marker, or
 scoreRoute keyword would fire.
 
 ## Labelling method
@@ -10,7 +10,7 @@ scoreRoute keyword would fire.
 1. Read the scenario prose (what a thoughtful human would know about the change).
 2. Apply M1–M5 (merge) or R1–R4 (route) below; pick exactly one expected outcome.
 3. Record `policyRef` (criterion id) and a short `note` justifying the label.
-4. Only then may the runner execute tierclef. Disagreement with tierclef is a miss, not a
+4. Only then may the runner execute jevladder. Disagreement with jevladder is a miss, not a
    reason to retcon the label.
 
 ## Merge criteria
@@ -99,7 +99,7 @@ a successful route decision.
 ## Limitations
 
 - Small curated set; same author wrote policy, scenarios, and (historically)
-  many of tierclef’s heuristics — high agreement can be circular, not proof of
+  many of jevladder’s heuristics — high agreement can be circular, not proof of
   generalisation.
 - Synthetic diffs and fake placeholders only; no private repos or real secrets.
 - MockJudge + deterministic scoreRoute only — not a live frontier model.

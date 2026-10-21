@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Independent eval runner: policy-labelled tasks vs current tierclef behaviour.
+ * Independent eval runner: policy-labelled tasks vs current jevladder behaviour.
  *
  * Merge: makeMergeRules() + MockJudge via defineGate.
  * Route: scoreRoute.
@@ -161,7 +161,7 @@ export function formatIndependentReport(run: IndependentRun): string {
   const mergeCount = run.results.filter((r) => r.kind === 'merge').length;
   const routeCount = run.results.filter((r) => r.kind === 'route').length;
 
-  push('# tierclef independent eval report');
+  push('# jevladder independent eval report');
   push();
   push(
     `Tasks: ${run.total} (${mergeCount} merge, ${routeCount} route). ` +
@@ -254,7 +254,7 @@ const invokedAsScript = (() => {
 if (invokedAsScript) {
   main().catch((err: unknown) => {
     process.stderr.write(
-      `tierclef independent eval: ${err instanceof Error ? err.message : String(err)}\n`,
+      `jevladder independent eval: ${err instanceof Error ? err.message : String(err)}\n`,
     );
     process.exitCode = 1;
   });

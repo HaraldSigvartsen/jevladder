@@ -12,10 +12,10 @@ describe('Claude Code marketplace metadata', () => {
       readFileSync(resolve(root, 'plugin/.claude-plugin/plugin.json'), 'utf8'),
     );
 
-    expect(marketplace.name).toBe('tierclef');
+    expect(marketplace.name).toBe('jevladder');
     expect(marketplace.owner.name).toBeTruthy();
     expect(marketplace.plugins).toHaveLength(1);
-    expect(marketplace.plugins[0].name).toBe('tierclef');
+    expect(marketplace.plugins[0].name).toBe('jevladder');
     expect(marketplace.plugins[0].source).toBe('./plugin');
     expect(marketplace.plugins[0].version).toBe('0.6.0');
     expect(marketplace.plugins[0].author.name).toBeTruthy();
@@ -30,10 +30,10 @@ describe('Codex marketplace metadata', () => {
 
   it('places a valid catalog at the Codex discovery path', () => {
     const marketplace = readJson('.agents/plugins/marketplace.json');
-    expect(marketplace.name).toBe('tierclef');
-    expect(marketplace.interface.displayName).toBe('TierClef');
+    expect(marketplace.name).toBe('jevladder');
+    expect(marketplace.interface.displayName).toBe('JevLadder');
     expect(marketplace.plugins).toEqual([{
-      name: 'tierclef', source: { source: 'local', path: './plugin' },
+      name: 'jevladder', source: { source: 'local', path: './plugin' },
       policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
       category: 'Developer Tools',
     }]);
@@ -42,7 +42,7 @@ describe('Codex marketplace metadata', () => {
   it('keeps the bundled manifest, MCP, and hooks aligned', () => {
     const plugin = readJson('plugin/.codex-plugin/plugin.json');
     const pkg = readJson('package.json');
-    expect(plugin.name).toBe('tierclef');
+    expect(plugin.name).toBe('jevladder');
     expect(plugin.version).toBe(pkg.version);
     expect(plugin.skills).toBe('./skills/');
     expect(plugin.hooks).toBe('./hooks/hooks.json');
@@ -53,8 +53,8 @@ describe('Codex marketplace metadata', () => {
     expect(plugin.interface.composerIcon).toBe('./assets/icon.png');
     expect(plugin.interface.logo).toBe('./assets/icon.png');
     const mcp = readJson(`plugin/${plugin.mcpServers}`);
-    expect(mcp).toEqual({ mcpServers: { tierclef: { command: 'node', args: ['./scripts/tierclef-mcp.mjs'], cwd: '.' } } });
-    expect(readFileSync(resolve(root, 'plugin', mcp.mcpServers.tierclef.args[0]), 'utf8')).toContain('MAX_LINE_BYTES');
+    expect(mcp).toEqual({ mcpServers: { jevladder: { command: 'node', args: ['./scripts/jevladder-mcp.mjs'], cwd: '.' } } });
+    expect(readFileSync(resolve(root, 'plugin', mcp.mcpServers.jevladder.args[0]), 'utf8')).toContain('MAX_LINE_BYTES');
     expect(readJson(`plugin/${plugin.hooks}`).hooks.SessionStart).toBeTruthy();
   });
 

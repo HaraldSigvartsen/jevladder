@@ -1,6 +1,6 @@
 # Field test — 2026-10-19
 
-Read-only validation of `tierclef check` against exported git diffs from two of
+Read-only validation of `jevladder check` against exported git diffs from two of
 the maintainer's private local projects. Diffs were written to temporary
 files **outside** this repository. No raw diff content, repo names, or
 project file paths from those exports are committed here — only generic
@@ -9,8 +9,8 @@ diff *types* and synthetic equivalents used in tests.
 ## Method
 
 1. Export unified diffs (committed ranges and one uncommitted working tree)
-   from two private local projects into temp files outside the tierclef repo.
-2. Run `tierclef check --diff <tempfile> --tests-passed` (read-only; no merge).
+   from two private local projects into temp files outside the jevladder repo.
+2. Run `jevladder check --diff <tempfile> --tests-passed` (read-only; no merge).
 3. Record rule/judge outcomes; classify false positives, false blocks, misses.
 4. Fix merge-rules; cover each finding with **generic synthetic** fixtures only.
 

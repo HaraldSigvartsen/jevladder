@@ -1,5 +1,5 @@
 /**
- * TierClef gate core.
+ * JevLadder gate core.
  *
  * A gate is a small decision authority for AI-agent actions: deterministic
  * rules run first (first hit decides, the judge is never called), an optional
