@@ -91,6 +91,7 @@ The checked-in generated plugin inventory is:
 - `scripts/jevladder-hook.sh` — silent Node launcher.
 - `scripts/jevladder-observe.mjs` — standalone observe hook.
 - `scripts/jevladder-mcp.mjs` — standalone advisory MCP server.
+- `opencode/jevladder.mjs` — OpenCode adapter. It does not rewrite tool arguments, deny permission, or log prompt or tool text.
 - `skills/` — routing usage guidance.
 - `config.json` — generated plugin settings.
 - `README.md` — plugin setup and usage.

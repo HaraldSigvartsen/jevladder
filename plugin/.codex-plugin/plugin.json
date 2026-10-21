@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "JevLadder",
     "shortDescription": "Cheap-first advisory routing for Codex.",
-    "longDescription": "Automatic lifecycle guidance and a routing skill, with voluntary local MCP decide/route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host.",
+    "longDescription": "Automatic lifecycle guidance and a routing skill, with voluntary local MCP decide/route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host. OpenCode supported as an additional host.",
     "developerName": "Harald Sigvartsen",
     "category": "Developer Tools",
     "capabilities": [

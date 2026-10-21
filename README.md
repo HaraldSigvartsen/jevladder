@@ -559,8 +559,11 @@ calls. Network only happens if **you** configure `OpenAICompatibleJudge` to
 your endpoint. The observe plugin writes locally only.
 
 **Which hosts today?** Codex is the maintainer's primary plugin host; Claude Code
-is also supported as a secondary host. Library + CLI work anywhere Node runs. Other hosts can
-consult the voluntary local MCP tools; dedicated adapters remain future work.
+is also supported as a secondary host. OpenCode is an additional host: the
+generated `opencode/jevladder.mjs` exports `JevLadderPlugin`, and this
+repository loads it from `.opencode/plugins/jevladder.mjs`. That adapter adds
+advisory context and the local MCP server; it does not block tools. Library +
+CLI work anywhere Node runs. Further hosts remain future work.
 
 **Empty diff → exit 1?** By design — refusing to run on no input (never fail
 open).
@@ -612,10 +615,11 @@ npm run eval:independent # policy-labelled independent eval
 
 - **v0.5 (this):** Codex marketplace, automatic hooks and skill, and bundled
   voluntary MCP `jevladder_decide` / `jevladder_route` / `jevladder_explain`. Claude Code is
-  also supported as a secondary host. Advisory PreToolUse context runs before
-  file writes and merge-like shell commands; it does not approve or deny them.
-  The observe-log cost report is available through the advanced CLI.
-- **Later:** multi-host adapters; weekly config-proposal PRs
-  from the decision log (human approves; never auto-merge).
+  also supported as a secondary host. OpenCode is an additional host adapter.
+  Advisory PreToolUse context runs before file writes and merge-like shell
+  commands; it does not approve or deny them. The observe-log cost report is
+  available through the advanced CLI.
+- **Later:** weekly config-proposal PRs from the decision log (human approves;
+  never auto-merge). Further hosts beyond Codex, Claude Code, and OpenCode.
 
 License: [MIT](LICENSE) © 2026 Harald Sigvartsen.
