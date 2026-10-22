@@ -1,0 +1,12 @@
+{
+  "mcp": {
+    "servers": {
+      "jevladder": {
+        "command": "node",
+        "args": [
+          "./jevladder/jevladder-mcp.mjs"
+        ]
+      }
+    }
+  }
+}

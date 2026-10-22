@@ -103,6 +103,24 @@ Codex/Claude hook payloads). Enforcement stays in CI/merge.
 This is structural support, validated by generation tests. It is not a claim
 that a live Cursor session was run.
 
+## ZCode (additional host)
+
+Run `jevladder plugin --host zcode --out <dir>` (after `npm run build`). That
+writes `<dir>/zcode/mcp-servers.json` (an `mcp.servers` fragment with an
+**absolute** path to the bundled stdio MCP), `<dir>/zcode/AGENTS.jevladder.md`
+(cheap-first routing guidance), and `<dir>/zcode/jevladder/jevladder-mcp.mjs`.
+Merge the `mcp` object from the fragment into `~/.zcode/cli/config.json`
+and append the guidance file to `~/.zcode/AGENTS.md`. The generator never
+reads or writes your home `.zcode` tree. No secrets are stored in these files;
+judge keys come from the environment. ZCode lifecycle hooks are not bundled;
+enforcement stays in CI/merge.
+
+## T3 Code
+
+T3 Code drives the Codex and Claude Code agents. Use the existing Codex and
+Claude Code plugin outputs there. T3 Code itself has not been tested with
+JevLadder.
+
 ## What it does NOT do
 
 - Does **not** block prompts or tool use. PreToolUse and the OpenCode adapter are context only.

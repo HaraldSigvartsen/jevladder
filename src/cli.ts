@@ -5,7 +5,7 @@
  * Commands:
  *   jevladder check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
  *   jevladder route --explain "<task text>" [--json]
- *   jevladder plugin --out <dir> [--host cursor] [--protected <glob> ...]
+ *   jevladder plugin --out <dir> [--host cursor|zcode] [--protected <glob> ...]
  *   jevladder report [--log <path>] [--json]
  *   jevladder propose [--log <path>] [--json]
  *   jevladder --help | --version
@@ -28,6 +28,7 @@ import { createDefaultJudge } from './judge/typesafe.js';
 import {
   parseJevLadderPluginConfig,
   writeCursorHostFiles,
+  writeZcodeHostFiles,
   writePluginFiles,
 } from './plugin.js';
 import { scoreRoute } from './route.js';
@@ -65,7 +66,7 @@ const USAGE = `jevladder — ladder-gate for AI agents
 Usage:
   jevladder check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
   jevladder route --explain "<task text>" [--json]
-  jevladder plugin --out <dir> [--host cursor] [--config <json>] [--protected <glob> ...]
+  jevladder plugin --out <dir> [--host cursor|zcode] [--config <json>] [--protected <glob> ...]
   jevladder report [--log <path>] [--json]
   jevladder propose [--log <path>] [--json]
   jevladder --help | --version
@@ -83,6 +84,7 @@ route — score a task description deterministically (no model calls)
 
 plugin — write the Codex-first advisory plugin files (legacy Claude Code supported) (never blocks)
   --host cursor     Write Cursor project files (.cursor/mcp.json, rules, bundled MCP) under --out.
+  --host zcode      Write ZCode fragments (mcp-servers.json, AGENTS.jevladder.md, bundled MCP) under --out/zcode/.
   --config <json>   Plugin JSON config (subagentModels, protectedPaths, logFileName).
   --out <dir>       Output directory (required).
   --protected <g>   Protected-path glob embedded in config.json (repeatable).
@@ -284,7 +286,7 @@ function runRoute(args: string[], io: CliIO): number {
 function runPlugin(args: string[], io: CliIO): number {
   let outDir: string | undefined;
   let configPath: string | undefined;
-  let host: 'all' | 'cursor' = 'all';
+  let host: 'all' | 'cursor' | 'zcode' = 'all';
   const protectedPaths: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -294,10 +296,10 @@ function runPlugin(args: string[], io: CliIO): number {
       if (value === undefined || value.startsWith('--')) {
         return usageError(io, 'plugin: --host requires a value');
       }
-      if (value !== 'cursor') {
-        return usageError(io, `plugin: unknown host "${value}" (supported: cursor)`);
+      if (value !== 'cursor' && value !== 'zcode') {
+        return usageError(io, `plugin: unknown host "${value}" (supported: cursor, zcode)`);
       }
-      host = 'cursor';
+      host = value;
     } else if (arg === '--out') {
       const value: string | undefined = args[++i];
       if (value === undefined) return usageError(io, 'plugin: --out requires a directory');
@@ -329,6 +331,13 @@ function runPlugin(args: string[], io: CliIO): number {
     const abs = resolve(outDir);
     if (host === 'cursor') {
       const written = writeCursorHostFiles(abs);
+      for (const path of written) {
+        io.stdout(`${path}\n`);
+      }
+      return 0;
+    }
+    if (host === 'zcode') {
+      const written = writeZcodeHostFiles(abs);
       for (const path of written) {
         io.stdout(`${path}\n`);
       }
