@@ -48,7 +48,7 @@ Then just use Codex normally. JevLadder supplies:
   tool input or set a permission decision.
 - **Voluntary MCP tools:** `jevladder_decide` runs an advisory miniature pre-merge
   check; `jevladder_route` returns tier/signals; `jevladder_explain` adds explanation
-  lines. They run locally, make no remote calls, and log no task or diff text.
+  lines. Route and explain make no remote calls; advisory `jevladder_decide` calls the TypeSafe judge on the grey zone only when a key is set (compact diff summary only; see docs/SECURITY.md), and they log no task or diff text.
   Merge enforcement stays in CI/merge.
 
 Codex asks you to review/trust the plugin's hooks once (`/hooks`). This is

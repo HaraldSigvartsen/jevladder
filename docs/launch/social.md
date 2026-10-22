@@ -18,8 +18,8 @@ No judge key → grey zone → human (exit 3 from jevladder check), not silent a
 **Post 4** (245 chars)  
 Eval honesty: consistency 35/35 = labels match shipped heuristics (not external validity). Independent policy-labelled run 25/33 (76%), disagreements kept on purpose. Not Promptfoo, not LiteLLM — narrow gate + routing hints, not a traffic proxy.
 
-**Post 5** (242 chars)  
-Try Codex: `codex plugin marketplace add HaraldSigvartsen/jevladder` then `codex plugin add jevladder@jevladder`. CLI/library: clone repo until `jevladder` hits npm. Security/threat model in docs/SECURITY.md. Feedback on false blocks welcome.
+**Post 5** (225 chars)  
+Try Codex: `codex plugin marketplace add HaraldSigvartsen/jevladder` then `codex plugin add jevladder@jevladder`. CLI/library: clone repo until `jevladder` hits npm. Threat model in the repo. Feedback on false blocks welcome.
 
 ---
 

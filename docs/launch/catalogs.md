@@ -19,7 +19,7 @@ Use the one-line descriptions as starting copy; adjust to each form's length lim
 
 | Item | What it needs | Status | One-line description |
 | --- | --- | --- | --- |
-| Claude Code marketplace (repo-hosted) | `.claude-plugin/marketplace.json` at repo root pointing at `./plugin`; generated `plugin/.claude-plugin/plugin.json`, hooks, agents, MCP. Install: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. | not submitted | Advisory routing, fail-open hooks, bundled stdio MCP (route/explain no network; decide may call TypeSafe w/ key); blocking merges belongs in CI. |
+| Claude Code marketplace (repo-hosted) | `.claude-plugin/marketplace.json` at repo root pointing at `./plugin`; generated `plugin/.claude-plugin/plugin.json`, hooks, agents, MCP. Install: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. | not submitted | Advisory routing, fail-open hooks, bundled stdio MCP (route/explain no network; decide may call TypeSafe w/ key); merge blocking belongs in CI. |
 | Anthropic / Claude curated listings | **Verify before submitting** current Claude Code plugin discovery or partner listing process and required fields. | not submitted | Same as above. |
 
 ---
@@ -29,7 +29,7 @@ Use the one-line descriptions as starting copy; adjust to each form's length lim
 | Item | What it needs | Status | One-line description |
 | --- | --- | --- | --- |
 | Official MCP registry | **Verify before submitting** — confirm registry URL, submission workflow, and required manifest (server name, transport, tools list, repository URL, license). Bundled server: stdio via `plugin/scripts/jevladder-mcp.mjs`; tools `jevladder_decide`, `jevladder_route`, `jevladder_explain` (route/explain no network; decide advisory, TypeSafe on grey zone w/ key — compact diff only — else human). | not submitted | Local stdio MCP for JevLadder: route scoring and explanations offline; advisory decide may call TypeSafe — no prompt/diff logging. |
-| mcp.so | **Verify before submitting** — typical fields: server display name, description, install/config snippet, GitHub link, categories. | not submitted | JevLadder MCP — privacy-safe coding-agent routing and optional fail-closed decide (key required for remote judge). |
+| mcp.so | **Verify before submitting** — typical fields: server display name, description, install/config snippet, GitHub link, categories. | not submitted | JevLadder MCP — route/explain offline; advisory `jevladder_decide` in the IDE (no key → human); merge enforcement in CI. |
 | Smithery | **Verify before submitting** — Smithery often wants package name, connection config, tool schema; may expect npm or a published artifact. npm **not published**; may need GitHub/raw install path. | not submitted | Bundled JevLadder stdio MCP from GitHub: route, explain, advisory decide. |
 | Glama | **Verify before submitting** listing requirements and whether stdio-only/local servers are accepted. | not submitted | JevLadder — rules-first agent advisor with bundled stdio MCP (route/explain offline; decide w/ optional TypeSafe judge). |
 | PulseMCP | **Verify before submitting** submission form and required metadata. | not submitted | JevLadder MCP server (decide/route/explain) for coding-agent workflows. |

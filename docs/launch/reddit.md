@@ -15,7 +15,7 @@ JevLadder: advisory routing + local stdio MCP for Claude Code — merge enforcem
 
 I maintain JevLadder (MIT, GitHub: https://github.com/HaraldSigvartsen/jevladder) — rules first, a judge only in the grey zone, humans for irreversible actions.
 
-For Claude Code, install from the repo marketplace: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. It adds SessionStart guidance, a routing skill, fail-open hooks that never block tools, and a bundled MCP server over stdio (`jevladder_route`, `jevladder_explain` — no network calls; advisory `jevladder_decide` — TypeSafe judge on the grey zone when a key is set, compact diff summary only, otherwise human). Hooks log tier/signals/prompt length only — not prompt text.
+For Claude Code, install from the repo marketplace: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. It adds SessionStart guidance, a routing skill, fail-open hooks that never block tools, and a bundled MCP server over stdio (`jevladder_route`, `jevladder_explain` — no network calls; advisory `jevladder_decide` — TypeSafe judge on the grey zone when a key is set, compact diff summary only, otherwise human). The observe hook logs tier/signals/prompt length only — not prompt text.
 
 Important limits (by design):
 
@@ -68,7 +68,7 @@ I've been working on a small TypeScript library/CLI called JevLadder that encode
 2. Strict judge contract (`allow` / `block` / `abstain`, bounded score, non-empty evidence) — parse failures and abstention become **human**, not allow.
 3. Irreversible flag forces human even on judge allow.
 
-The agent-facing surface is intentionally **advisory** (fail-open hooks, local MCP that does not log task/diff text). The fail-closed behavior is for automation boundaries (CI running `check` without a key → human).
+The agent-facing surface is intentionally **advisory** (fail-open hooks, local MCP that does not log task/diff text; `jevladder_decide` can call the TypeSafe judge when a key is set). The fail-closed behavior is for automation boundaries (CI running `check` without a key → human).
 
 Repo: https://github.com/HaraldSigvartsen/jevladder (MIT, Node ≥20).
 
@@ -88,7 +88,7 @@ Discussion questions I'd value from r/programming:
 **Self-promotion note:** Hardware/local-model subs often prefer posts about running models locally. JevLadder is not a local inference stack; only post here if you frame it as "routing/gating alongside your own models" and expect a skeptical audience. **Verify fit and rules first.**
 
 **Title draft:**  
-Not a router — JevLadder gates merges with rules + optional API judge (local MCP tools stay offline)
+Not a router — JevLadder gates merges with rules + optional API judge (route/explain offline; decide → judge only w/ key)
 
 **Body draft:**
 
