@@ -82,14 +82,23 @@ Other independent-eval disagreements stay labelled `predictedRisk` and are
 not tuned away.
 
 The observe log contains only `ts`, `session_id`, `cwd`, `tier`, `signals`, and
-`promptChars`. Prompt, task, and diff text are never written to that log or
-echoed in hook/MCP error messages. Rule findings use rule IDs rather than
-including matched secret values. Hook stdout contains only the routing
-annotation (or fixed SessionStart guidance); malformed and oversized input is
-silent.
+`promptChars`. Prompt, task, diff text, and PreToolUse tool input are never
+written to that log or echoed in hook/MCP error messages. Rule findings use
+rule IDs rather than including matched secret values. Hook stdout contains only
+the routing annotation, fixed SessionStart guidance, or advisory PreToolUse
+context with no command text and no file contents. PreToolUse never sets
+`permissionDecision`. Malformed and oversized input is silent.
+
+`jevladder check` also appends a separate decision log. Each line is only
+`ts`, `outcome`, `source`, and an optional `ruleId`. Diff text, paths, and
+reasons are not written. The default path is `~/.jevladder/decisions.jsonl`;
+`JEVLADDER_DECISION_LOG` overrides it. `jevladder propose` reads that log and
+prints a suggestion. It does not edit gate config. `--open` creates a pull
+request and leaves it open; the command has no merge step, and `--merge` is
+rejected. Without a suggestion, no pull request is opened.
 
 Set `JEVLADDER_NO_LOG=1` (or `JEVLADDER_NO_LOG=true`) to disable observe-log
-writing while keeping the UserPromptSubmit annotation. By default the log is
+and decision-log writing while keeping the UserPromptSubmit annotation. By default the observe log is
 `~/.jevladder/observe.jsonl`; `JEVLADDER_OBSERVE_LOG` overrides the path. Before
 an append, a log at least 1 MB in size is rotated once to
 `<log-path>.1` (replacing the previous rotated file), then a fresh log is
@@ -113,6 +122,7 @@ The checked-in generated plugin inventory is:
 - `scripts/jevladder-hook.sh` — silent Node launcher.
 - `scripts/jevladder-observe.mjs` — standalone observe hook.
 - `scripts/jevladder-mcp.mjs` — standalone advisory MCP server.
+- `opencode/jevladder.mjs` — OpenCode adapter. It does not rewrite tool arguments, deny permission, or log prompt or tool text.
 - `skills/` — routing usage guidance.
 - `config.json` — generated plugin settings.
 - `README.md` — plugin setup and usage.

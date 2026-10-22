@@ -43,7 +43,9 @@ Then just use Codex normally. JevLadder supplies:
   cheap-first escalation and human safety rules.
 - **Advisory hooks:** prompt submission adds tier/signals and writes a local
   observe log containing only `ts`, `session_id`, `cwd`, `tier`, `signals`, and
-  `promptChars` — never prompt text. SessionStart does not log.
+  `promptChars` — never prompt text. SessionStart does not log. PreToolUse adds
+  context before file writes and merge-like shell commands, and does not log
+  tool input or set a permission decision.
 - **Voluntary MCP tools:** `jevladder_decide` runs an advisory miniature pre-merge
   check; `jevladder_route` returns tier/signals; `jevladder_explain` adds explanation
   lines. They run locally, make no remote calls, and log no task or diff text.
@@ -381,7 +383,11 @@ Claude Code is also supported:
 
 The plugin runs automatically with sensible defaults. SessionStart provides
 delegation guidance; UserPromptSubmit adds advisory routing and logs only tier,
-signals, prompt character count, and session metadata (never prompt text). The
+signals, prompt character count, and session metadata (never prompt text).
+PreToolUse adds advisory context before file writes (`Write`, `Edit`,
+`MultiEdit`, `NotebookEdit`, `apply_patch`) and merge-like shell commands
+(`git merge`, `git push`, `git rebase`, `gh pr merge`). It does not approve or
+deny the tool, and it does not log the command or file contents. The
 shell launcher exits silently with status 0 if Node is unavailable. The CLI is
 not needed for normal use.
 
@@ -406,8 +412,8 @@ my-jevladder-plugin/
   README.md
 ```
 
-Optional protected globs (embedded in `config.json` for the plugin; observe-only
-today — informational until blocking hooks land):
+Optional protected globs (embedded in `config.json` for the plugin). They stay
+informational: PreToolUse does not enforce them, and blocking remains in CI/merge:
 
 ```bash
 node dist/src/cli.js plugin --out ./my-jevladder-plugin --protected '**/payments/**' --protected '*.lock'
@@ -468,6 +474,29 @@ Tier counts and percentages are **measured (from log)**. Cost per routed task
 and cumulative costs are **simulated** using JevLadder's mock tier prices; they are
 not actual provider spend. Missing logs are reported as an advisory message.
 
+### Config proposal
+
+`jevladder check` appends `{ts, outcome, source, ruleId?}` to
+`~/.jevladder/decisions.jsonl` (override with `JEVLADDER_DECISION_LOG`). Diff
+text, paths, and reasons are not stored. `JEVLADDER_NO_LOG=1` skips the write.
+
+```bash
+node dist/src/cli.js propose --log ./decisions.jsonl
+```
+
+The command prints a suggestion only after 20 decisions in the last 7 days,
+and only when one rule accounts for at least half of the blocks (and at least
+10). It does not edit gate config.
+
+```bash
+node dist/src/cli.js propose --log ./decisions.jsonl --open
+```
+
+`--open` creates `docs/config-proposals/<date>.md` on branch
+`jevladder/config-proposal-<date>` and opens a pull request against `main`.
+A human approves it. The command never merges, and `--merge` is rejected.
+Without a suggestion, no pull request is opened.
+
 ### What it does / does not do
 
 On `UserPromptSubmit` it scores the prompt with miniature route signals,
@@ -479,7 +508,8 @@ prints `additionalContext` with the tier and suggested subagent, and appends **o
 ```
 
 Fields: `ts`, `session_id`, `cwd`, `tier`, `signals`, `promptChars` only —
-**never the prompt text**. It never blocks and never swaps the host model.
+**never the prompt text**. PreToolUse writes nothing to that log. The hook never
+blocks and never swaps the host model.
 
 For example, a frontier annotation suggests `jevladder:jevladder-frontier` (the plugin-scoped
 name of `jevladder-frontier`). This is **advisory
@@ -578,8 +608,11 @@ wire `OpenAICompatibleJudge` to your own endpoint. Route/explain MCP tools stay
 offline.
 
 **Which hosts today?** Codex is the maintainer's primary plugin host; Claude Code
-is also supported as a secondary host. Library + CLI work anywhere Node runs. Other hosts can
-consult the voluntary local MCP tools; dedicated adapters remain future work.
+is also supported as a secondary host. OpenCode is an additional host: the
+generated `opencode/jevladder.mjs` exports `JevLadderPlugin`, and this
+repository loads it from `.opencode/plugins/jevladder.mjs`. That adapter adds
+advisory context and the local MCP server; it does not block tools. Library +
+CLI work anywhere Node runs. Further hosts remain future work.
 
 **Empty diff → exit 1?** By design — refusing to run on no input (never fail
 open).
@@ -631,10 +664,12 @@ npm run eval:independent # policy-labelled independent eval
 
 - **v0.5 (this):** Codex marketplace, automatic hooks and skill, and bundled
   voluntary MCP `jevladder_decide` / `jevladder_route` / `jevladder_explain`. Claude Code is
-  also supported as a secondary host.
-  Merge/action hooks remain future work; the observe-log cost report is available
-  through the advanced CLI.
-- **Later:** multi-host adapters; weekly config-proposal PRs
-  from the decision log (human approves; never auto-merge).
+  also supported as a secondary host. OpenCode is an additional host adapter.
+  Advisory PreToolUse context runs before file writes and merge-like shell
+  commands; it does not approve or deny them. The observe-log cost report is
+  available through the advanced CLI.
+- **Later:** further hosts beyond Codex, Claude Code, and OpenCode.
+  `jevladder propose --open` opens the config-proposal pull request for a human
+  to approve and never merges it.
 
 License: [MIT](LICENSE) © 2026 Harald Sigvartsen.

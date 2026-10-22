@@ -62,6 +62,7 @@ describe('buildPluginFiles', () => {
         'hooks/hooks.json',
         'scripts/jevladder-observe.mjs',
         'scripts/jevladder-hook.sh',
+        'opencode/jevladder.mjs',
         'skills/jevladder-routing/SKILL.md',
       ].sort(),
     );
@@ -124,9 +125,12 @@ describe('buildPluginFiles', () => {
   it('hooks.json references the observe script via CLAUDE_PLUGIN_ROOT', () => {
     const files = buildPluginFiles();
     const hooks = files['hooks/hooks.json'] as string;
-    expect(hooks.match(/sh \\\"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/jevladder-hook\.sh\\\"/g)).toHaveLength(2);
+    expect(hooks.match(/sh \\\"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/jevladder-hook\.sh\\\"/g)).toHaveLength(3);
     expect(hooks).toContain('SessionStart');
     expect(hooks).toContain('UserPromptSubmit');
+    expect(hooks).toContain('PreToolUse');
+    expect(hooks).toContain('"matcher": "Write|Edit|MultiEdit|NotebookEdit|apply_patch|Bash"');
+    expect(hooks).not.toContain('permissionDecision');
     expect(hooks).toContain('"type": "command"');
     expect(hooks).toContain('"timeout": 5');
   });
@@ -157,6 +161,8 @@ describe('buildPluginFiles', () => {
     expect(skill).toContain('uncertainty');
     expect(skill).toContain('irreversible');
     expect(skill).toContain('CI/merge');
+    expect(skill).toContain('PreToolUse');
+    expect(skill).toContain('does not approve or deny');
   });
 
   it('sanitizeLogFileName strips path segments and falls back on weird input', () => {
@@ -284,6 +290,120 @@ describe('jevladder-observe.mjs integration', () => {
     expect(result.status).toBe(0);
     expect(statSync(log + '.1').size).toBe(1024 * 1024);
     expect(readFileSync(log, 'utf8')).toContain('"promptChars"');
+  });
+
+  it.each([
+    ['apply_patch', { command: '*** Update File: src/a.ts\nPRIVATE_PATCH_BODY' }, 'file write'],
+    ['Write', { file_path: 'src/a.ts', content: 'PRIVATE_FILE_BODY' }, 'file write'],
+    ['Edit', { file_path: 'src/a.ts', old_string: 'PRIVATE_OLD', new_string: 'PRIVATE_NEW' }, 'file write'],
+    ['MultiEdit', { file_path: 'src/a.ts', edits: [{ old_string: 'PRIVATE_OLD', new_string: 'PRIVATE_NEW' }] }, 'file write'],
+    ['NotebookEdit', { notebook_path: 'notes.ipynb', new_source: 'PRIVATE_CELL' }, 'file write'],
+  ])('PreToolUse %s advises without blocking, logging, or echoing tool input', (toolName, toolInput, advice) => {
+    const { script, log } = writePlugin();
+    const result = runObserve(
+      script,
+      log,
+      JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        tool_name: toolName,
+        tool_input: toolInput,
+        session_id: 's-pre',
+        cwd: '/tmp/proj',
+      }),
+    );
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(Object.keys(output)).toEqual(['hookSpecificOutput']);
+    expect(Object.keys(output.hookSpecificOutput).sort()).toEqual(['additionalContext', 'hookEventName']);
+    expect(output.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+    expect(output.hookSpecificOutput.additionalContext).toContain(advice);
+    expect(output.hookSpecificOutput.additionalContext).toContain('does not approve or deny');
+    expect(output.hookSpecificOutput.additionalContext).toContain('CI/merge');
+    expect(result.stdout).not.toContain('permissionDecision');
+    expect(result.stdout).not.toContain('PRIVATE_');
+    expect(() => readFileSync(log, 'utf8')).toThrow();
+  });
+
+  it('PreToolUse advises on merge-like commands and stays silent for other shell use', () => {
+    const { script, log } = writePlugin();
+    const merge = runObserve(
+      script,
+      log,
+      JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Bash',
+        tool_input: { command: 'git merge main # PRIVATE_MERGE_CMD' },
+      }),
+    );
+    expect(merge.status).toBe(0);
+    const output = JSON.parse(merge.stdout);
+    expect(output.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+    expect(output.hookSpecificOutput.additionalContext).toContain('merge-like command');
+    expect(output.hookSpecificOutput.additionalContext).toContain('does not approve or deny');
+    expect(merge.stdout).not.toContain('PRIVATE_MERGE_CMD');
+    expect(merge.stdout).not.toContain('permissionDecision');
+    expect(() => readFileSync(log, 'utf8')).toThrow();
+
+    for (const command of ['git status', 'npm test', 'git commit -m "wip"', 'echo git merge', 'git merge-base main HEAD']) {
+      const quiet = runObserve(
+        script,
+        log,
+        JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command } }),
+      );
+      expect(quiet.status).toBe(0);
+      expect(quiet.stdout).toBe('');
+    }
+
+    const push = runObserve(
+      script,
+      log,
+      JSON.stringify({
+        hookEventName: 'PreToolUse',
+        tool_name: 'Bash',
+        tool_input: { command: 'cd repo && git push origin main' },
+      }),
+    );
+    expect(push.status).toBe(0);
+    expect(JSON.parse(push.stdout).hookSpecificOutput.additionalContext).toContain('merge-like command');
+
+    const rebase = runObserve(
+      script,
+      log,
+      JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        tool_name: 'shell',
+        tool_input: { command: 'git rebase main' },
+      }),
+    );
+    expect(JSON.parse(rebase.stdout).hookSpecificOutput.additionalContext).toContain('merge-like command');
+
+    const gh = runObserve(
+      script,
+      log,
+      JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Bash',
+        tool_input: { command: 'gh pr merge 2 --squash' },
+      }),
+    );
+    expect(JSON.parse(gh.stdout).hookSpecificOutput.additionalContext).toContain('merge-like command');
+  });
+
+  it('PreToolUse ignores unrelated tools and malformed input without blocking', () => {
+    const { script, log } = writePlugin();
+    for (const payload of [
+      { hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: 'SECRET_PATH' } },
+      { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: 'git merge main' },
+      { hook_event_name: 'PreToolUse', tool_name: 'Bash' },
+      { hook_event_name: 'PreToolUse' },
+      { hook_event_name: 'PostToolUse', tool_name: 'Write', tool_input: { content: 'SECRET_POST' } },
+    ]) {
+      const result = runObserve(script, log, JSON.stringify(payload));
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe('');
+      expect(result.stdout).not.toContain('SECRET_');
+    }
+    expect(() => readFileSync(log, 'utf8')).toThrow();
   });
 
   it('SessionStart gives automatic delegation guidance without creating a log', () => {
