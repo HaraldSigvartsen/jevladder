@@ -19,7 +19,7 @@ Use the one-line descriptions as starting copy; adjust to each form's length lim
 
 | Item | What it needs | Status | One-line description |
 | --- | --- | --- | --- |
-| Claude Code marketplace (repo-hosted) | `.claude-plugin/marketplace.json` at repo root pointing at `./plugin`; generated `plugin/.claude-plugin/plugin.json`, hooks, agents, MCP. Install: `/plugin marketplace add HaraldSigvartsen/jevladder`. | not submitted | Advisory routing, fail-open hooks, and local MCP for Claude Code; blocking merges belongs in CI. |
+| Claude Code marketplace (repo-hosted) | `.claude-plugin/marketplace.json` at repo root pointing at `./plugin`; generated `plugin/.claude-plugin/plugin.json`, hooks, agents, MCP. Install: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. | not submitted | Advisory routing, fail-open hooks, and local MCP for Claude Code; blocking merges belongs in CI. |
 | Anthropic / Claude curated listings | **Verify before submitting** current Claude Code plugin discovery or partner listing process and required fields. | not submitted | Same as above. |
 
 ---

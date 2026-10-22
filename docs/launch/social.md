@@ -7,18 +7,18 @@
 ## X (Twitter) thread
 
 **Post 1** (279 chars)  
-Shipping JevLadder: rules-first merge gates + advisory routing for coding agents. Deterministic checks first, judge only in the grey zone, humans for irreversible work. Measurable allow/block/human — not "LGTM" prose. MIT, GitHub: https://github.com/HaraldSigvartsen/jevladder
+Introducing JevLadder: rules-first merge gates + advisory routing for coding agents. Deterministic checks first, judge only in the grey zone, humans for irreversible work. Measurable allow/block/human — not "LGTM" prose. MIT, GitHub: https://github.com/HaraldSigvartsen/jevladder
 
-**Post 2** (≤280 chars)  
-Codex plugin from repo: SessionStart guidance, routing skill, fail-open hooks (tier/signals/promptChars only — never prompt text). MCP: jevladder_route, jevladder_explain, advisory jevladder_decide. Hooks don't block; CI `jevladder check` is fail-closed enforcement.
+**Post 2** (278 chars)  
+Codex plugin from repo: SessionStart guidance, routing skill, fail-open hooks (tier/signals/promptChars only — never prompt text). MCP: jevladder_route, jevladder_explain, advisory jevladder_decide. Hooks don't block. CI check: rules block; grey zone → judge w/ key, else human.
 
-**Post 3** (268 chars)  
-No judge API key → grey-zone merges go to human (exit 3), not silent allow. With TypeSafe keys, only a compact diff summary is sent. Default judge in stock path is a mock. Claude Code supported (structural validation); Cursor/OpenCode adapters advisory. npm not yet.
+**Post 3** (280 chars)  
+No judge API key → grey zone → human (exit 3), not silent allow. TypeSafe keys send only a compact diff summary. Stock path is TypeSafe judge (not a mock); MockJudge is for tests/evals. Claude Code supported (structural validation); Cursor/OpenCode adapters advisory. npm not yet.
 
-**Post 4** (271 chars)  
+**Post 4** (245 chars)  
 Eval honesty: consistency 35/35 = labels match shipped heuristics (not external validity). Independent policy-labelled run 25/33 (76%), disagreements kept on purpose. Not Promptfoo, not LiteLLM — narrow gate + routing hints, not a traffic proxy.
 
-**Post 5** (248 chars)  
+**Post 5** (242 chars)  
 Try Codex: `codex plugin marketplace add HaraldSigvartsen/jevladder` then `codex plugin add jevladder@jevladder`. CLI/library: clone repo until `jevladder` hits npm. Security/threat model in docs/SECURITY.md. Feedback on false blocks welcome.
 
 ---

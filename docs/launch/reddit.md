@@ -15,14 +15,14 @@ JevLadder: advisory routing + local MCP for Claude Code — merge enforcement st
 
 I maintain JevLadder (MIT, GitHub: https://github.com/HaraldSigvartsen/jevladder) — rules first, a judge only in the grey zone, humans for irreversible actions.
 
-For Claude Code you can install from the repo marketplace (`/plugin marketplace add HaraldSigvartsen/jevladder`). It adds SessionStart guidance, a routing skill, fail-open hooks that never block tools, and voluntary local MCP (`jevladder_route`, `jevladder_explain`, advisory `jevladder_decide`). Hooks log tier/signals/prompt length only — not prompt text.
+For Claude Code, install from the repo marketplace: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. It adds SessionStart guidance, a routing skill, fail-open hooks that never block tools, and voluntary local MCP (`jevladder_route`, `jevladder_explain`, advisory `jevladder_decide`). Hooks log tier/signals/prompt length only — not prompt text.
 
 Important limits (by design):
 
 - Hooks are **advisory**; PreToolUse does not approve/deny writes or `git merge` / `gh pr merge` — it adds context only.
 - **CI/merge** is where `jevladder check` can fail closed (no judge key → human, exit 3).
 - Claude support here is validated structurally (manifest + hook simulation), not sold as "we proved every live session edge case."
-- Default judge in tests/CLI without your key is a mock; real judging needs your TypeSafe or custom OpenAI-compatible wiring.
+- Stock CLI, `createDefaultJudge()`, and MCP `jevladder_decide` use the TypeSafe judge; without a key it abstains and grey-zone merges go to human. `MockJudge` is explicit in tests/evals only; production judging needs your TypeSafe or custom OpenAI-compatible wiring.
 
 Eval figures from the README only: consistency 35/35 (same-heuristic labels, not external validity); independent policy-labelled 25/33 (76%).
 
@@ -96,6 +96,6 @@ JevLadder (https://github.com/HaraldSigvartsen/jevladder) is **not** a local LLM
 
 `jevladder_route` / `jevladder_explain` MCP tools are local with no remote calls. `jevladder_decide` is advisory in the IDE; real enforcement is CI. You can wire `OpenAICompatibleJudge` to your own endpoint and model ladder — JevLadder does not ship a recommended vendor model.
 
-Default CLI/library judge without keys: mock, fail-closed to human on grey-zone merges.
+Stock CLI/library path uses the TypeSafe judge via `createDefaultJudge()`; without a key it abstains (`no judge key configured`) and grey-zone merges go to human — not silent allow. `MockJudge` is for tests/evals only.
 
 If you run agents against local models, this might still be useful for **merge policy** separate from **which model answers chat**. Feedback welcome; npm not published yet.
