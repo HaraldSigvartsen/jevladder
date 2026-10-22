@@ -24,7 +24,7 @@ of free-text "LGTM".
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-98492c.svg)](LICENSE)
 [![Node: >=20](https://img.shields.io/badge/node-%3E%3D20-334155.svg)](#advanced-cli--ci)
-[![Version: 0.6.0](https://img.shields.io/badge/version-0.6.0-334155.svg)](docs/PLAN.md)
+[![Version: 0.6.0](https://img.shields.io/badge/version-0.6.0-334155.svg)](CHANGELOG.md)
 
 ---
 
@@ -649,9 +649,6 @@ changing the plugin so the host reloads its MCP server configuration.
 
 | Doc | What |
 | --- | --- |
-| [docs/FIELDTEST.md](docs/FIELDTEST.md) | Field-test notes |
-| [docs/REVIEW.md](docs/REVIEW.md) | Review findings |
-| [docs/PLAN.md](docs/PLAN.md) | Plan + phase checklists |
 | [eval/independent/policy.md](eval/independent/policy.md) | Independent eval labelling policy |
 | [examples/merge-gate/](examples/merge-gate/) | Demo diffs |
 | [examples/config/](examples/config/) | Typed config example |
