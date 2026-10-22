@@ -1,7 +1,12 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  DEFAULT_JUDGE_API_KEY_ENV,
+  JEVLADDER_TYPESAFE_API_KEY_ENV,
+  TYPESAFE_API_KEY_ENV,
+} from '../src/index.js';
 import { runCli } from '../src/cli.js';
 import type { CliIO } from '../src/cli.js';
 import {
@@ -76,6 +81,16 @@ describe('buildConfigProposal', () => {
 });
 
 describe('jevladder propose', () => {
+  beforeEach(() => {
+    vi.stubEnv(DEFAULT_JUDGE_API_KEY_ENV, '');
+    vi.stubEnv(JEVLADDER_TYPESAFE_API_KEY_ENV, '');
+    vi.stubEnv(TYPESAFE_API_KEY_ENV, '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('check writes a privacy-safe line and propose will not apply it', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'jevladder-propose-'));
     tempDirs.push(dir);
@@ -110,7 +125,7 @@ describe('jevladder propose', () => {
     process.env.JEVLADDER_NO_LOG = '1';
     try {
       const io: CliIO = { stdout: () => {}, stderr: () => {} };
-      expect(await runCli(['check', '--diff', diff, '--tests-passed'], io)).toBe(0);
+      expect(await runCli(['check', '--diff', diff, '--tests-passed'], io)).toBe(3);
       expect(() => readFileSync(log, 'utf8')).toThrow();
       const { out, io: proposeIo } = capture();
       expect(await runCli(['propose', '--log', log], proposeIo)).toBe(0);

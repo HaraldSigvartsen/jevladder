@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -17,6 +17,15 @@ function tempDir(prefix: string): string {
   const dir = mkdtempSync(join(tmpdir(), prefix));
   tempDirs.push(dir);
   return dir;
+}
+
+/** macOS may expose temp dirs as `/private/var/...` via `import.meta.url`. */
+function pluginSkillsDir(pluginOutDir: string): string {
+  return realpathSync(join(pluginOutDir, 'skills'));
+}
+
+function pluginMcpScript(pluginOutDir: string): string {
+  return realpathSync(join(pluginOutDir, 'scripts', 'jevladder-mcp.mjs'));
 }
 
 async function loadPlugin(dir: string) {
@@ -59,7 +68,7 @@ describe('OpenCode adapter', () => {
     expect(config.mcp.servers.other.command).toEqual(['echo']);
     expect(config.mcp.servers.jevladder.command).toEqual(['custom']);
     expect(config.skills).toContain('./keep');
-    expect(config.skills).toContain(join(dir, 'skills'));
+    expect(config.skills).toContain(pluginSkillsDir(dir));
     const before = config.skills.length;
     await hooks.config(config);
     expect(config.skills).toHaveLength(before);
@@ -67,12 +76,12 @@ describe('OpenCode adapter', () => {
     const fresh: { mcp?: { servers?: Record<string, { command: string[] }> }; skills?: string[] } = {};
     await hooks.config(fresh);
     expect(fresh.mcp?.servers?.jevladder.command[0]).toBe('node');
-    expect(fresh.mcp?.servers?.jevladder.command[1]).toBe(join(dir, 'scripts', 'jevladder-mcp.mjs'));
-    expect(fresh.skills).toEqual([join(dir, 'skills')]);
+    expect(fresh.mcp?.servers?.jevladder.command[1]).toBe(pluginMcpScript(dir));
+    expect(fresh.skills).toEqual([pluginSkillsDir(dir)]);
     await hooks.config(null);
     const legacy: { skills: { paths: string[] } } = { skills: { paths: ['./legacy'] } };
     await hooks.config(legacy);
-    expect(legacy.skills.paths).toEqual(['./legacy', join(dir, 'skills')]);
+    expect(legacy.skills.paths).toEqual(['./legacy', pluginSkillsDir(dir)]);
   });
 
   it('appends system guidance once and a privacy-safe route note', async () => {

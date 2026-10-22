@@ -24,7 +24,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defineGate } from './gate.js';
 import { isStructuredDiff, parseDiffFilePaths } from './diff-parse.js';
 import { makeMergeRules } from './rules/merge-rules.js';
-import { MockJudge } from './judge/mock.js';
+import { createDefaultJudge } from './judge/typesafe.js';
 import { parseJevLadderPluginConfig, writePluginFiles } from './plugin.js';
 import { scoreRoute } from './route.js';
 import { formatCostReport, readCostReport } from './report.js';
@@ -188,7 +188,10 @@ async function runCheck(args: string[], io: CliIO): Promise<number> {
     );
   }
 
-  const gate = defineGate({ rules: makeMergeRules(), judge: new MockJudge() });
+  const gate = defineGate({
+    rules: makeMergeRules(),
+    judge: createDefaultJudge({ userAgentVersion: readVersion() }),
+  });
   const decision = await gate.decide({
     action: 'merge',
     diff,

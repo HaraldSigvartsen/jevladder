@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add TypeSafe System One judge (`TypeSafeJudge`) for CLI, default library wiring, and MCP `jevladder_decide` when `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` is set; without a TypeSafe key, fail closed to human (no fixed 0.85 auto-allow). `JEVLADDER_JUDGE_API_KEY` is reserved for `OpenAICompatibleJudge` only — keys are never shared across providers.
 - `jevladder propose --open` opens a config-proposal pull request for a human to approve. It never merges. Without `--open`, the command only prints the suggestion.
 - `jevladder propose` prints a config suggestion from the privacy-safe decision log. It does not edit config or open a pull request unless `--open` is set. `jevladder check` appends outcome, source, and rule id only.
 - OpenCode host adapter (`opencode/jevladder.mjs`) adds advisory routing context, write/merge notes, and the local MCP server. It does not rewrite tool arguments or deny permission.
