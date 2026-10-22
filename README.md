@@ -14,6 +14,8 @@ The maintainer develops and tests JevLadder on Codex; Claude Code support is val
 agent workflow who wants measurable exits (`allow` / `block` / `human`) instead
 of free-text "LGTM".
 
+![Terminal demo: jevladder check on safe and risky diffs (exit 3 and 2) and route to frontier — recorded from the built CLI without a judge API key](docs/assets/demo.gif)
+
 [Install for Codex](#install-codex) ·
 [Advanced CLI / CI](#advanced-cli--ci) ·
 [Config](#config) ·
@@ -94,6 +96,7 @@ node dist/src/cli.js check --diff examples/merge-gate/sample.diff --tests-passed
 outcome: human
 source:  human
 reason:  judge abstained: no judge key configured
+judge:   abstain 0 — no judge key configured
 ```
 
 Exit code `3` → human review. Set a judge API key (see **Using a real judge model** below) to consult TypeSafe on the grey zone.
@@ -131,8 +134,6 @@ signals:
   - migration/irreversible (+0.5) migration or irreversible change ("migrate")
 explanation:   score=0.73 (= 0.6·difficulty + 0.4·consequence) | axes: …
 ```
-
-![Terminal demo: real jevladder CLI outputs for allow, block, and frontier route](docs/assets/terminal-demo.svg)
 
 ### Eval (optional)
 
@@ -661,6 +662,13 @@ npm run typecheck        # tsc --noEmit
 npm run build            # tsc → dist/
 npm run eval             # consistency eval (heuristic-aligned labels)
 npm run eval:independent # policy-labelled independent eval
+```
+
+Regenerate the README terminal demo (requires [VHS](https://github.com/charmbracelet/vhs)):
+
+```bash
+npm run build
+vhs docs/assets/demo.tape
 ```
 
 ### Roadmap (short)
