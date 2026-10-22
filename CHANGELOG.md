@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Cursor host adapter (`cursor/.cursor/mcp.json`, `cursor/.cursor/rules/jevladder.mdc`, or `jevladder plugin --host cursor --out .`) adds project MCP launch config and an always-on advisory routing rule. No Cursor lifecycle hooks yet; MCP `jevladder_decide` fails closed without a judge key.
 - Add TypeSafe System One judge (`TypeSafeJudge`) for CLI, default library wiring, and MCP `jevladder_decide` when `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` is set; without a TypeSafe key, fail closed to human (no fixed 0.85 auto-allow). `JEVLADDER_JUDGE_API_KEY` is reserved for `OpenAICompatibleJudge` only — keys are never shared across providers.
 - `jevladder propose --open` opens a config-proposal pull request for a human to approve. It never merges. Without `--open`, the command only prints the suggestion.
 - `jevladder propose` prints a config suggestion from the privacy-safe decision log. It does not edit config or open a pull request unless `--open` is set. `jevladder check` appends outcome, source, and rule id only.

@@ -5,7 +5,7 @@
  * Commands:
  *   jevladder check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
  *   jevladder route --explain "<task text>" [--json]
- *   jevladder plugin --out <dir> [--protected <glob> ...]
+ *   jevladder plugin --out <dir> [--host cursor] [--protected <glob> ...]
  *   jevladder report [--log <path>] [--json]
  *   jevladder propose [--log <path>] [--json]
  *   jevladder --help | --version
@@ -25,7 +25,11 @@ import { defineGate } from './gate.js';
 import { isStructuredDiff, parseDiffFilePaths } from './diff-parse.js';
 import { makeMergeRules } from './rules/merge-rules.js';
 import { createDefaultJudge } from './judge/typesafe.js';
-import { parseJevLadderPluginConfig, writePluginFiles } from './plugin.js';
+import {
+  parseJevLadderPluginConfig,
+  writeCursorHostFiles,
+  writePluginFiles,
+} from './plugin.js';
 import { scoreRoute } from './route.js';
 import { formatCostReport, readCostReport } from './report.js';
 import { appendDecisionRecord, formatConfigProposal, readConfigProposal } from './proposal.js';
@@ -61,7 +65,7 @@ const USAGE = `jevladder — ladder-gate for AI agents
 Usage:
   jevladder check [--diff <file>] [--tests-passed|--tests-failed] [--irreversible] [--json]
   jevladder route --explain "<task text>" [--json]
-  jevladder plugin --out <dir> [--config <json>] [--protected <glob> ...]
+  jevladder plugin --out <dir> [--host cursor] [--config <json>] [--protected <glob> ...]
   jevladder report [--log <path>] [--json]
   jevladder propose [--log <path>] [--json]
   jevladder --help | --version
@@ -78,6 +82,7 @@ route — score a task description deterministically (no model calls)
   --json            Print the routing result as JSON.
 
 plugin — write the Codex-first advisory plugin files (legacy Claude Code supported) (never blocks)
+  --host cursor     Write Cursor project files (.cursor/mcp.json, rules, bundled MCP) under --out.
   --config <json>   Plugin JSON config (subagentModels, protectedPaths, logFileName).
   --out <dir>       Output directory (required).
   --protected <g>   Protected-path glob embedded in config.json (repeatable).
@@ -279,11 +284,21 @@ function runRoute(args: string[], io: CliIO): number {
 function runPlugin(args: string[], io: CliIO): number {
   let outDir: string | undefined;
   let configPath: string | undefined;
+  let host: 'all' | 'cursor' = 'all';
   const protectedPaths: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i] as string;
-    if (arg === '--out') {
+    if (arg === '--host') {
+      const value: string | undefined = args[++i];
+      if (value === undefined || value.startsWith('--')) {
+        return usageError(io, 'plugin: --host requires a value');
+      }
+      if (value !== 'cursor') {
+        return usageError(io, `plugin: unknown host "${value}" (supported: cursor)`);
+      }
+      host = 'cursor';
+    } else if (arg === '--out') {
       const value: string | undefined = args[++i];
       if (value === undefined) return usageError(io, 'plugin: --out requires a directory');
       if (value.startsWith('--')) {
@@ -311,10 +326,17 @@ function runPlugin(args: string[], io: CliIO): number {
   if (outDir === undefined) return usageError(io, 'plugin: --out <dir> is required');
 
   try {
+    const abs = resolve(outDir);
+    if (host === 'cursor') {
+      const written = writeCursorHostFiles(abs);
+      for (const path of written) {
+        io.stdout(`${path}\n`);
+      }
+      return 0;
+    }
     const config = configPath === undefined
       ? {}
       : parseJevLadderPluginConfig(JSON.parse(readFileSync(configPath, 'utf8')));
-    const abs = resolve(outDir);
     const written = writePluginFiles(abs, {
       ...config,
       ...(protectedPaths.length > 0 ? { protectedPaths } : {}),

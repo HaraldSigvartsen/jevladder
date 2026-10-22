@@ -63,6 +63,9 @@ describe('buildPluginFiles', () => {
         'scripts/jevladder-observe.mjs',
         'scripts/jevladder-hook.sh',
         'opencode/jevladder.mjs',
+        'cursor/.cursor/mcp.json',
+        'cursor/.cursor/jevladder/jevladder-mcp.mjs',
+        'cursor/.cursor/rules/jevladder.mdc',
         'skills/jevladder-routing/SKILL.md',
       ].sort(),
     );
@@ -552,6 +555,7 @@ describe('jevladder plugin CLI', () => {
     const code = await runCli(['--help'], io);
     expect(code).toBe(0);
     expect(out()).toContain('jevladder plugin --out');
+    expect(out()).toContain('--host cursor');
   });
 });
 

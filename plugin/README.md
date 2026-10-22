@@ -84,6 +84,25 @@ permission is denied. Prompt text and tool input are not logged.
 This is structural support, validated by loading the module and simulating
 hooks. It is not a claim that a live OpenCode session was run.
 
+## Cursor (additional host)
+
+Copy the generated `cursor/.cursor/` tree into your project root (or run
+`jevladder plugin --host cursor --out .` from the repo root after
+`npm run build`). That writes `.cursor/mcp.json`,
+`.cursor/rules/jevladder.mdc`, and a self-contained
+`.cursor/jevladder/jevladder-mcp.mjs` (same source as `scripts/jevladder-mcp.mjs`
+in the full plugin). The MCP entry launches that bundled script; no separate
+`plugin/` directory is required. No secrets are stored in these files;
+`jevladder_decide` reads `JEVLADDER_TYPESAFE_API_KEY` or
+`TYPESAFE_API_KEY` from the environment and fails closed without a key.
+
+The project rule carries host-neutral cheap-first routing guidance. Cursor
+lifecycle hooks are **not** bundled yet (the shared observe script targets
+Codex/Claude hook payloads). Enforcement stays in CI/merge.
+
+This is structural support, validated by generation tests. It is not a claim
+that a live Cursor session was run.
+
 ## What it does NOT do
 
 - Does **not** block prompts or tool use. PreToolUse and the OpenCode adapter are context only.
@@ -106,6 +125,7 @@ hooks. It is not a claim that a live OpenCode session was run.
 
 ## Uninstall
 
-Remove the plugin directory from your Claude Code plugins location (or stop
-passing `--plugin-dir`), and delete `~/.jevladder` if you no longer want local
-observe logs.
+Remove the plugin directory from your Claude Code plugins location, and delete
+`~/.jevladder` if you no longer want local observe logs. For Cursor, remove
+the generated `.cursor/mcp.json`, `.cursor/rules/jevladder.mdc`, and
+`.cursor/jevladder/` tree.

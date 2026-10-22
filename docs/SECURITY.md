@@ -57,6 +57,15 @@ responsibility: callers should enforce their configured rules there, where
 uncertain or invalid decisions can fail closed or require human review. Do not
 treat observe hooks or MCP tools as enforcement boundaries.
 
+The Cursor host adapter ships project `.cursor/mcp.json` (local stdio MCP),
+`.cursor/jevladder/jevladder-mcp.mjs` (dependency-free bundled server), and
+`.cursor/rules/jevladder.mdc` (always-on advisory routing guidance). It does
+not install Cursor lifecycle hooks: the shared observe script targets Codex and
+Claude hook payloads, and Cursor command hooks can set `permission` outcomes when
+configured to do so. JevLadder does not ship Cursor hooks until a fail-open,
+context-only mapping is verified. The bundled MCP `jevladder_decide` tool remains
+fail closed without a judge API key; route and explain stay offline.
+
 ## Data and privacy
 
 ## Known weaknesses and residual risk
@@ -123,6 +132,7 @@ The checked-in generated plugin inventory is:
 - `scripts/jevladder-observe.mjs` — standalone observe hook.
 - `scripts/jevladder-mcp.mjs` — standalone advisory MCP server.
 - `opencode/jevladder.mjs` — OpenCode adapter. It does not rewrite tool arguments, deny permission, or log prompt or tool text.
+- `cursor/.cursor/mcp.json`, `cursor/.cursor/jevladder/jevladder-mcp.mjs`, and `cursor/.cursor/rules/jevladder.mdc` — Cursor project config templates (copy or `jevladder plugin --host cursor --out .`). No secrets in JSON; MCP inherits judge keys from the environment.
 - `skills/` — routing usage guidance.
 - `config.json` — generated plugin settings.
 - `README.md` — plugin setup and usage.

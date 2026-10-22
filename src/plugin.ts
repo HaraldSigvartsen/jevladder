@@ -1,6 +1,7 @@
 /**
  * Codex-first plugin generator. Claude Code is the second host. OpenCode is the
- * third host adapter (v0.5 automatic layer).
+ * third host adapter (v0.5 automatic layer). Cursor is the fourth host adapter
+ * (project MCP config and rules only).
  *
  * Emits a loadable plugin directory: manifest, SessionStart, UserPromptSubmit,
  * and advisory PreToolUse hooks, a standalone observe script, config, and
@@ -65,6 +66,8 @@ export function parseJevLadderPluginConfig(raw: unknown): JevLadderPluginConfig 
 
 const PLUGIN_VERSION = '0.6.0';
 export const DEFAULT_LOG_FILE = 'observe.jsonl';
+/** Workspace-relative path to the MCP server bundled with Cursor project config. */
+export const CURSOR_BUNDLED_MCP_REL = '.cursor/jevladder/jevladder-mcp.mjs';
 const IRREVERSIBLE_ACTIONS = ['deploy', 'migration', 'delete'] as const;
 
 /** Safe observe log basename: no directories, no empty/`.`/`..`, printable-ish. */
@@ -649,6 +652,64 @@ export const JevLadderPlugin = async (ctx) => {
 `;
 }
 
+/** Host-neutral routing guidance for Cursor project rules (matches the bundled skill). */
+function cursorRoutingRuleBody(): string {
+  return `# JevLadder routing (advisory)
+
+JevLadder sizes coding tasks and suggests effort tiers. Call \`jevladder_route\` or
+\`jevladder_explain\` when the local MCP server is available. Before merge, use
+\`jevladder_decide\` as an advisory pre-merge check; enforcement stays in CI/merge.
+
+Start specific, well-scoped work at **cheap** effort. If verification is weak or a
+tier fails, keep the error output and escalate **one tier at a time**: cheap → mid →
+frontier. Reserve frontier for cross-cutting work, unclear causes, or orchestration.
+
+A tier is never permission. Irreversible or uncertain actions go to a human; the judge
+never solely approves irreversible actions. The main session model is never swapped.
+`;
+}
+
+/**
+ * Cursor project files under \`.cursor/\`. MCP launches the bundled stdio server via
+ * a workspace-relative path; no secrets in JSON (judge keys come from the user env).
+ */
+export function buildCursorHostFiles(): Record<string, string> {
+  const mcpScriptArg = `\${workspaceFolder}/${CURSOR_BUNDLED_MCP_REL}`;
+  const mcp = {
+    mcpServers: {
+      jevladder: {
+        command: 'node',
+        args: [mcpScriptArg],
+      },
+    },
+  };
+  const rule = `---
+description: JevLadder advisory coding effort routing — cheap first, escalate on weak verification, humans for irreversible work.
+alwaysApply: true
+---
+
+${cursorRoutingRuleBody()}`;
+  const bundledMcp = mcpScript();
+  return {
+    '.cursor/mcp.json': `${JSON.stringify(mcp, null, 2)}\n`,
+    '.cursor/rules/jevladder.mdc': rule.endsWith('\n') ? rule : `${rule}\n`,
+    [CURSOR_BUNDLED_MCP_REL]: bundledMcp.endsWith('\n') ? bundledMcp : `${bundledMcp}\n`,
+  };
+}
+
+/** Write Cursor host files (\`.cursor/mcp.json\`, rules, bundled MCP) under \`outDir\`. */
+export function writeCursorHostFiles(outDir: string): string[] {
+  const files = buildCursorHostFiles();
+  const written: string[] = [];
+  for (const [rel, content] of Object.entries(files)) {
+    const abs = join(outDir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content, 'utf8');
+    written.push(abs);
+  }
+  return written;
+}
+
 function pluginReadme(logFileName: string, models: Record<RouteTier, ClaudeCodeModelAlias>): string {
   return `# JevLadder — Codex-first advisory plugin
 
@@ -736,6 +797,25 @@ permission is denied. Prompt text and tool input are not logged.
 This is structural support, validated by loading the module and simulating
 hooks. It is not a claim that a live OpenCode session was run.
 
+## Cursor (additional host)
+
+Copy the generated \`cursor/.cursor/\` tree into your project root (or run
+\`jevladder plugin --host cursor --out .\` from the repo root after
+\`npm run build\`). That writes \`.cursor/mcp.json\`,
+\`.cursor/rules/jevladder.mdc\`, and a self-contained
+\`.cursor/jevladder/jevladder-mcp.mjs\` (same source as \`scripts/jevladder-mcp.mjs\`
+in the full plugin). The MCP entry launches that bundled script; no separate
+\`plugin/\` directory is required. No secrets are stored in these files;
+\`jevladder_decide\` reads \`JEVLADDER_TYPESAFE_API_KEY\` or
+\`TYPESAFE_API_KEY\` from the environment and fails closed without a key.
+
+The project rule carries host-neutral cheap-first routing guidance. Cursor
+lifecycle hooks are **not** bundled yet (the shared observe script targets
+Codex/Claude hook payloads). Enforcement stays in CI/merge.
+
+This is structural support, validated by generation tests. It is not a claim
+that a live Cursor session was run.
+
 ## What it does NOT do
 
 - Does **not** block prompts or tool use. PreToolUse and the OpenCode adapter are context only.
@@ -758,9 +838,10 @@ hooks. It is not a claim that a live OpenCode session was run.
 
 ## Uninstall
 
-Remove the plugin directory from your Claude Code plugins location (or stop
-passing \`--plugin-dir\`), and delete \`~/.jevladder\` if you no longer want local
-observe logs.
+Remove the plugin directory from your Claude Code plugins location, and delete
+\`~/.jevladder\` if you no longer want local observe logs. For Cursor, remove
+the generated \`.cursor/mcp.json\`, \`.cursor/rules/jevladder.mdc\`, and
+\`.cursor/jevladder/\` tree.
 `;
 }
 
@@ -796,7 +877,7 @@ export function buildPluginFiles(
     interface: {
       displayName: 'JevLadder',
       shortDescription: 'Cheap-first advisory routing for Codex.',
-      longDescription: 'Automatic lifecycle guidance and a routing skill, with voluntary local MCP decide/route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host. OpenCode supported as an additional host.',
+      longDescription: 'Automatic lifecycle guidance and a routing skill, with voluntary local MCP decide/route/explain tools. Escalate uncertainty; humans approve irreversible actions. Claude Code supported as second host. OpenCode and Cursor supported as additional hosts.',
       developerName: 'Harald Sigvartsen',
       category: 'Developer Tools',
       capabilities: ['Instructions', 'Lifecycle hooks'],
@@ -871,6 +952,9 @@ export function buildPluginFiles(
     'scripts/jevladder-hook.sh': '#!/bin/sh\nif ! command -v node >/dev/null 2>&1; then\n  exit 0\nfi\nDIR=$(dirname "$0")\nexec node "$DIR/jevladder-observe.mjs"\n',
     'scripts/jevladder-observe.mjs': script.endsWith('\n') ? script : `${script}\n`,
     'opencode/jevladder.mjs': `${opencodePlugin(logFileName).replace(/\n$/, '')}\n`,
+    ...Object.fromEntries(
+      Object.entries(buildCursorHostFiles()).map(([rel, content]) => [`cursor/${rel}`, content]),
+    ),
     'skills/jevladder-routing/SKILL.md': `---
 name: jevladder-routing
 description: Applies automatically when delegating or choosing effort for coding tasks.

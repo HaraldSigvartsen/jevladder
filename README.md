@@ -611,8 +611,14 @@ offline.
 is also supported as a secondary host. OpenCode is an additional host: the
 generated `opencode/jevladder.mjs` exports `JevLadderPlugin`, and this
 repository loads it from `.opencode/plugins/jevladder.mjs`. That adapter adds
-advisory context and the local MCP server; it does not block tools. Library +
-CLI work anywhere Node runs. Further hosts remain future work.
+advisory context and the local MCP server; it does not block tools. Cursor is
+another additional host: copy `plugin/cursor/.cursor/` into your project root or
+run `jevladder plugin --host cursor --out .` after building the CLI. That adds
+`.cursor/mcp.json` (local `jevladder_decide` / `jevladder_route` /
+`jevladder_explain` MCP), `.cursor/jevladder/jevladder-mcp.mjs` (bundled stdio
+server — no separate `plugin/` tree required), and `.cursor/rules/jevladder.mdc`
+(cheap-first routing guidance). Cursor lifecycle hooks are not bundled yet.
+Library + CLI work anywhere Node runs.
 
 **Empty diff → exit 1?** By design — refusing to run on no input (never fail
 open).
@@ -668,7 +674,7 @@ npm run eval:independent # policy-labelled independent eval
   Advisory PreToolUse context runs before file writes and merge-like shell
   commands; it does not approve or deny them. The observe-log cost report is
   available through the advanced CLI.
-- **Later:** further hosts beyond Codex, Claude Code, and OpenCode.
+- **Later:** further hosts beyond Codex, Claude Code, OpenCode, and Cursor.
   `jevladder propose --open` opens the config-proposal pull request for a human
   to approve and never merges it.
 
