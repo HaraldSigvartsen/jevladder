@@ -615,9 +615,10 @@ advisory context and the local MCP server; it does not block tools. Cursor is
 another additional host: copy `plugin/cursor/.cursor/` into your project root or
 run `jevladder plugin --host cursor --out .` after building the CLI. That adds
 `.cursor/mcp.json` (local `jevladder_decide` / `jevladder_route` /
-`jevladder_explain` MCP) and `.cursor/rules/jevladder.mdc` (cheap-first routing
-guidance). Cursor lifecycle hooks are not bundled yet. Library + CLI work
-anywhere Node runs.
+`jevladder_explain` MCP), `.cursor/jevladder/jevladder-mcp.mjs` (bundled stdio
+server — no separate `plugin/` tree required), and `.cursor/rules/jevladder.mdc`
+(cheap-first routing guidance). Cursor lifecycle hooks are not bundled yet.
+Library + CLI work anywhere Node runs.
 
 **Empty diff → exit 1?** By design — refusing to run on no input (never fail
 open).

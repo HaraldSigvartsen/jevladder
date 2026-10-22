@@ -64,6 +64,7 @@ describe('buildPluginFiles', () => {
         'scripts/jevladder-hook.sh',
         'opencode/jevladder.mjs',
         'cursor/.cursor/mcp.json',
+        'cursor/.cursor/jevladder/jevladder-mcp.mjs',
         'cursor/.cursor/rules/jevladder.mdc',
         'skills/jevladder-routing/SKILL.md',
       ].sort(),

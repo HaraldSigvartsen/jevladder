@@ -88,12 +88,12 @@ hooks. It is not a claim that a live OpenCode session was run.
 
 Copy the generated `cursor/.cursor/` tree into your project root (or run
 `jevladder plugin --host cursor --out .` from the repo root after
-`npm run build`). That writes `.cursor/mcp.json` and
-`.cursor/rules/jevladder.mdc`. The MCP entry launches
-`scripts/jevladder-mcp.mjs` under the plugin directory (default relative path
-`plugin/` from the workspace root). Adjust the path in
-`mcp.json` if your plugin lives elsewhere. No secrets are stored in these
-files; `jevladder_decide` reads `JEVLADDER_TYPESAFE_API_KEY` or
+`npm run build`). That writes `.cursor/mcp.json`,
+`.cursor/rules/jevladder.mdc`, and a self-contained
+`.cursor/jevladder/jevladder-mcp.mjs` (same source as `scripts/jevladder-mcp.mjs`
+in the full plugin). The MCP entry launches that bundled script; no separate
+`plugin/` directory is required. No secrets are stored in these files;
+`jevladder_decide` reads `JEVLADDER_TYPESAFE_API_KEY` or
 `TYPESAFE_API_KEY` from the environment and fails closed without a key.
 
 The project rule carries host-neutral cheap-first routing guidance. Cursor
@@ -125,6 +125,7 @@ that a live Cursor session was run.
 
 ## Uninstall
 
-Remove the plugin directory from your Claude Code plugins location (or stop
-passing `--plugin-dir`), and delete `~/.jevladder` if you no longer want local
-observe logs.
+Remove the plugin directory from your Claude Code plugins location, and delete
+`~/.jevladder` if you no longer want local observe logs. For Cursor, remove
+the generated `.cursor/mcp.json`, `.cursor/rules/jevladder.mdc`, and
+`.cursor/jevladder/` tree.

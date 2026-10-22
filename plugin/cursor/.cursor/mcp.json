@@ -3,7 +3,7 @@
     "jevladder": {
       "command": "node",
       "args": [
-        "${workspaceFolder}/plugin/scripts/jevladder-mcp.mjs"
+        "${workspaceFolder}/.cursor/jevladder/jevladder-mcp.mjs"
       ]
     }
   }

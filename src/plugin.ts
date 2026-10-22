@@ -66,8 +66,8 @@ export function parseJevLadderPluginConfig(raw: unknown): JevLadderPluginConfig 
 
 const PLUGIN_VERSION = '0.6.0';
 export const DEFAULT_LOG_FILE = 'observe.jsonl';
-/** Default relative path from workspace root to the generated plugin directory (Cursor MCP launch). */
-export const DEFAULT_CURSOR_PLUGIN_DIR = 'plugin';
+/** Workspace-relative path to the MCP server bundled with Cursor project config. */
+export const CURSOR_BUNDLED_MCP_REL = '.cursor/jevladder/jevladder-mcp.mjs';
 const IRREVERSIBLE_ACTIONS = ['deploy', 'migration', 'delete'] as const;
 
 /** Safe observe log basename: no directories, no empty/`.`/`..`, printable-ish. */
@@ -673,12 +673,8 @@ never solely approves irreversible actions. The main session model is never swap
  * Cursor project files under \`.cursor/\`. MCP launches the bundled stdio server via
  * a workspace-relative path; no secrets in JSON (judge keys come from the user env).
  */
-export function buildCursorHostFiles(
-  pluginDirRel: string = DEFAULT_CURSOR_PLUGIN_DIR,
-): Record<string, string> {
-  const normalized = pluginDirRel.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
-  const safeRel = normalized === '' || normalized.includes('..') ? DEFAULT_CURSOR_PLUGIN_DIR : normalized;
-  const mcpScriptArg = `\${workspaceFolder}/${safeRel}/scripts/jevladder-mcp.mjs`;
+export function buildCursorHostFiles(): Record<string, string> {
+  const mcpScriptArg = `\${workspaceFolder}/${CURSOR_BUNDLED_MCP_REL}`;
   const mcp = {
     mcpServers: {
       jevladder: {
@@ -693,18 +689,17 @@ alwaysApply: true
 ---
 
 ${cursorRoutingRuleBody()}`;
+  const bundledMcp = mcpScript();
   return {
     '.cursor/mcp.json': `${JSON.stringify(mcp, null, 2)}\n`,
     '.cursor/rules/jevladder.mdc': rule.endsWith('\n') ? rule : `${rule}\n`,
+    [CURSOR_BUNDLED_MCP_REL]: bundledMcp.endsWith('\n') ? bundledMcp : `${bundledMcp}\n`,
   };
 }
 
-/** Write Cursor host files (\`.cursor/mcp.json\`, \`.cursor/rules/jevladder.mdc\`) under \`outDir\`. */
-export function writeCursorHostFiles(
-  outDir: string,
-  pluginDirRel: string = DEFAULT_CURSOR_PLUGIN_DIR,
-): string[] {
-  const files = buildCursorHostFiles(pluginDirRel);
+/** Write Cursor host files (\`.cursor/mcp.json\`, rules, bundled MCP) under \`outDir\`. */
+export function writeCursorHostFiles(outDir: string): string[] {
+  const files = buildCursorHostFiles();
   const written: string[] = [];
   for (const [rel, content] of Object.entries(files)) {
     const abs = join(outDir, rel);
@@ -806,12 +801,12 @@ hooks. It is not a claim that a live OpenCode session was run.
 
 Copy the generated \`cursor/.cursor/\` tree into your project root (or run
 \`jevladder plugin --host cursor --out .\` from the repo root after
-\`npm run build\`). That writes \`.cursor/mcp.json\` and
-\`.cursor/rules/jevladder.mdc\`. The MCP entry launches
-\`scripts/jevladder-mcp.mjs\` under the plugin directory (default relative path
-\`${DEFAULT_CURSOR_PLUGIN_DIR}/\` from the workspace root). Adjust the path in
-\`mcp.json\` if your plugin lives elsewhere. No secrets are stored in these
-files; \`jevladder_decide\` reads \`JEVLADDER_TYPESAFE_API_KEY\` or
+\`npm run build\`). That writes \`.cursor/mcp.json\`,
+\`.cursor/rules/jevladder.mdc\`, and a self-contained
+\`.cursor/jevladder/jevladder-mcp.mjs\` (same source as \`scripts/jevladder-mcp.mjs\`
+in the full plugin). The MCP entry launches that bundled script; no separate
+\`plugin/\` directory is required. No secrets are stored in these files;
+\`jevladder_decide\` reads \`JEVLADDER_TYPESAFE_API_KEY\` or
 \`TYPESAFE_API_KEY\` from the environment and fails closed without a key.
 
 The project rule carries host-neutral cheap-first routing guidance. Cursor
@@ -843,9 +838,10 @@ that a live Cursor session was run.
 
 ## Uninstall
 
-Remove the plugin directory from your Claude Code plugins location (or stop
-passing \`--plugin-dir\`), and delete \`~/.jevladder\` if you no longer want local
-observe logs.
+Remove the plugin directory from your Claude Code plugins location, and delete
+\`~/.jevladder\` if you no longer want local observe logs. For Cursor, remove
+the generated \`.cursor/mcp.json\`, \`.cursor/rules/jevladder.mdc\`, and
+\`.cursor/jevladder/\` tree.
 `;
 }
 

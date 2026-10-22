@@ -1,8 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildCursorHostFiles, buildPluginFiles, DEFAULT_CURSOR_PLUGIN_DIR } from '../src/plugin.js';
+import {
+  buildCursorHostFiles,
+  buildPluginFiles,
+  CURSOR_BUNDLED_MCP_REL,
+} from '../src/plugin.js';
 import { runCli } from '../src/cli.js';
 import type { CliIO } from '../src/cli.js';
 
@@ -20,6 +24,20 @@ function tempDir(prefix: string): string {
   return dir;
 }
 
+/** Paths from Cursor mcp.json args, relative to the generated output root. */
+function workspaceRelativeMcpPaths(mcpJson: string): string[] {
+  const mcp = JSON.parse(mcpJson) as { mcpServers: Record<string, { args?: string[] }> };
+  const paths: string[] = [];
+  for (const server of Object.values(mcp.mcpServers)) {
+    for (const arg of server.args ?? []) {
+      if (typeof arg !== 'string') continue;
+      const rel = arg.replace(/^\$\{workspaceFolder\}\//, '');
+      if (rel !== arg) paths.push(rel);
+    }
+  }
+  return paths;
+}
+
 describe('Cursor host adapter', () => {
   it('emits valid MCP JSON and rule frontmatter without secrets or absolute paths', () => {
     const files = buildCursorHostFiles();
@@ -28,7 +46,7 @@ describe('Cursor host adapter', () => {
     };
     expect(mcp.mcpServers.jevladder.command).toBe('node');
     expect(mcp.mcpServers.jevladder.args).toEqual([
-      `\${workspaceFolder}/${DEFAULT_CURSOR_PLUGIN_DIR}/scripts/jevladder-mcp.mjs`,
+      `\${workspaceFolder}/${CURSOR_BUNDLED_MCP_REL}`,
     ]);
     expect(JSON.stringify(mcp)).not.toMatch(/sk-|ghp_|api[_-]?key/i);
     expect(JSON.stringify(mcp)).not.toMatch(/^\/Users\//);
@@ -41,11 +59,22 @@ describe('Cursor host adapter', () => {
     expect(rule).not.toMatch(/\/Users\//);
   });
 
+  it('bundles the shared MCP server and references only paths inside the output tree', () => {
+    const files = buildCursorHostFiles();
+    const shared = buildPluginFiles()['scripts/jevladder-mcp.mjs'];
+    expect(files[CURSOR_BUNDLED_MCP_REL]).toBe(shared);
+
+    for (const rel of workspaceRelativeMcpPaths(files['.cursor/mcp.json'] as string)) {
+      expect(files[rel], `missing bundled file for mcp.json path ${rel}`).toBeDefined();
+    }
+  });
+
   it('is bundled under cursor/ in buildPluginFiles', () => {
     const files = buildPluginFiles();
     const nested = buildCursorHostFiles();
     expect(files['cursor/.cursor/mcp.json']).toBe(nested['.cursor/mcp.json']);
     expect(files['cursor/.cursor/rules/jevladder.mdc']).toBe(nested['.cursor/rules/jevladder.mdc']);
+    expect(files[`cursor/${CURSOR_BUNDLED_MCP_REL}`]).toBe(nested[CURSOR_BUNDLED_MCP_REL]);
   });
 
   it('matches the checked-in repository .cursor files', () => {
@@ -54,6 +83,9 @@ describe('Cursor host adapter', () => {
     expect(readFileSync(join(root, '.cursor/mcp.json'), 'utf8')).toBe(generated['.cursor/mcp.json']);
     expect(readFileSync(join(root, '.cursor/rules/jevladder.mdc'), 'utf8')).toBe(
       generated['.cursor/rules/jevladder.mdc'],
+    );
+    expect(readFileSync(join(root, CURSOR_BUNDLED_MCP_REL), 'utf8')).toBe(
+      generated[CURSOR_BUNDLED_MCP_REL],
     );
   });
 
@@ -74,6 +106,7 @@ describe('Cursor host adapter', () => {
     const io: CliIO = { stdout: (text) => { out += text; }, stderr: () => {} };
     expect(await runCli(['plugin', '--host', 'cursor', '--out', dir], io)).toBe(0);
     expect(readFileSync(join(dir, '.cursor/mcp.json'), 'utf8')).toContain('jevladder-mcp.mjs');
+    expect(existsSync(join(dir, CURSOR_BUNDLED_MCP_REL))).toBe(true);
     expect(out).toContain(join(dir, '.cursor', 'mcp.json'));
   });
 });
