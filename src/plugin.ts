@@ -1,7 +1,8 @@
 /**
  * Codex-first plugin generator. Claude Code is the second host. OpenCode is the
  * third host adapter (v0.5 automatic layer). Cursor is the fourth host adapter
- * (project MCP config and rules only).
+ * (project MCP config and rules only). ZCode is the fifth host adapter (global
+ * config fragments under --out only; the user merges into ~/.zcode).
  *
  * Emits a loadable plugin directory: manifest, SessionStart, UserPromptSubmit,
  * and advisory PreToolUse hooks, a standalone observe script, config, and
@@ -68,6 +69,8 @@ const PLUGIN_VERSION = '0.6.0';
 export const DEFAULT_LOG_FILE = 'observe.jsonl';
 /** Workspace-relative path to the MCP server bundled with Cursor project config. */
 export const CURSOR_BUNDLED_MCP_REL = '.cursor/jevladder/jevladder-mcp.mjs';
+/** Path to the MCP server bundled with ZCode output, relative to the `zcode/` directory. */
+export const ZCODE_BUNDLED_MCP_REL = 'jevladder/jevladder-mcp.mjs';
 const IRREVERSIBLE_ACTIONS = ['deploy', 'migration', 'delete'] as const;
 
 /** Safe observe log basename: no directories, no empty/`.`/`..`, printable-ish. */
@@ -652,8 +655,8 @@ export const JevLadderPlugin = async (ctx) => {
 `;
 }
 
-/** Host-neutral routing guidance for Cursor project rules (matches the bundled skill). */
-function cursorRoutingRuleBody(): string {
+/** Host-neutral routing guidance (Cursor rules, ZCode AGENTS fragment, bundled skill). */
+export function jevladderRoutingGuidance(): string {
   return `# JevLadder routing (advisory)
 
 JevLadder sizes coding tasks and suggests effort tiers. Call \`jevladder_route\` or
@@ -688,13 +691,57 @@ description: JevLadder advisory coding effort routing — cheap first, escalate 
 alwaysApply: true
 ---
 
-${cursorRoutingRuleBody()}`;
+${jevladderRoutingGuidance()}`;
   const bundledMcp = mcpScript();
   return {
     '.cursor/mcp.json': `${JSON.stringify(mcp, null, 2)}\n`,
     '.cursor/rules/jevladder.mdc': rule.endsWith('\n') ? rule : `${rule}\n`,
     [CURSOR_BUNDLED_MCP_REL]: bundledMcp.endsWith('\n') ? bundledMcp : `${bundledMcp}\n`,
   };
+}
+
+/**
+ * ZCode install fragments under a `zcode/` directory. When `zcodeRootAbs` is set
+ * (CLI `--host zcode`), `mcp-servers.json` uses an absolute path to the bundled
+ * MCP script so global `~/.zcode/cli/config.json` can launch it. The bundled
+ * plugin template omits `zcodeRootAbs` and uses a path relative to the `zcode/`
+ * folder — regenerate with the CLI before merging into global config.
+ */
+export function buildZcodeHostFiles(zcodeRootAbs?: string): Record<string, string> {
+  const mcpScriptPath = zcodeRootAbs !== undefined
+    ? join(zcodeRootAbs, ZCODE_BUNDLED_MCP_REL)
+    : `./${ZCODE_BUNDLED_MCP_REL}`;
+  const mcpServers = {
+    mcp: {
+      servers: {
+        jevladder: {
+          command: 'node',
+          args: [mcpScriptPath],
+        },
+      },
+    },
+  };
+  const agents = jevladderRoutingGuidance();
+  const bundledMcp = mcpScript();
+  return {
+    'mcp-servers.json': `${JSON.stringify(mcpServers, null, 2)}\n`,
+    'AGENTS.jevladder.md': agents.endsWith('\n') ? agents : `${agents}\n`,
+    [ZCODE_BUNDLED_MCP_REL]: bundledMcp.endsWith('\n') ? bundledMcp : `${bundledMcp}\n`,
+  };
+}
+
+/** Write ZCode host files under \`outDir/zcode/\` (never touches home config). */
+export function writeZcodeHostFiles(outDir: string): string[] {
+  const zcodeRoot = join(outDir, 'zcode');
+  const files = buildZcodeHostFiles(zcodeRoot);
+  const written: string[] = [];
+  for (const [rel, content] of Object.entries(files)) {
+    const abs = join(zcodeRoot, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content, 'utf8');
+    written.push(abs);
+  }
+  return written;
 }
 
 /** Write Cursor host files (\`.cursor/mcp.json\`, rules, bundled MCP) under \`outDir\`. */
@@ -815,6 +862,24 @@ Codex/Claude hook payloads). Enforcement stays in CI/merge.
 
 This is structural support, validated by generation tests. It is not a claim
 that a live Cursor session was run.
+
+## ZCode (additional host)
+
+Run \`jevladder plugin --host zcode --out <dir>\` (after \`npm run build\`). That
+writes \`<dir>/zcode/mcp-servers.json\` (an \`mcp.servers\` fragment with an
+**absolute** path to the bundled stdio MCP), \`<dir>/zcode/AGENTS.jevladder.md\`
+(cheap-first routing guidance), and \`<dir>/zcode/jevladder/jevladder-mcp.mjs\`.
+Merge the \`mcp\` object from the fragment into \`~/.zcode/cli/config.json\`
+and append the guidance file to \`~/.zcode/AGENTS.md\`. The generator never
+reads or writes your home \`.zcode\` tree. No secrets are stored in these files;
+judge keys come from the environment. ZCode lifecycle hooks are not bundled;
+enforcement stays in CI/merge.
+
+## T3 Code
+
+T3 Code drives the Codex and Claude Code agents. Use the existing Codex and
+Claude Code plugin outputs there. T3 Code itself has not been tested with
+JevLadder.
 
 ## What it does NOT do
 
@@ -954,6 +1019,9 @@ export function buildPluginFiles(
     'opencode/jevladder.mjs': `${opencodePlugin(logFileName).replace(/\n$/, '')}\n`,
     ...Object.fromEntries(
       Object.entries(buildCursorHostFiles()).map(([rel, content]) => [`cursor/${rel}`, content]),
+    ),
+    ...Object.fromEntries(
+      Object.entries(buildZcodeHostFiles()).map(([rel, content]) => [`zcode/${rel}`, content]),
     ),
     'skills/jevladder-routing/SKILL.md': `---
 name: jevladder-routing

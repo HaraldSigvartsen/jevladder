@@ -66,6 +66,13 @@ configured to do so. JevLadder does not ship Cursor hooks until a fail-open,
 context-only mapping is verified. The bundled MCP `jevladder_decide` tool remains
 fail closed without a judge API key; route and explain stay offline.
 
+The ZCode host adapter is advisory only. `jevladder plugin --host zcode --out <dir>`
+writes `mcp-servers.json`, `AGENTS.jevladder.md`, and a bundled stdio MCP under
+`<dir>/zcode/` only. It never reads or writes `~/.zcode` or other home-directory
+config; you merge the fragment into `~/.zcode/cli/config.json` and append guidance
+to `~/.zcode/AGENTS.md` yourself. No ZCode lifecycle hooks are shipped; enforcement
+stays in CI/merge (`jevladder check`).
+
 ## Data and privacy
 
 ## Known weaknesses and residual risk
@@ -133,6 +140,7 @@ The checked-in generated plugin inventory is:
 - `scripts/jevladder-mcp.mjs` — standalone advisory MCP server.
 - `opencode/jevladder.mjs` — OpenCode adapter. It does not rewrite tool arguments, deny permission, or log prompt or tool text.
 - `cursor/.cursor/mcp.json`, `cursor/.cursor/jevladder/jevladder-mcp.mjs`, and `cursor/.cursor/rules/jevladder.mdc` — Cursor project config templates (copy or `jevladder plugin --host cursor --out .`). No secrets in JSON; MCP inherits judge keys from the environment.
+- `zcode/mcp-servers.json`, `zcode/AGENTS.jevladder.md`, and `zcode/jevladder/jevladder-mcp.mjs` — ZCode global-config fragments (`jevladder plugin --host zcode --out <dir>`). Template uses a relative MCP path; the CLI emits an absolute path for merging into `~/.zcode/cli/config.json`. Never writes home config.
 - `skills/` — routing usage guidance.
 - `config.json` — generated plugin settings.
 - `README.md` — plugin setup and usage.

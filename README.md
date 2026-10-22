@@ -619,7 +619,18 @@ run `jevladder plugin --host cursor --out .` after building the CLI. That adds
 `jevladder_explain` MCP), `.cursor/jevladder/jevladder-mcp.mjs` (bundled stdio
 server — no separate `plugin/` tree required), and `.cursor/rules/jevladder.mdc`
 (cheap-first routing guidance). Cursor lifecycle hooks are not bundled yet.
-Library + CLI work anywhere Node runs.
+ZCode is another additional host: run `jevladder plugin --host zcode --out <dir>`
+after building the CLI. That writes `<dir>/zcode/mcp-servers.json` (an `mcp.servers`
+fragment whose `args` use an **absolute** path to the bundled stdio MCP under
+`<dir>/zcode/`), `AGENTS.jevladder.md` (the same cheap-first routing guidance as
+the Cursor rule), and `zcode/jevladder/jevladder-mcp.mjs`. Merge the `mcp` object
+from the fragment into `~/.zcode/cli/config.json` and append the guidance file to
+`~/.zcode/AGENTS.md`. The generator never reads or writes your home `.zcode` tree.
+ZCode lifecycle hooks are not bundled. Library + CLI work anywhere Node runs.
+
+**T3 Code:** T3 Code drives the Codex and Claude Code agents, so use the existing
+Codex / Claude Code plugin there. T3 Code itself has not been tested with
+JevLadder.
 
 **Empty diff → exit 1?** By design — refusing to run on no input (never fail
 open).
@@ -679,7 +690,7 @@ vhs docs/assets/demo.tape
   Advisory PreToolUse context runs before file writes and merge-like shell
   commands; it does not approve or deny them. The observe-log cost report is
   available through the advanced CLI.
-- **Later:** further hosts beyond Codex, Claude Code, OpenCode, and Cursor.
+- **Later:** further hosts beyond Codex, Claude Code, OpenCode, Cursor, and ZCode.
   `jevladder propose --open` opens the config-proposal pull request for a human
   to approve and never merges it.
 

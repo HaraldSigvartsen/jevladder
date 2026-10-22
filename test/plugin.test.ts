@@ -66,6 +66,9 @@ describe('buildPluginFiles', () => {
         'cursor/.cursor/mcp.json',
         'cursor/.cursor/jevladder/jevladder-mcp.mjs',
         'cursor/.cursor/rules/jevladder.mdc',
+        'zcode/mcp-servers.json',
+        'zcode/AGENTS.jevladder.md',
+        'zcode/jevladder/jevladder-mcp.mjs',
         'skills/jevladder-routing/SKILL.md',
       ].sort(),
     );
@@ -556,6 +559,7 @@ describe('jevladder plugin CLI', () => {
     expect(code).toBe(0);
     expect(out()).toContain('jevladder plugin --out');
     expect(out()).toContain('--host cursor');
+    expect(out()).toContain('--host zcode');
   });
 });
 
