@@ -9,13 +9,13 @@
 **Self-promotion note:** Many AI tool subs allow occasional project posts if you are active in the community, disclose authorship, and focus on discussion rather than a landing-page pitch. Read the sub wiki and recent mod announcements; some require a specific flair or restrict link posts.
 
 **Title draft:**  
-JevLadder: advisory routing + local MCP for Claude Code — merge enforcement stays in CI
+JevLadder: advisory routing + local stdio MCP for Claude Code — merge enforcement stays in CI
 
 **Body draft:**
 
 I maintain JevLadder (MIT, GitHub: https://github.com/HaraldSigvartsen/jevladder) — rules first, a judge only in the grey zone, humans for irreversible actions.
 
-For Claude Code, install from the repo marketplace: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. It adds SessionStart guidance, a routing skill, fail-open hooks that never block tools, and voluntary local MCP (`jevladder_route`, `jevladder_explain`, advisory `jevladder_decide`). Hooks log tier/signals/prompt length only — not prompt text.
+For Claude Code, install from the repo marketplace: `/plugin marketplace add HaraldSigvartsen/jevladder` then `/plugin install jevladder@jevladder`. It adds SessionStart guidance, a routing skill, fail-open hooks that never block tools, and a bundled MCP server over stdio (`jevladder_route`, `jevladder_explain` — no network calls; advisory `jevladder_decide` — TypeSafe judge on the grey zone when a key is set, compact diff summary only, otherwise human). Hooks log tier/signals/prompt length only — not prompt text.
 
 Important limits (by design):
 
@@ -45,7 +45,7 @@ https://github.com/HaraldSigvartsen/jevladder
 
 Core idea: ordered deterministic rules (tests not green, protected paths, secrets in diff, etc.) run first; only if nothing hits, an optional judge sees a **compact diff summary** (not full files). Irreversible actions always escalate to human even if the judge says allow.
 
-Agent plugins (Codex primary in my workflow; Claude Code supported) add **advisory** hooks — routing context, privacy-safe observe log, local MCP. They fail open and do not block the host. Enforcement is meant for `jevladder check` in CI.
+Agent plugins (Codex primary in my workflow; Claude Code supported) add **advisory** hooks — routing context, privacy-safe observe log, and bundled stdio MCP (`jevladder_route` / `jevladder_explain` stay offline; `jevladder_decide` may call TypeSafe on the grey zone with a judge key — compact diff summary only — else human). They fail open and do not block the host. Enforcement is meant for `jevladder check` in CI.
 
 Honest limits: not a LiteLLM/OpenRouter-style proxy; routing does not sit in the inference path. Cursor/OpenCode adapters are advisory templates. npm package `jevladder` is prepared but **not published** — clone or use host marketplace from GitHub.
 

@@ -9,11 +9,11 @@
 **Post 1** (279 chars)  
 Introducing JevLadder: rules-first merge gates + advisory routing for coding agents. Deterministic checks first, judge only in the grey zone, humans for irreversible work. Measurable allow/block/human — not "LGTM" prose. MIT, GitHub: https://github.com/HaraldSigvartsen/jevladder
 
-**Post 2** (278 chars)  
-Codex plugin from repo: SessionStart guidance, routing skill, fail-open hooks (tier/signals/promptChars only — never prompt text). MCP: jevladder_route, jevladder_explain, advisory jevladder_decide. Hooks don't block. CI check: rules block; grey zone → judge w/ key, else human.
+**Post 2** (280 chars)  
+Codex plugin: SessionStart, routing skill, fail-open hooks (tier/signals/promptChars — no prompt text). Bundled stdio MCP — route/explain: no network; decide: TypeSafe on grey zone w/ key (compact diff only), else human. Hooks don't block. CI `jevladder check`: rules block first.
 
-**Post 3** (280 chars)  
-No judge API key → grey zone → human (exit 3), not silent allow. TypeSafe keys send only a compact diff summary. Stock path is TypeSafe judge (not a mock); MockJudge is for tests/evals. Claude Code supported (structural validation); Cursor/OpenCode adapters advisory. npm not yet.
+**Post 3** (243 chars)  
+No judge key → grey zone → human (exit 3 from jevladder check), not silent allow. TypeSafe: compact diff summary only. Stock TypeSafe judge; MockJudge for tests/evals. Claude Code (structural validation); Cursor/OpenCode advisory. npm not yet.
 
 **Post 4** (245 chars)  
 Eval honesty: consistency 35/35 = labels match shipped heuristics (not external validity). Independent policy-labelled run 25/33 (76%), disagreements kept on purpose. Not Promptfoo, not LiteLLM — narrow gate + routing hints, not a traffic proxy.
@@ -31,7 +31,7 @@ The pattern is deliberate: run ordered deterministic merge rules first (tests no
 
 For day-to-day agent use, JevLadder ships as an advisory plugin (Codex is my primary host; Claude Code is also supported with structural validation). Hooks add routing context and write privacy-safe local metadata; they fail open and do not block tool use. Merge enforcement is meant for CI running `jevladder check`, which fails closed when no judge key is configured.
 
-The project includes local MCP tools for routing and explanation, plus an advisory pre-merge check that does not replace your pipeline. It is explicitly not a model gateway and not a full code-review product — one narrow, measurable decision at a time.
+The project includes a bundled stdio MCP server: `jevladder_route` and `jevladder_explain` make no network calls; advisory `jevladder_decide` may call TypeSafe on the grey zone when a judge key is set (compact diff summary only), otherwise human — it does not replace your CI pipeline. It is explicitly not a model gateway and not a full code-review product — one narrow, measurable decision at a time.
 
 Repository: https://github.com/HaraldSigvartsen/jevladder  
 License: MIT. Node ≥20. npm package name `jevladder` is not published yet — install from GitHub or the host marketplace.
