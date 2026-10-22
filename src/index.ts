@@ -5,6 +5,8 @@ export * from './gate.js';
 export * from './diff-parse.js';
 export * from './judge/mock.js';
 export * from './judge/openai-compatible.js';
+export * from './judge/diff-summary.js';
+export * from './judge/typesafe.js';
 export * from './rules/merge-rules.js';
 export * from './route.js';
 export * from './plugin.js';

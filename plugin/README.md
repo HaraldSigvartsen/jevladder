@@ -69,7 +69,9 @@ config changes. Editing the emitted `config.json` does not change agent models.
 - Does **not** block prompts or tool use.
 - Does **not** swap the host model mid-session (a plugin cannot do that —
   see the main jevladder README honesty section).
-- Does **not** call remote APIs or send prompt text anywhere.
+- Does **not** send prompt text anywhere. The bundled MCP `jevladder_decide` tool
+  calls the TypeSafe judge API only when `JEVLADDER_JUDGE_API_KEY` or
+  `TYPESAFE_API_KEY` is set; otherwise it defers to a human (fail closed).
 
 ## Log location and privacy
 

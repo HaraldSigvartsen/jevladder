@@ -1,7 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { JEVLADDER_JUDGE_API_KEY_ENV, TYPESAFE_API_KEY_ENV } from '../src/judge/typesafe.js';
 import { runCli } from '../src/cli.js';
 import type { CliIO } from '../src/cli.js';
 
@@ -66,7 +67,13 @@ const RENAME_AWAY_FROM_PAYMENTS_DIFF = [
 
 const tempDirs: string[] = [];
 
+beforeEach(() => {
+  vi.stubEnv(JEVLADDER_JUDGE_API_KEY_ENV, '');
+  vi.stubEnv(TYPESAFE_API_KEY_ENV, '');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop() as string, { recursive: true, force: true });
   }
@@ -96,14 +103,13 @@ function captureIO(stdin?: string): { io: CliIO; out: () => string; err: () => s
 }
 
 describe('jevladder check', () => {
-  it('allows a small safe diff with green tests (exit 0, judge source)', async () => {
+  it('defers a safe diff to a human when no judge key is configured (fail closed)', async () => {
     const file = writeTempDiff('safe.diff', SAFE_DIFF);
     const { io, out } = captureIO();
     const code = await runCli(['check', '--diff', file, '--tests-passed'], io);
-    expect(code).toBe(0);
-    expect(out()).toContain('allow');
-    expect(out()).toContain('judge');
-    expect(out()).toContain('mock: no risk signals');
+    expect(code).toBe(3);
+    expect(out()).toContain('human');
+    expect(out()).toContain('no judge key configured');
   });
 
   it('blocks a payments diff (exit 2, protected path decides first)', async () => {
@@ -156,17 +162,17 @@ describe('jevladder check', () => {
     const file = writeTempDiff('safe.diff', SAFE_DIFF);
     const { io, out } = captureIO();
     const code = await runCli(['check', '--diff', file, '--tests-passed', '--json'], io);
-    expect(code).toBe(0);
+    expect(code).toBe(3);
     const parsed = JSON.parse(out()) as { outcome: string; source: string };
-    expect(parsed.outcome).toBe('allow');
-    expect(parsed.source).toBe('judge');
+    expect(parsed.outcome).toBe('human');
+    expect(parsed.source).toBe('human');
   });
 
   it('reads the diff from stdin with --diff -', async () => {
     const { io, out } = captureIO(SAFE_DIFF);
     const code = await runCli(['check', '--diff', '-', '--tests-passed'], io);
-    expect(code).toBe(0);
-    expect(out()).toContain('allow');
+    expect(code).toBe(3);
+    expect(out()).toContain('human');
   });
 
   it('usage-errors on an unknown option (exit 1, stderr)', async () => {

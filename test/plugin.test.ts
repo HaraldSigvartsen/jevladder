@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPluginFiles,
   DEFAULT_LOG_FILE,
@@ -15,6 +15,7 @@ import type { CliIO } from '../src/cli.js';
 const tempDirs: string[] = [];
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop() as string, { recursive: true, force: true });
   }
@@ -198,7 +199,12 @@ describe('jevladder-observe.mjs integration', () => {
     const result = spawnSync(process.execPath, [script], {
       input: stdin,
       encoding: 'utf8',
-      env: { ...process.env, JEVLADDER_OBSERVE_LOG: log },
+      env: {
+        ...process.env,
+        JEVLADDER_JUDGE_API_KEY: '',
+        TYPESAFE_API_KEY: '',
+        JEVLADDER_OBSERVE_LOG: log,
+      },
     });
     return {
       status: result.status,
@@ -437,7 +443,12 @@ describe('jevladder-mcp.mjs integration', () => {
       input: prefix + messages.map((message) => JSON.stringify(message)).join('\n') + '\n',
       encoding: 'utf8',
       timeout: 5000,
-      env: { ...process.env, JEVLADDER_OBSERVE_LOG: log },
+      env: {
+        ...process.env,
+        JEVLADDER_JUDGE_API_KEY: '',
+        TYPESAFE_API_KEY: '',
+        JEVLADDER_OBSERVE_LOG: log,
+      },
     });
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
@@ -475,7 +486,11 @@ describe('jevladder-mcp.mjs integration', () => {
       return response.result ?? { isError: true, content: [{ text: response.error.message }] };
     };
     const safeDiff = '--- a/src/a.ts\n+++ b/src/a.ts\n@@\n-old\n+new';
-    expect(JSON.parse(decide(safeDiff, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'allow', source: 'judge' });
+    expect(JSON.parse(decide(safeDiff, { testsPassed: true }).content[0].text)).toMatchObject({
+      outcome: 'human',
+      source: 'judge',
+      reason: 'no judge key configured',
+    });
     for (const malformed of ['', '   ', '+content without file headers', '--- weird\n+++ malformed']) {
       if (malformed.trim() === '') {
         const invalidDiff = decide(malformed, { testsPassed: true });
@@ -522,7 +537,10 @@ describe('jevladder-mcp.mjs integration', () => {
     expect(JSON.parse(decide(safeDiff, { testsPassed: true, irreversible: true }).content[0].text)).toMatchObject({ outcome: 'human', source: 'judge' });
     expect(JSON.parse(decide('+// TODO inspect later', { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'human' });
     const templateEnv = '--- a/.env.example\n+++ b/.env.example\n+API_KEY=YOUR_API_KEY_HERE';
-    expect(JSON.parse(decide(templateEnv, { testsPassed: true }).content[0].text)).toMatchObject({ outcome: 'allow' });
+    expect(JSON.parse(decide(templateEnv, { testsPassed: true }).content[0].text)).toMatchObject({
+      outcome: 'human',
+      reason: 'no judge key configured',
+    });
     // synthetic fixture assembled from pieces — do not inline
     const stripeCredential = ['sk', 'live', 'ABCD1234', 'EFGH5678'].join('_');
     const secretDiff = `--- a/src/config.ts\n+++ b/src/config.ts\n+api_key = "${stripeCredential}"`;

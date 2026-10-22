@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add TypeSafe System One judge (`TypeSafeJudge`) for CLI, default library wiring, and MCP `jevladder_decide` when `JEVLADDER_JUDGE_API_KEY` or `TYPESAFE_API_KEY` is set; without a key, fail closed to human (no fixed 0.85 auto-allow).
 - Run `npm test` and `npm run typecheck` on push and pull_request. The workflow does not publish to npm.
 - Recognize whole-value env-template placeholders without allowing credential-shaped values through; detect code-shaped auth/session/security changes by content, including in neutral utility paths.
 - Prepare the npm package metadata and include generated plugin assets; npm provenance is disabled because CI OIDC is not available.

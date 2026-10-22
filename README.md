@@ -84,18 +84,17 @@ npm run build
 ### Demo: merge gate
 
 ```bash
-# Safe change (greeting copy + its test) — no rule hit, mock judge allows:
+# Safe change (greeting copy + its test) — no rule hit; without a judge key, fail closed:
 node dist/src/cli.js check --diff examples/merge-gate/sample.diff --tests-passed
 ```
 
 ```text
-outcome: allow
-source:  judge
-reason:  mock: no risk signals
-judge:   allow 0.85 — mock: no risk signals
+outcome: human
+source:  human
+reason:  judge abstained: no judge key configured
 ```
 
-Exit code `0` → allow.
+Exit code `3` → human review. Set a judge API key (see **Using a real judge model** below) to consult TypeSafe on the grey zone.
 
 ```bash
 # Touches protected path src/payments/charge.ts — first-hit rule stops before judge:
@@ -212,9 +211,30 @@ const decision: Decision = await gate.decide({
 The judge is JevLadder's type-safe contract: the TypeScript `Judge` interface is
 validated at runtime by `parseJudgeVerdict` (verdict must be `allow`, `block`,
 or `abstain`; score must be finite and in `[0,1]`; evidence must be
-non-empty). Invalid output abstains and goes to a human. The default documented
-path remains `MockJudge` with no API key; a missing key also abstains to a
-human.
+non-empty). Invalid output abstains and goes to a human. Tests and evals use
+`MockJudge` explicitly; the stock CLI uses `createDefaultJudge()` (see below).
+
+### Using a real judge model
+
+Set either `JEVLADDER_JUDGE_API_KEY` or `TYPESAFE_API_KEY` in the environment
+(`JEVLADDER_JUDGE_API_KEY` wins when both are set). The CLI `check` command,
+`createDefaultJudge()` in the library, and the bundled MCP `jevladder_decide`
+tool then call TypeSafe System One on the grey zone after deterministic rules
+pass. Only a compact diff summary is sent (paths, line counts, truncated
+changed-line excerpt); see [docs/SECURITY.md](docs/SECURITY.md).
+
+Without a key, behaviour is fail closed: the judge abstains with
+`no judge key configured` and the gate returns `human` (exit `3` for CLI) —
+never a fixed-score auto-allow.
+
+```ts
+import { createDefaultJudge, defineGate, makeMergeRules } from 'jevladder';
+
+const gate = defineGate({
+  rules: makeMergeRules(),
+  judge: createDefaultJudge({ userAgentVersion: '0.6.0' }),
+});
+```
 
 Advanced example (use a model selected from your own configured model ladder,
 starting with its cheap tier; JevLadder does not recommend a vendor model):
@@ -262,8 +282,9 @@ git diff | node /path/to/jevladder/dist/src/cli.js check --diff - --tests-passed
 ```
 
 **Example** GitHub Actions job (adapt paths / base branch; not a drop-in for
-every repo). Exit `2` or `3` fails the job (= needs human review). No jevladder
-secrets required for the default `MockJudge` CLI:
+every repo). Exit `2` or `3` fails the job (= needs human review). Without a
+judge API key the stock CLI fails closed to `human` (exit `3`) on grey-zone
+diffs; optional: add `JEVLADDER_JUDGE_API_KEY` as a secret for TypeSafe judging:
 
 ```yaml
 # .github/workflows/jevladder-check.yml — EXAMPLE to adapt
@@ -291,9 +312,8 @@ jobs:
           # exit 0 allow · 2 block · 3 human · 1 usage error
 ```
 
-If you later wire `OpenAICompatibleJudge` into a custom gate in CI, put the
-key in Actions secrets (`JEVLADDER_JUDGE_API_KEY`) — never commit it. The stock CLI
-uses `MockJudge` only.
+Put judge keys in Actions secrets — never commit them. The stock CLI reads
+`JEVLADDER_JUDGE_API_KEY` / `TYPESAFE_API_KEY` automatically when set.
 
 ### c) Write your own rule
 
@@ -539,17 +559,18 @@ node dist/src/cli.js check --diff examples/merge-gate/sample-risky.diff --tests-
 `secrets-in-diff` (expected `allow`, actual `block`). Listed under independent
 misses; see [eval/independent/policy.md](eval/independent/policy.md).
 
-**Judge / no API key?** CLI and eval default to `MockJudge` (free, offline).
-`OpenAICompatibleJudge` with a missing `JEVLADDER_JUDGE_API_KEY` abstains → gate
-returns `human` (never throws into allow).
+**Judge / no API key?** Stock CLI and MCP decide fail closed → `human`. Evals
+use `MockJudge` explicitly. `OpenAICompatibleJudge` with a missing key abstains
+→ `human` as well.
 
 **Disable the gate for one change?** Don’t run `jevladder check`, or temporarily
 adjust/remove rules in the code that builds your gate. Plugin: stop loading
 it (`--plugin-dir` off) / delete the plugin dir.
 
-**Does it phone home?** No. Library/CLI with `MockJudge` make no network
-calls. Network only happens if **you** configure `OpenAICompatibleJudge` to
-your endpoint. The observe plugin writes locally only.
+**Does it phone home?** Observe hooks write locally only. Network calls happen
+only when a judge API key is set (TypeSafe for CLI/MCP decide) or when **you**
+wire `OpenAICompatibleJudge` to your own endpoint. Route/explain MCP tools stay
+offline.
 
 **Which hosts today?** Codex is the maintainer's primary plugin host; Claude Code
 is also supported as a secondary host. Library + CLI work anywhere Node runs. Other hosts can
