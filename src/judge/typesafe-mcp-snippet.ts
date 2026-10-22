@@ -12,8 +12,8 @@ const TYPESAFE_MIN_CONFIDENCE = 0.6;
 const PLUGIN_VERSION = ${version};
 
 function resolveJudgeApiKey() {
-  const jev = process.env.JEVLADDER_JUDGE_API_KEY;
-  if (typeof jev === 'string' && jev.trim()) return jev.trim();
+  const ladder = process.env.JEVLADDER_TYPESAFE_API_KEY;
+  if (typeof ladder === 'string' && ladder.trim()) return ladder.trim();
   const ts = process.env.TYPESAFE_API_KEY;
   if (typeof ts === 'string' && ts.trim()) return ts.trim();
   return undefined;

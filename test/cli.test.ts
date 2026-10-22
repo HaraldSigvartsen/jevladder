@@ -2,7 +2,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { JEVLADDER_JUDGE_API_KEY_ENV, TYPESAFE_API_KEY_ENV } from '../src/judge/typesafe.js';
+import {
+  DEFAULT_JUDGE_API_KEY_ENV,
+  JEVLADDER_TYPESAFE_API_KEY_ENV,
+  TYPESAFE_API_KEY_ENV,
+} from '../src/index.js';
 import { runCli } from '../src/cli.js';
 import type { CliIO } from '../src/cli.js';
 
@@ -68,7 +72,8 @@ const RENAME_AWAY_FROM_PAYMENTS_DIFF = [
 const tempDirs: string[] = [];
 
 beforeEach(() => {
-  vi.stubEnv(JEVLADDER_JUDGE_API_KEY_ENV, '');
+  vi.stubEnv(DEFAULT_JUDGE_API_KEY_ENV, '');
+  vi.stubEnv(JEVLADDER_TYPESAFE_API_KEY_ENV, '');
   vi.stubEnv(TYPESAFE_API_KEY_ENV, '');
 });
 

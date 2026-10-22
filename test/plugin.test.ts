@@ -202,6 +202,7 @@ describe('jevladder-observe.mjs integration', () => {
       env: {
         ...process.env,
         JEVLADDER_JUDGE_API_KEY: '',
+        JEVLADDER_TYPESAFE_API_KEY: '',
         TYPESAFE_API_KEY: '',
         JEVLADDER_OBSERVE_LOG: log,
       },
@@ -446,6 +447,7 @@ describe('jevladder-mcp.mjs integration', () => {
       env: {
         ...process.env,
         JEVLADDER_JUDGE_API_KEY: '',
+        JEVLADDER_TYPESAFE_API_KEY: '',
         TYPESAFE_API_KEY: '',
         JEVLADDER_OBSERVE_LOG: log,
       },

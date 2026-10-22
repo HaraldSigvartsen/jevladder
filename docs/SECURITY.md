@@ -24,7 +24,7 @@ The merge gate also scans changed added and removed lines for code-shaped auth, 
 
 ### TypeSafe judge (CLI, library, MCP decide)
 
-When `JEVLADDER_JUDGE_API_KEY` or `TYPESAFE_API_KEY` is set, the CLI
+When `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` is set, the CLI
 `check` command, the default library wiring (`createDefaultJudge`), and the
 bundled MCP `jevladder_decide` tool may call:
 
@@ -46,8 +46,9 @@ flags in MCP decide, and similar) run before the model and cannot be overridden
 by an approve.
 
 The optional `OpenAICompatibleJudge` in the library is separate: it only runs
-when an application wires it explicitly, uses a caller-configured base URL, and
-defaults to a 15-second timeout.
+when an application wires it explicitly, uses a caller-configured base URL,
+reads `JEVLADDER_JUDGE_API_KEY` by default (never TypeSafe credential env vars),
+and defaults to a 15-second timeout. API keys are not shared across providers.
 
 Hooks fail open: malformed or oversized hook input, log failures, and other
 hook errors exit successfully without printing prompt/task content. This keeps

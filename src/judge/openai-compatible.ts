@@ -21,6 +21,12 @@ export interface OpenAICompatibleJudgeConfig {
 export const DEFAULT_JUDGE_API_KEY_ENV = 'JEVLADDER_JUDGE_API_KEY';
 export const DEFAULT_JUDGE_TIMEOUT_MS = 15_000;
 
+/** TypeSafe credentials must not be reused for OpenAI-compatible backends. */
+const FORBIDDEN_OPENAI_KEY_ENVS = new Set([
+  'TYPESAFE_API_KEY',
+  'JEVLADDER_TYPESAFE_API_KEY',
+]);
+
 const MAX_DIFF_CHARS = 10_000;
 
 const SYSTEM_PROMPT = [
@@ -94,6 +100,11 @@ export class OpenAICompatibleJudge implements Judge {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.model = config.model;
     this.apiKeyEnv = config.apiKeyEnv?.trim() || DEFAULT_JUDGE_API_KEY_ENV;
+    if (FORBIDDEN_OPENAI_KEY_ENVS.has(this.apiKeyEnv)) {
+      throw new TypeError(
+        `OpenAICompatibleJudge: apiKeyEnv must not be a TypeSafe credential env (${this.apiKeyEnv})`,
+      );
+    }
     this.timeoutMs =
       typeof config.timeoutMs === 'number' && Number.isFinite(config.timeoutMs) && config.timeoutMs > 0
         ? config.timeoutMs

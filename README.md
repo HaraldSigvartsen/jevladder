@@ -216,8 +216,10 @@ non-empty). Invalid output abstains and goes to a human. Tests and evals use
 
 ### Using a real judge model
 
-Set either `JEVLADDER_JUDGE_API_KEY` or `TYPESAFE_API_KEY` in the environment
-(`JEVLADDER_JUDGE_API_KEY` wins when both are set). The CLI `check` command,
+Set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` for the stock TypeSafe
+judge (`JEVLADDER_TYPESAFE_API_KEY` wins when both are set). Keys are never
+shared across providers: `JEVLADDER_JUDGE_API_KEY` is only for an explicitly
+wired `OpenAICompatibleJudge`. The CLI `check` command,
 `createDefaultJudge()` in the library, and the bundled MCP `jevladder_decide`
 tool then call TypeSafe System One on the grey zone after deterministic rules
 pass. Only a compact diff summary is sent (paths, line counts, truncated
@@ -284,7 +286,8 @@ git diff | node /path/to/jevladder/dist/src/cli.js check --diff - --tests-passed
 **Example** GitHub Actions job (adapt paths / base branch; not a drop-in for
 every repo). Exit `2` or `3` fails the job (= needs human review). Without a
 judge API key the stock CLI fails closed to `human` (exit `3`) on grey-zone
-diffs; optional: add `JEVLADDER_JUDGE_API_KEY` as a secret for TypeSafe judging:
+diffs; optional: add `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` as a
+secret for TypeSafe judging:
 
 ```yaml
 # .github/workflows/jevladder-check.yml — EXAMPLE to adapt
@@ -313,7 +316,8 @@ jobs:
 ```
 
 Put judge keys in Actions secrets — never commit them. The stock CLI reads
-`JEVLADDER_JUDGE_API_KEY` / `TYPESAFE_API_KEY` automatically when set.
+TypeSafe keys (`JEVLADDER_TYPESAFE_API_KEY` / `TYPESAFE_API_KEY`) automatically
+when set; it does not use `JEVLADDER_JUDGE_API_KEY`.
 
 ### c) Write your own rule
 
@@ -513,8 +517,9 @@ optionally `rm -rf ~/.jevladder` if you no longer want local observe logs.
 Every decision appends a structured log (`stage` / `detail`).
 
 **Security:** injection treated as data; fail closed to human; secrets in
-tests/examples are fakes (`FAKE_EXAMPLE_ONLY_*`); judge key via env only
-(`JEVLADDER_JUDGE_API_KEY`).
+tests/examples are fakes (`FAKE_EXAMPLE_ONLY_*`); judge keys via env only
+(TypeSafe: `JEVLADDER_TYPESAFE_API_KEY` / `TYPESAFE_API_KEY`; OpenAI-compatible:
+`JEVLADDER_JUDGE_API_KEY` when wired explicitly — never shared).
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the plugin/MCP threat model,
 privacy controls, bundled inventory, and disable/uninstall steps.

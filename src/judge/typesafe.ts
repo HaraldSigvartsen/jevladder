@@ -7,7 +7,7 @@ import { buildTypeSafeJudgeState } from './diff-summary.js';
 
 export const TYPESAFE_SYSTEMONE_URL = 'https://api.typesafe.ai/v1/systemone';
 export const TYPESAFE_JUDGE_MODEL = 'jev-1.13.0';
-export const JEVLADDER_JUDGE_API_KEY_ENV = 'JEVLADDER_JUDGE_API_KEY';
+export const JEVLADDER_TYPESAFE_API_KEY_ENV = 'JEVLADDER_TYPESAFE_API_KEY';
 export const TYPESAFE_API_KEY_ENV = 'TYPESAFE_API_KEY';
 export const DEFAULT_TYPESAFE_MIN_CONFIDENCE = 0.6;
 export const DEFAULT_TYPESAFE_TIMEOUT_MS = 8_000;
@@ -47,7 +47,7 @@ function errClass(err: unknown): string {
 export function resolveJudgeApiKey(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
-  const primary = env[JEVLADDER_JUDGE_API_KEY_ENV];
+  const primary = env[JEVLADDER_TYPESAFE_API_KEY_ENV];
   if (typeof primary === 'string' && primary.trim() !== '') return primary.trim();
   const fallback = env[TYPESAFE_API_KEY_ENV];
   if (typeof fallback === 'string' && fallback.trim() !== '') return fallback.trim();

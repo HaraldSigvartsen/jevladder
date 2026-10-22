@@ -6,8 +6,9 @@ import {
   resolveJudgeApiKey,
   TYPESAFE_SYSTEMONE_URL,
   TYPESAFE_JUDGE_MODEL,
-  JEVLADDER_JUDGE_API_KEY_ENV,
+  JEVLADDER_TYPESAFE_API_KEY_ENV,
   TYPESAFE_API_KEY_ENV,
+  DEFAULT_JUDGE_API_KEY_ENV,
   buildCompactDiffSummary,
   defineGate,
   makeMergeRules,
@@ -147,14 +148,27 @@ describe('TypeSafeJudge', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('prefers JEVLADDER_JUDGE_API_KEY over TYPESAFE_API_KEY', async () => {
-    vi.stubEnv(JEVLADDER_JUDGE_API_KEY_ENV, 'jev-key');
+  it('prefers JEVLADDER_TYPESAFE_API_KEY over TYPESAFE_API_KEY', async () => {
+    vi.stubEnv(JEVLADDER_TYPESAFE_API_KEY_ENV, 'ladder-key');
     vi.stubEnv(TYPESAFE_API_KEY_ENV, 'ts-key');
     const fetchMock = stubFetch(systemOneResponse('approve', 0.9));
     await new TypeSafeJudge({ userAgentVersion: '0.6.0' }).judge(baseInput);
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer jev-key');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer ladder-key');
     expect(JSON.stringify(init)).not.toContain('ts-key');
+  });
+
+  it('with only JEVLADDER_JUDGE_API_KEY set abstains and never calls fetch', async () => {
+    const openAiKey = ['ts', 'fake', String(Date.now())].join('_');
+    vi.stubEnv(DEFAULT_JUDGE_API_KEY_ENV, openAiKey);
+    vi.stubEnv(JEVLADDER_TYPESAFE_API_KEY_ENV, '');
+    vi.stubEnv(TYPESAFE_API_KEY_ENV, '');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const raw = await new TypeSafeJudge({ userAgentVersion: '0.6.0' }).judge(baseInput);
+    expect(raw).toMatchObject({ verdict: 'abstain', evidence: 'no judge key configured' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.stringify(raw)).not.toContain(openAiKey);
   });
 
   it('truncates large diffs in the payload', async () => {
@@ -181,10 +195,14 @@ describe('TypeSafeJudge', () => {
     expect(JSON.stringify(raw)).not.toContain(fakeKey);
   });
 
-  it('createDefaultJudge uses TypeSafe when any key env is set', () => {
-    vi.stubEnv(JEVLADDER_JUDGE_API_KEY_ENV, fakeKey);
+  it('createDefaultJudge uses TypeSafe only when a TypeSafe key env is set', () => {
+    vi.stubEnv(JEVLADDER_TYPESAFE_API_KEY_ENV, '');
+    vi.stubEnv(TYPESAFE_API_KEY_ENV, '');
+    vi.stubEnv(DEFAULT_JUDGE_API_KEY_ENV, fakeKey);
+    expect(createDefaultJudge({ userAgentVersion: '0.6.0' })).toBeInstanceOf(NoKeyConfiguredJudge);
+    vi.stubEnv(JEVLADDER_TYPESAFE_API_KEY_ENV, fakeKey);
     expect(createDefaultJudge({ userAgentVersion: '0.6.0' })).toBeInstanceOf(TypeSafeJudge);
-    vi.stubEnv(JEVLADDER_JUDGE_API_KEY_ENV, '');
+    vi.stubEnv(JEVLADDER_TYPESAFE_API_KEY_ENV, '');
     vi.stubEnv(TYPESAFE_API_KEY_ENV, fakeKey);
     expect(createDefaultJudge({ userAgentVersion: '0.6.0' })).toBeInstanceOf(TypeSafeJudge);
     vi.stubEnv(TYPESAFE_API_KEY_ENV, '');
@@ -240,7 +258,13 @@ describe('buildCompactDiffSummary', () => {
 });
 
 describe('resolveJudgeApiKey', () => {
-  it('returns undefined when both env vars are empty', () => {
-    expect(resolveJudgeApiKey({ JEVLADDER_JUDGE_API_KEY: '', TYPESAFE_API_KEY: '' })).toBeUndefined();
+  it('returns undefined when TypeSafe env vars are empty', () => {
+    expect(
+      resolveJudgeApiKey({
+        JEVLADDER_TYPESAFE_API_KEY: '',
+        TYPESAFE_API_KEY: '',
+        JEVLADDER_JUDGE_API_KEY: 'ignored-openai-key',
+      }),
+    ).toBeUndefined();
   });
 });
