@@ -139,6 +139,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-22 | Launch drafts added under `docs/launch/` (Show HN, Reddit, social, catalogs index); unpublished — nothing posted or submitted without maintainer approval. |
 | 2026-10-22 | Cursor host adapter: generated `cursor/.cursor/mcp.json` launches the bundled stdio MCP server via a workspace-relative path; `cursor/.cursor/rules/jevladder.mdc` carries host-neutral cheap-first routing guidance. `jevladder plugin --host cursor --out .` writes project files. No Cursor lifecycle hooks yet; enforcement stays in CI/merge. |
 | 2026-10-21 | `jevladder propose --open` opens the config-proposal pull request for a human to approve. It never merges. Without a suggestion, no pull request is opened. |
 | 2026-10-21 | First slice of weekly config proposals: `jevladder check` appends `{ts, outcome, source, ruleId?}` to the decision log, and `jevladder propose` prints a human review suggestion. No config edit, no pull request, no auto-merge. Opening the weekly PR stays deferred. |
