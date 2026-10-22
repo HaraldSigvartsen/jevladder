@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "jevladder": {
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/plugin/scripts/jevladder-mcp.mjs"
+      ]
+    }
+  }
+}

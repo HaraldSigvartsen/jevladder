@@ -84,6 +84,25 @@ permission is denied. Prompt text and tool input are not logged.
 This is structural support, validated by loading the module and simulating
 hooks. It is not a claim that a live OpenCode session was run.
 
+## Cursor (additional host)
+
+Copy the generated `cursor/.cursor/` tree into your project root (or run
+`jevladder plugin --host cursor --out .` from the repo root after
+`npm run build`). That writes `.cursor/mcp.json` and
+`.cursor/rules/jevladder.mdc`. The MCP entry launches
+`scripts/jevladder-mcp.mjs` under the plugin directory (default relative path
+`plugin/` from the workspace root). Adjust the path in
+`mcp.json` if your plugin lives elsewhere. No secrets are stored in these
+files; `jevladder_decide` reads `JEVLADDER_TYPESAFE_API_KEY` or
+`TYPESAFE_API_KEY` from the environment and fails closed without a key.
+
+The project rule carries host-neutral cheap-first routing guidance. Cursor
+lifecycle hooks are **not** bundled yet (the shared observe script targets
+Codex/Claude hook payloads). Enforcement stays in CI/merge.
+
+This is structural support, validated by generation tests. It is not a claim
+that a live Cursor session was run.
+
 ## What it does NOT do
 
 - Does **not** block prompts or tool use. PreToolUse and the OpenCode adapter are context only.

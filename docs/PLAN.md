@@ -44,6 +44,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
       handled via Codex review flow.
 - [x] PreToolUse write/merge hooks — advisory context only; enforcement stays in CI/merge, and the hook never approves or denies the tool.
 - [x] Host adapter for OpenCode — advisory plugin module, local MCP, and bundled skill path. Further hosts stay on demand.
+- [x] Host adapter for Cursor — project `.cursor/mcp.json` and `.cursor/rules/jevladder.mdc` from the shared generator; lifecycle hooks deferred.
 - [x] Config proposal command — `jevladder propose` reads the privacy-safe decision log and prints a suggestion a human can review. It never edits config and never opens or merges a pull request.
 - [x] Open the weekly config pull request — `jevladder propose --open` opens a pull request a human approves. The command never merges, and `--merge` is rejected.
 
@@ -119,6 +120,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 ### v0.3 — multi-host adapters
 
 - [x] Host adapter for OpenCode — advisory plugin module, local MCP, and bundled skill path. Further hosts stay on demand.
+- [x] Host adapter for Cursor — project `.cursor/mcp.json` and `.cursor/rules/jevladder.mdc` from the shared generator; lifecycle hooks deferred.
 - [x] Config proposal command — `jevladder propose` reads the privacy-safe decision log and prints a suggestion a human can review. It never edits config and never opens or merges a pull request.
 - [x] Open the weekly config pull request — `jevladder propose --open` opens a pull request a human approves. The command never merges, and `--merge` is rejected.
 
@@ -137,6 +139,7 @@ and verified with `npm test` / `npm run typecheck` / `npm run build` /
 
 | Date | Entry |
 | --- | --- |
+| 2026-10-22 | Cursor host adapter: generated `cursor/.cursor/mcp.json` launches the bundled stdio MCP server via a workspace-relative path; `cursor/.cursor/rules/jevladder.mdc` carries host-neutral cheap-first routing guidance. `jevladder plugin --host cursor --out .` writes project files. No Cursor lifecycle hooks yet; enforcement stays in CI/merge. |
 | 2026-10-21 | `jevladder propose --open` opens the config-proposal pull request for a human to approve. It never merges. Without a suggestion, no pull request is opened. |
 | 2026-10-21 | First slice of weekly config proposals: `jevladder check` appends `{ts, outcome, source, ruleId?}` to the decision log, and `jevladder propose` prints a human review suggestion. No config edit, no pull request, no auto-merge. Opening the weekly PR stays deferred. |
 | 2026-10-21 | OpenCode host adapter: generated `opencode/jevladder.mjs` exports `JevLadderPlugin`. Advisory system guidance, route note, and post-tool note for writes and merge-like shell commands. Config hook adds the local MCP server and skills path only when absent. No tool-arg rewrite, no permission denial, no prompt or tool-input logging. Weekly config-proposal PRs remain deferred. |
