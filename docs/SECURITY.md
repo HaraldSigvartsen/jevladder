@@ -8,6 +8,12 @@ standard input and write the local observe log. Installing a plugin does not
 put it in a separate security sandbox. Only install and configure code you
 trust, and review updates as you would other software running as your user.
 
+The published npm tarball is constrained by `package.json` `files` (including
+excluded source maps) and by `test/package-contents.test.ts` in CI. That test
+re-runs `npm pack --dry-run`, requires an allowlisted path set, and fails if
+tests, eval fixtures, env files, internal notes, `.map` files, local home
+paths, or secret-shaped strings would ship.
+
 The generated observe hook reads host event JSON, computes a small routing
 annotation, and optionally writes a privacy-limited log. It does not read
 project files, run commands, change the host model, block a host action, or
