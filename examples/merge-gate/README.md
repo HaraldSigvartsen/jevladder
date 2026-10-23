@@ -1,6 +1,6 @@
 # Merge-gate demo
 
-Synthetic diffs for the `jevladder` CLI. Build first (`npm run build`), then from the
+Synthetic diffs for the `jevladder` CLI. Build first (`pnpm run build`), then from the
 repo root run:
 
     node dist/src/cli.js check --diff examples/merge-gate/sample.diff --tests-passed

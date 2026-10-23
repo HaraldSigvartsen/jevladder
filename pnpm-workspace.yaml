@@ -1,0 +1,4 @@
+# Dependency install scripts stay off. esbuild (via vitest) works from its
+# prebuilt platform package without running its postinstall.
+allowBuilds:
+  esbuild: false
