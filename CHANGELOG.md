@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Package-contents guard: source maps no longer ship; a test asserts the npm tarball allowlist and scans it for local paths and secret-shaped strings.
 - Add an animated terminal demo GIF (`docs/assets/demo.gif`) recorded from the built CLI via `docs/assets/demo.tape` (VHS); remove the stale static SVG that showed `allow` for the safe sample without a judge key.
 - Cursor host adapter (`cursor/.cursor/mcp.json`, `cursor/.cursor/rules/jevladder.mdc`, or `jevladder plugin --host cursor --out .`) adds project MCP launch config and an always-on advisory routing rule. No Cursor lifecycle hooks yet; MCP `jevladder_decide` fails closed without a judge key.
 - ZCode host adapter (`zcode/mcp-servers.json`, `zcode/AGENTS.jevladder.md`, or `jevladder plugin --host zcode --out <dir>`) emits global-config fragments under `<dir>/zcode/` with an absolute MCP path for merge into `~/.zcode/cli/config.json`. Advisory only; never writes home config; no ZCode lifecycle hooks.

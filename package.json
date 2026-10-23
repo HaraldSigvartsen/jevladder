@@ -24,6 +24,7 @@
   "types": "dist/src/index.d.ts",
   "files": [
     "dist/src",
+    "!dist/src/**/*.map",
     "plugin",
     "README.md",
     "LICENSE",
