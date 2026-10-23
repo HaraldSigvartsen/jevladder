@@ -456,17 +456,19 @@ function isAuthMiddlewareIdentifier(id: string): boolean {
  * - `//` and `/* *​/` comment contents are stripped,
  * - template-literal TEXT is stripped, while `${...}` interpolation
  *   expressions are RECURSIVELY scanned with this same function, so nested
- *   templates, nested strings, and comments inside interpolations are
- *   handled identically.
+ *   templates, nested strings, comments, and regex literals inside
+ *   interpolations are handled identically to top-level code.
  */
 function scanCodeRegion(source: string, start: number, end: number): string {
   let out = '';
+  let prev = '';
   let i = start;
   while (i < end) {
     const ch = source[i];
     if (ch === '/' && source[i + 1] === '/') {
       out += ' ';
       while (i < end && source[i] !== '\n') i++;
+      prev = '/';
       continue;
     }
     if (ch === '/' && source[i + 1] === '*') {
@@ -474,6 +476,7 @@ function scanCodeRegion(source: string, start: number, end: number): string {
       i += 2;
       while (i < end && !(source[i] === '*' && source[i + 1] === '/')) i++;
       i += 1;
+      prev = '/';
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -483,6 +486,7 @@ function scanCodeRegion(source: string, start: number, end: number): string {
         if (source[i] === '\\') i++;
         i++;
       }
+      prev = ch;
       continue;
     }
     if (ch === '`') {
@@ -510,9 +514,38 @@ function scanCodeRegion(source: string, start: number, end: number): string {
         }
         i++;
       }
+      prev = '`';
       continue;
     }
+    if (ch === '/' && source[i + 1] !== '/' && source[i + 1] !== '*' && regexCanStartAfter(prev)) {
+      let j = i + 1;
+      let inClass = false;
+      let closed = false;
+      while (j < end) {
+        const c = source[j];
+        if (c === '\n') break;
+        if (c === '\\') {
+          j += 2;
+          continue;
+        }
+        if (c === '[') inClass = true;
+        else if (c === ']') inClass = false;
+        else if (c === '/' && !inClass) {
+          closed = true;
+          break;
+        }
+        j++;
+      }
+      if (closed) {
+        out += ' ';
+        i = j + 1;
+        while (i < end && /[A-Za-z]/.test(source[i])) i++;
+        prev = '/';
+        continue;
+      }
+    }
     out += ch;
+    prev = ch;
     i++;
   }
   return out;
@@ -532,8 +565,9 @@ function regexCanStartAfter(prev: string): boolean {
  * call-shaped checks that otherwise run on the raw diff line: regex source
  * like `/auth(?:ors)?/` or `/session(.*)/` is pattern DATA, not a function
  * call, so `auth(` or `session(` inside it must not look call-shaped.
- * Strings and template-literal text are preserved verbatim (no loosening of
- * what already matched there); only regex literals are removed. A `/` starts
+ * Strings and template-literal static text are preserved verbatim (no
+ * loosening of what already matched there); regex literals are removed in
+ * top-level code and inside `${...}` interpolation expressions. A `/` starts
  * a regex when division is impossible ({@link regexCanStartAfter}), and the
  * literal must close on the same line (with `[...]` classes and `\` escapes
  * respected); otherwise the `/` is left untouched.
@@ -565,23 +599,41 @@ function stripRegexLiterals(body: string): string {
       i = j;
       continue;
     }
-    // Template literals: preserved verbatim (same rationale as strings).
+    // Template literals: static text preserved; `${...}` expressions recurse.
     if (ch === '`') {
+      out += ch;
       let j = i + 1;
       while (j < body.length) {
         if (body[j] === '\\') {
+          out += body.slice(j, j + 2);
           j += 2;
           continue;
         }
         if (body[j] === '`') {
+          out += '`';
           j++;
           break;
         }
         if (body[j] === '\n') break;
+        if (body[j] === '$' && body[j + 1] === '{') {
+          let braceDepth = 1;
+          let k = j + 2;
+          while (k < body.length && braceDepth > 0) {
+            if (body[k] === '{') braceDepth++;
+            else if (body[k] === '}') {
+              braceDepth--;
+              if (braceDepth === 0) break;
+            }
+            k++;
+          }
+          out += '${' + stripRegexLiterals(body.slice(j + 2, k)) + '}';
+          j = k + 1;
+          continue;
+        }
+        out += body[j];
         j++;
       }
-      out += body.slice(i, j);
-      prev = body[j - 1] ?? ch;
+      prev = '`';
       i = j;
       continue;
     }

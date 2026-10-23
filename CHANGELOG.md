@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Merge gate: strip regex literals inside `${...}` template interpolations for middleware argument scanning and call-shaped auth/session checks, matching top-level regex handling while preserving blocks for real auth identifiers and calls.
 - Contributors use pnpm (`packageManager`, `pnpm-lock.yaml`, CI); the package is still published to the npm registry and end users can install with npx/npm/pnpm as before.
 - Package-contents guard: source maps no longer ship; a test asserts the npm tarball allowlist and scans it for local paths and secret-shaped strings.
 - Add an animated terminal demo GIF (`docs/assets/demo.gif`) recorded from the built CLI via `docs/assets/demo.tape` (VHS); remove the stale static SVG that showed `allow` for the safe sample without a judge key.

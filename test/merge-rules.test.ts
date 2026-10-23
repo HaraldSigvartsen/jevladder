@@ -871,6 +871,61 @@ describe('rule: sensitive-content', () => {
     ).toMatchObject({ outcome: 'block' });
   });
 
+  it('excludes regex literals inside `${...}` interpolations (round 8)', () => {
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${prefix.replace(/session/g, "talk")}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${base.replace(/auth(?:ors)?/, "x")}`, publicRouter)',
+      }),
+    ).toBeNull();
+    // Division inside an interpolation is not a regex; auth identifiers after it still block.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${prefix}/${total / count}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${base}/${n / authMiddleware}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // Real auth calls inside interpolations still block, even beside a regex.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${session()}/${path.replace(/session/g, "x")}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+app.use(`${authMiddleware}`)' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+app.use(`${base}`, session({ secret }))' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Nested templates with regex inside interpolations.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${`${prefix.replace(/session/g, "talk")}`}`, publicRouter)',
+      }),
+    ).toBeNull();
+    // Unterminated regex inside an interpolation stays conservative (auth text may still match).
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${prefix.replace(/session`, "talk")}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+  });
+
   it('checks auth middleware identifiers after route arguments, including removals', () => {
     for (const line of ['app.use("/api", authMiddleware)', 'app.use(authorizationMiddleware)']) {
       expect(rule.evaluate({ action: 'merge', files: ['src/middleware.ts'], diff: `@@ -1,1 +1,0 @@\n-${line}` })).toMatchObject({ outcome: 'block' });
