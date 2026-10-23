@@ -14,6 +14,13 @@ re-runs `npm pack --dry-run`, requires an allowlisted path set, and fails if
 tests, eval fixtures, env files, internal notes, `.map` files, local home
 paths, or secret-shaped strings would ship.
 
+Contributors and CI install dev dependencies with pnpm from a frozen
+`pnpm-lock.yaml`. pnpm does not run dependency lifecycle scripts unless they
+are explicitly allowed, and `pnpm-workspace.yaml` explicitly denies the one dev
+dependency that would ask (esbuild, pulled in by vitest; its prebuilt platform
+package works without the postinstall). jevladder itself has no runtime
+dependencies and no install scripts.
+
 The generated observe hook reads host event JSON, computes a small routing
 annotation, and optionally writes a privacy-limited log. It does not read
 project files, run commands, change the host model, block a host action, or

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Contributors use pnpm (`packageManager`, `pnpm-lock.yaml`, CI); the package is still published to the npm registry and end users can install with npx/npm/pnpm as before.
 - Package-contents guard: source maps no longer ship; a test asserts the npm tarball allowlist and scans it for local paths and secret-shaped strings.
 - Add an animated terminal demo GIF (`docs/assets/demo.gif`) recorded from the built CLI via `docs/assets/demo.tape` (VHS); remove the stale static SVG that showed `allow` for the safe sample without a judge key.
 - Cursor host adapter (`cursor/.cursor/mcp.json`, `cursor/.cursor/rules/jevladder.mdc`, or `jevladder plugin --host cursor --out .`) adds project MCP launch config and an always-on advisory routing rule. No Cursor lifecycle hooks yet; MCP `jevladder_decide` fails closed without a judge key.
@@ -11,7 +12,7 @@
 - `jevladder propose` prints a config suggestion from the privacy-safe decision log. It does not edit config or open a pull request unless `--open` is set. `jevladder check` appends outcome, source, and rule id only.
 - OpenCode host adapter (`opencode/jevladder.mjs`) adds advisory routing context, write/merge notes, and the local MCP server. It does not rewrite tool arguments or deny permission.
 - Advisory PreToolUse hooks annotate file writes and merge-like shell commands. They do not approve or deny the tool, and they do not log tool input. Enforcement stays in CI/merge.
-- Run `npm test` and `npm run typecheck` on push and pull_request. The workflow does not publish to npm.
+- Run `pnpm test` and `pnpm run typecheck` on push and pull_request. The workflow does not publish to npm.
 - Recognize whole-value env-template placeholders without allowing credential-shaped values through; detect code-shaped auth/session/security changes by content, including in neutral utility paths.
 - Prepare the npm package metadata and include generated plugin assets; npm provenance is disabled because CI OIDC is not available.
 - Uninspectable binary diffs on unprotected paths return `human` (`uninspectable-binary`) instead of an allow. Protected paths still block first.

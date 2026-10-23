@@ -24,7 +24,7 @@
  * with fake secrets only.
  *
  * Deterministic: mock judges and keyword routing only, no network, no keys,
- * no timestamps in outputs. `npm run eval` = build + `node dist/eval/run.js`.
+ * no timestamps in outputs. `pnpm run eval` = build + `node dist/eval/run.js`.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';

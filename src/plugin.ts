@@ -848,7 +848,7 @@ hooks. It is not a claim that a live OpenCode session was run.
 
 Copy the generated \`cursor/.cursor/\` tree into your project root (or run
 \`jevladder plugin --host cursor --out .\` from the repo root after
-\`npm run build\`). That writes \`.cursor/mcp.json\`,
+\`pnpm run build\`). That writes \`.cursor/mcp.json\`,
 \`.cursor/rules/jevladder.mdc\`, and a self-contained
 \`.cursor/jevladder/jevladder-mcp.mjs\` (same source as \`scripts/jevladder-mcp.mjs\`
 in the full plugin). The MCP entry launches that bundled script; no separate
@@ -865,7 +865,7 @@ that a live Cursor session was run.
 
 ## ZCode (additional host)
 
-Run \`jevladder plugin --host zcode --out <dir>\` (after \`npm run build\`). That
+Run \`jevladder plugin --host zcode --out <dir>\` (after \`pnpm run build\`). That
 writes \`<dir>/zcode/mcp-servers.json\` (an \`mcp.servers\` fragment with an
 **absolute** path to the bundled stdio MCP), \`<dir>/zcode/AGENTS.jevladder.md\`
 (cheap-first routing guidance), and \`<dir>/zcode/jevladder/jevladder-mcp.mjs\`.

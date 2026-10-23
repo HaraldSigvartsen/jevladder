@@ -91,7 +91,7 @@ function distJsToSrcTs(distJsPath: string): string {
 describe('npm package contents', () => {
   it('allowlists tarball paths and blocks leaks', { timeout: 120_000 }, () => {
     if (!existsSync(resolve(root, 'dist/src/cli.js'))) {
-      execFileSync('npx', ['tsc'], { cwd: root, stdio: 'inherit' });
+      execFileSync('pnpm', ['exec', 'tsc'], { cwd: root, stdio: 'inherit' });
     }
 
     const { paths, unpackedSize } = runPackDryRun();

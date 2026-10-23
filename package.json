@@ -40,12 +40,13 @@
     "access": "public",
     "provenance": false
   },
+  "packageManager": "pnpm@12.10.1",
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "eval": "npm run build && node dist/eval/run.js",
-    "eval:independent": "npm run build && node dist/eval/independent/run.js"
+    "eval": "pnpm run build && node dist/eval/run.js",
+    "eval:independent": "pnpm run build && node dist/eval/independent/run.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

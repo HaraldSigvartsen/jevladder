@@ -68,11 +68,13 @@ not plugin-bundled agents.
 
 ## Advanced: CLI / CI
 
-Install the published CLI with `npm i -D jevladder` (available once the
-maintainer completes npm login), or try its help after publication:
+Install the published CLI with `npm i -D jevladder` or `pnpm add -D jevladder`
+(available once the maintainer completes npm login), or try its help after
+publication:
 
 ```bash
 npx jevladder --help
+# or: pnpm dlx jevladder --help
 ```
 
 ### Clone and build
@@ -81,8 +83,8 @@ npx jevladder --help
 
 ```bash
 git clone https://github.com/HaraldSigvartsen/jevladder.git && cd jevladder
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ### Demo: merge gate
@@ -138,14 +140,14 @@ explanation:   score=0.73 (= 0.6·difficulty + 0.4·consequence) | axes: …
 ### Eval (optional)
 
 ```bash
-npm run eval
-npm run eval:independent
+pnpm run eval
+pnpm run eval:independent
 ```
 
 | Eval | Accuracy | What it measures |
 | --- | --- | --- |
-| Consistency (`npm run eval`) | **100%** (35/35) | Labels aligned with the same heuristics under test — intended-policy **consistency**, not external validity. |
-| Independent (`npm run eval:independent`) | 33 scenarios | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R5) **before** running jevladder, including predicted adversarial misses. Latest run: 25/33 correct (76%). |
+| Consistency (`pnpm run eval`) | **100%** (35/35) | Labels aligned with the same heuristics under test — intended-policy **consistency**, not external validity. |
+| Independent (`pnpm run eval:independent`) | 33 scenarios | Prose scenarios labelled from [eval/independent/policy.md](eval/independent/policy.md) (M1–M5 / R1–R5) **before** running jevladder, including predicted adversarial misses. Latest run: 25/33 correct (76%). |
 
 They differ on purpose: 100% consistency means the gate matches its own rule
 pack; the independent result preserves policy-labelled disagreements without
@@ -178,7 +180,7 @@ claims green). Empty or non-diff input is exit `1`, never an implicit allow.
 
 ### a) Library
 
-After `npm run build` in a clone, import from the built package (path / git
+After `pnpm run build` in a clone, import from the built package (path / git
 dependency — not `npm install jevladder`). Real exports from `src/index.ts`:
 
 ```ts
@@ -310,7 +312,7 @@ jobs:
       - name: Build jevladder (from clone / submodule / path)
         run: |
           git clone --depth 1 https://github.com/HaraldSigvartsen/jevladder.git /tmp/jevladder
-          cd /tmp/jevladder && npm ci && npm run build
+          cd /tmp/jevladder && corepack enable && pnpm install --frozen-lockfile && pnpm run build
       - name: Diff vs base and run gate
         run: |
           git diff origin/${{ github.base_ref }}...HEAD > /tmp/change.diff
@@ -450,7 +452,7 @@ for the host format and model selection behavior.
 What is verified today:
 
 ```bash
-npm run build
+pnpm run build
 node dist/src/cli.js plugin --out ./my-jevladder-plugin
 claude plugin validate ./my-jevladder-plugin
 ```
@@ -668,17 +670,17 @@ changing the plugin so the host reloads its MCP server configuration.
 ### Contributing
 
 ```bash
-npm test                   # vitest
-npm run typecheck        # tsc --noEmit
-npm run build            # tsc → dist/
-npm run eval             # consistency eval (heuristic-aligned labels)
-npm run eval:independent # policy-labelled independent eval
+pnpm test                   # vitest
+pnpm run typecheck        # tsc --noEmit
+pnpm run build            # tsc → dist/
+pnpm run eval             # consistency eval (heuristic-aligned labels)
+pnpm run eval:independent # policy-labelled independent eval
 ```
 
 Regenerate the README terminal demo (requires [VHS](https://github.com/charmbracelet/vhs)):
 
 ```bash
-npm run build
+pnpm run build
 vhs docs/assets/demo.tape
 ```
 

@@ -1,4 +1,4 @@
-# Regenerate from repo root after `npm run build`: vhs docs/assets/demo.tape
+# Regenerate from repo root after `pnpm run build`: vhs docs/assets/demo.tape
 Output docs/assets/demo.gif
 
 Require node
