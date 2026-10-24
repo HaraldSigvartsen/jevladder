@@ -8,18 +8,29 @@ It never approves or denies the tool call. Never blocks or changes the main sess
 
 ## Install
 
-Install from the JevLadder marketplace in Codex:
+**Automatic host (Codex)** — marketplace install:
 
 ```bash
 codex plugin marketplace add HaraldSigvartsen/jevladder
 codex plugin add jevladder@jevladder
 ```
 
-Then just use Codex normally. Codex asks you to review/trust the plugin's hooks
-once (`/hooks`); this is Codex's safety prompt, not config editing. The bundled
-MCP server needs Node and exposes voluntary `jevladder_decide`, `jevladder_route` /
+Codex asks you to review/trust the plugin's hooks once (`/hooks`); this is
+Codex's safety prompt, not config editing. The bundled MCP server needs Node
+and exposes voluntary `jevladder_decide`, `jevladder_route` /
 `jevladder_explain` tools; it logs no task or diff text. `jevladder_decide` is an
 advisory miniature pre-merge check; enforcement stays in CI/merge.
+
+### Day 1: set the TypeSafe / Jev key
+
+```bash
+export JEVLADDER_TYPESAFE_API_KEY='…'   # preferred; or TYPESAFE_API_KEY
+```
+
+Do this when you start using the plugin so grey-zone `jevladder_decide` consults
+the judge. Hooks / route / explain work without a key; without one, decide fails
+closed to human. Cursor and ZCode are **manual** hosts (generate/copy files);
+see sections below — same day-1 key applies.
 
 ## What it does
 
@@ -51,8 +62,9 @@ normal use.
 
 ## Claude Code (secondary host)
 
-Install using `/plugin marketplace add HaraldSigvartsen/jevladder`, then
-`/plugin install jevladder@jevladder`. The agents below are Claude-only; Codex custom
+**Automatic host.** Install using `/plugin marketplace add HaraldSigvartsen/jevladder`, then
+`/plugin install jevladder@jevladder`. Set `JEVLADDER_TYPESAFE_API_KEY` or
+`TYPESAFE_API_KEY` on day 1 (same as Codex). The agents below are Claude-only; Codex custom
 agents are TOML in ~/.codex/agents and are not bundled by this plugin.
 
 ### Subagent models
@@ -73,9 +85,12 @@ config changes. Editing the emitted `config.json` does not change agent models.
 
 ## OpenCode (additional host)
 
+**Manual host** — place the adapter file (not marketplace auto-install).
+
 `opencode/jevladder.mjs` exports `JevLadderPlugin`. Place that file at
 `.opencode/plugins/jevladder.mjs` (this repository already does, via a
-re-export). OpenCode then gets advisory system guidance, a route tier on user
+re-export). Set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` on day 1 for
+grey-zone decide. OpenCode then gets advisory system guidance, a route tier on user
 text, and a note after file-write or merge-like shell tools. The `config` hook
 adds the local `jevladder` MCP server and this plugin's `skills` directory
 only when those entries are absent. Tool arguments are not rewritten, and no
@@ -86,15 +101,20 @@ hooks. It is not a claim that a live OpenCode session was run.
 
 ## Cursor (additional host)
 
+**Manual host** — copy or generate files into the project (not a marketplace
+one-liner).
+
 Copy the generated `cursor/.cursor/` tree into your project root (or run
 `jevladder plugin --host cursor --out .` from the repo root after
 `pnpm run build`). That writes `.cursor/mcp.json`,
 `.cursor/rules/jevladder.mdc`, and a self-contained
 `.cursor/jevladder/jevladder-mcp.mjs` (same source as `scripts/jevladder-mcp.mjs`
 in the full plugin). The MCP entry launches that bundled script; no separate
-`plugin/` directory is required. No secrets are stored in these files;
-`jevladder_decide` reads `JEVLADDER_TYPESAFE_API_KEY` or
-`TYPESAFE_API_KEY` from the environment and fails closed without a key.
+`plugin/` directory is required. No secrets are stored in these files.
+
+**Day 1:** set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` in the
+environment so `jevladder_decide` consults the TypeSafe judge; without a key it
+fails closed to human.
 
 The project rule carries host-neutral cheap-first routing guidance. Cursor
 lifecycle hooks are **not** bundled yet (the shared observe script targets
@@ -105,15 +125,19 @@ that a live Cursor session was run.
 
 ## ZCode (additional host)
 
+**Manual host** — generate a fragment, then merge it yourself (the generator
+never writes your home `.zcode` tree).
+
 Run `jevladder plugin --host zcode --out <dir>` (after `pnpm run build`). That
 writes `<dir>/zcode/mcp-servers.json` (an `mcp.servers` fragment with an
 **absolute** path to the bundled stdio MCP), `<dir>/zcode/AGENTS.jevladder.md`
 (cheap-first routing guidance), and `<dir>/zcode/jevladder/jevladder-mcp.mjs`.
 Merge the `mcp` object from the fragment into `~/.zcode/cli/config.json`
-and append the guidance file to `~/.zcode/AGENTS.md`. The generator never
-reads or writes your home `.zcode` tree. No secrets are stored in these files;
-judge keys come from the environment. ZCode lifecycle hooks are not bundled;
-enforcement stays in CI/merge.
+and append the guidance file to `~/.zcode/AGENTS.md`.
+
+**Day 1:** set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` so grey-zone
+decide consults the judge; without a key, decide fails closed to human. ZCode
+lifecycle hooks are not bundled; enforcement stays in CI/merge.
 
 ## T3 Code
 

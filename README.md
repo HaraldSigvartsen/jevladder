@@ -32,12 +32,33 @@ of free-text "LGTM".
 
 ## Install: Codex
 
+**Automatic host** — marketplace install; hooks and MCP wire up without copying files.
+
 ```bash
 codex plugin marketplace add HaraldSigvartsen/jevladder
 codex plugin add jevladder@jevladder
 ```
 
-Then just use Codex normally. JevLadder supplies:
+Codex asks you to review/trust the plugin's hooks once (`/hooks`). This is
+Codex's own safety prompt, not config editing. Node is needed for the MCP
+server; without Node the hooks exit 0 silently. No clone or build is required.
+
+### Day 1: set the TypeSafe / Jev key
+
+Right after install, set a TypeSafe (Jev) API key so grey-zone `decide` /
+`check` actually consult the judge:
+
+```bash
+export JEVLADDER_TYPESAFE_API_KEY='…'   # preferred; or TYPESAFE_API_KEY
+```
+
+Put it in your shell profile or host env so every Codex session sees it.
+Hooks, `jevladder_route`, and `jevladder_explain` work without a key; without
+one, advisory `jevladder_decide` and CLI `check` **fail closed** to `human`
+on the grey zone (never a silent auto-allow). Set the key early when you take
+JevLadder into use — it is part of onboarding, not an advanced optional later.
+
+Then use Codex normally. JevLadder supplies:
 
 - **SessionStart guidance:** start well-scoped tasks cheap and escalate one
   tier at a time when work fails or verification is weak.
@@ -50,15 +71,14 @@ Then just use Codex normally. JevLadder supplies:
   tool input or set a permission decision.
 - **Voluntary MCP tools:** `jevladder_decide` runs an advisory miniature pre-merge
   check; `jevladder_route` returns tier/signals; `jevladder_explain` adds explanation
-  lines. Route and explain make no remote calls; advisory `jevladder_decide` calls the TypeSafe judge on the grey zone only when a key is set (compact diff summary only; see docs/SECURITY.md), and they log no task or diff text.
-  Merge enforcement stays in CI/merge.
+  lines. Route and explain make no remote calls; with the day-1 key set,
+  advisory `jevladder_decide` calls the TypeSafe judge on the grey zone
+  (compact diff summary only; see docs/SECURITY.md). They log no task or diff
+  text. Merge enforcement stays in CI/merge.
 
-Codex asks you to review/trust the plugin's hooks once (`/hooks`). This is
-Codex's own safety prompt, not config editing. Node is needed for the MCP
-server; without Node the hooks exit 0 silently. No clone, build, API key,
-or manual configuration is needed for normal end-user use.
-
-Claude Code is also a supported host; see [Claude Code](#claude-code-secondary-host).
+Claude Code is also a supported automatic host; see [Claude Code](#claude-code-secondary-host).
+Cursor and ZCode need a short manual install step; see the FAQ
+(**Which hosts today?**).
 
 A tier is never permission. Uncertainty or abstention escalates up, and humans
 approve irreversible actions. The plugin never swaps the main session model;
@@ -221,10 +241,11 @@ non-empty). Invalid output abstains and goes to a human. Tests and evals use
 
 ### Using a real judge model
 
-Set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` for the stock TypeSafe
-judge (`JEVLADDER_TYPESAFE_API_KEY` wins when both are set). Keys are never
-shared across providers: `JEVLADDER_JUDGE_API_KEY` is only for an explicitly
-wired `OpenAICompatibleJudge`. The CLI `check` command,
+If you followed [Install: Codex](#install-codex) day 1, the TypeSafe key is
+already set. Otherwise set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY`
+for the stock TypeSafe judge (`JEVLADDER_TYPESAFE_API_KEY` wins when both are
+set). Keys are never shared across providers: `JEVLADDER_JUDGE_API_KEY` is only
+for an explicitly wired `OpenAICompatibleJudge`. The CLI `check` command,
 `createDefaultJudge()` in the library, and the bundled MCP `jevladder_decide`
 tool then call TypeSafe System One on the grey zone after deterministic rules
 pass. Only a compact diff summary is sent (paths, line counts, truncated
@@ -232,7 +253,8 @@ changed-line excerpt); see [docs/SECURITY.md](docs/SECURITY.md).
 
 Without a key, behaviour is fail closed: the judge abstains with
 `no judge key configured` and the gate returns `human` (exit `3` for CLI) —
-never a fixed-score auto-allow.
+never a fixed-score auto-allow. That safety default is why install treats the
+key as an early onboarding step.
 
 ```ts
 import { createDefaultJudge, defineGate, makeMergeRules } from 'jevladder';
@@ -291,8 +313,9 @@ git diff | node /path/to/jevladder/dist/src/cli.js check --diff - --tests-passed
 **Example** GitHub Actions job (adapt paths / base branch; not a drop-in for
 every repo). Exit `2` or `3` fails the job (= needs human review). Without a
 judge API key the stock CLI fails closed to `human` (exit `3`) on grey-zone
-diffs; optional: add `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` as a
-secret for TypeSafe judging:
+diffs. For CI that should consult the judge on the grey zone, add
+`JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY` as a secret (same day-1 key
+as local install):
 
 ```yaml
 # .github/workflows/jevladder-check.yml — EXAMPLE to adapt
@@ -377,12 +400,23 @@ The typed example is for you to copy fields into `defineGate` /
 
 ## Claude Code (secondary host)
 
-Claude Code is also supported:
+**Automatic host** — marketplace install; same plugin tree as Codex.
 
 ```text
 /plugin marketplace add HaraldSigvartsen/jevladder
 /plugin install jevladder@jevladder
 ```
+
+### Day 1: set the TypeSafe / Jev key
+
+Same as Codex — set it when you start using JevLadder:
+
+```bash
+export JEVLADDER_TYPESAFE_API_KEY='…'   # preferred; or TYPESAFE_API_KEY
+```
+
+Without a key, hooks / route / explain still work; grey-zone `jevladder_decide`
+fails closed to human. With the key, decide consults the TypeSafe judge.
 
 The plugin runs automatically with sensible defaults. SessionStart provides
 delegation guidance; UserPromptSubmit adds advisory routing and logs only tier,
@@ -597,9 +631,11 @@ node dist/src/cli.js check --diff examples/merge-gate/sample-risky.diff --tests-
 `secrets-in-diff` (expected `allow`, actual `block`). Listed under independent
 misses; see [eval/independent/policy.md](eval/independent/policy.md).
 
-**Judge / no API key?** Stock CLI and MCP decide fail closed → `human`. Evals
-use `MockJudge` explicitly. `OpenAICompatibleJudge` with a missing key abstains
-→ `human` as well.
+**Judge / no API key?** Set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY`
+on day 1 so grey-zone decide/check consult TypeSafe. Without a key, stock CLI
+and MCP decide fail closed → `human` (never silent allow). Evals use
+`MockJudge` explicitly. `OpenAICompatibleJudge` with a missing key abstains →
+`human` as well.
 
 **Disable the gate for one change?** Don’t run `jevladder check`, or temporarily
 adjust/remove rules in the code that builds your gate. Plugin: stop loading
@@ -610,25 +646,25 @@ only when a judge API key is set (TypeSafe for CLI/MCP decide) or when **you**
 wire `OpenAICompatibleJudge` to your own endpoint. Route/explain MCP tools stay
 offline.
 
-**Which hosts today?** Codex is the maintainer's primary plugin host; Claude Code
-is also supported as a secondary host. OpenCode is an additional host: the
-generated `opencode/jevladder.mjs` exports `JevLadderPlugin`, and this
-repository loads it from `.opencode/plugins/jevladder.mjs`. That adapter adds
-advisory context and the local MCP server; it does not block tools. Cursor is
-another additional host: copy `plugin/cursor/.cursor/` into your project root or
-run `jevladder plugin --host cursor --out .` after building the CLI. That adds
-`.cursor/mcp.json` (local `jevladder_decide` / `jevladder_route` /
-`jevladder_explain` MCP), `.cursor/jevladder/jevladder-mcp.mjs` (bundled stdio
-server — no separate `plugin/` tree required), and `.cursor/rules/jevladder.mdc`
-(cheap-first routing guidance). Cursor lifecycle hooks are not bundled yet.
-ZCode is another additional host: run `jevladder plugin --host zcode --out <dir>`
-after building the CLI. That writes `<dir>/zcode/mcp-servers.json` (an `mcp.servers`
-fragment whose `args` use an **absolute** path to the bundled stdio MCP under
-`<dir>/zcode/`), `AGENTS.jevladder.md` (the same cheap-first routing guidance as
-the Cursor rule), and `zcode/jevladder/jevladder-mcp.mjs`. Merge the `mcp` object
-from the fragment into `~/.zcode/cli/config.json` and append the guidance file to
-`~/.zcode/AGENTS.md`. The generator never reads or writes your home `.zcode` tree.
-ZCode lifecycle hooks are not bundled. Library + CLI work anywhere Node runs.
+**Which hosts today?**
+
+| Host | Install | Notes |
+| --- | --- | --- |
+| **Codex** | **Automatic** — marketplace `plugin add` | Maintainer primary; hooks + MCP |
+| **Claude Code** | **Automatic** — `/plugin install` | Secondary; hooks + MCP + agents |
+| **OpenCode** | **Manual** — place `opencode/jevladder.mjs` (or repo `.opencode/plugins/` re-export) | Adapter: advisory context + local MCP; does not block tools |
+| **Cursor** | **Manual** — copy `plugin/cursor/.cursor/` or `jevladder plugin --host cursor --out .` | MCP + rule; lifecycle hooks not bundled yet |
+| **ZCode** | **Manual** — `jevladder plugin --host zcode --out <dir>`, then merge fragment into `~/.zcode/cli/config.json` and append `AGENTS.jevladder.md` to `~/.zcode/AGENTS.md` | Generator never writes your home `.zcode` tree; hooks not bundled |
+
+For every host, **day 1:** set `JEVLADDER_TYPESAFE_API_KEY` or `TYPESAFE_API_KEY`
+so grey-zone decide/check consults the judge (fail closed to human without it).
+
+Cursor detail: adds `.cursor/mcp.json`, `.cursor/jevladder/jevladder-mcp.mjs`,
+and `.cursor/rules/jevladder.mdc`. ZCode detail: writes
+`<dir>/zcode/mcp-servers.json` (absolute path to bundled stdio MCP),
+`AGENTS.jevladder.md`, and `zcode/jevladder/jevladder-mcp.mjs`. OpenCode detail:
+generated `opencode/jevladder.mjs` exports `JevLadderPlugin`. Library + CLI work
+anywhere Node runs.
 
 **T3 Code:** T3 Code drives the Codex and Claude Code agents, so use the existing
 Codex / Claude Code plugin there. T3 Code itself has not been tested with
