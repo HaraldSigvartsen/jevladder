@@ -926,6 +926,141 @@ describe('rule: sensitive-content', () => {
     ).toMatchObject({ outcome: 'block' });
   });
 
+  it('finds ${...} ends without counting braces in strings, comments, regex, or nested templates (round 9)', () => {
+    // A `}` inside a string does not end the interpolation, so auth after it still blocks.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${base + "}" + authMiddleware}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: "+app.use(`${base + '}' + authMiddleware}`, publicRouter)",
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // An escaped quote does not end the string early, so the following `}` stays inside it.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${base + "\\"}" + authMiddleware}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // A `{` inside a string does not extend the interpolation: auth after the template still blocks.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${base + "{"}`, authMiddleware)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // A `}` inside a comment does not hide a later auth identifier.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${base /* } */ + authMiddleware}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // A `}` inside a regex literal is not code, and auth after that regex still blocks.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${prefix.replace(/}/g, "x") + authMiddleware}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // Nested templates: a `}` inside a nested string is not the outer interpolation end.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${`${"}"}` + authMiddleware}`)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // A `}` in nested template static text is not the outer interpolation end either.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${`foo}` + authMiddleware}`, publicRouter)',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+
+    // Regex and string braces are not code and are not auth/session signals.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${prefix.replace(/}/g, "x")}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${section ?? "session}"}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${section ?? "}session{"}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${foo + "{session}"}`, publicRouter)',
+      }),
+    ).toBeNull();
+
+    // csrf / session / auth text inside a regex stays data when the pattern contains `}`.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${prefix.replace(/csrf}/g, "x")}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${prefix.replace(/session}/g, "talk")}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${s.replace(/auth}/, "")}`, publicRouter)',
+      }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${`${prefix.replace(/csrf}/g, "x")}`}`, publicRouter)',
+      }),
+    ).toBeNull();
+
+    // requireAuth() still blocks, including when a string or regex brace precedes the call.
+    expect(rule.evaluate({ action: 'merge', diff: '+const route = `/admin/${requireAuth()}`;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+const route = `/admin/${"}" + requireAuth()}`;',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+const route = `/admin/${prefix.replace(/}/g, "x") + requireAuth()}`;',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // The same call inside a regex literal is pattern data, even when the regex contains `}`.
+    expect(rule.evaluate({ action: 'merge', diff: '+const re = /requireAuth()/' })).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+app.use(`${s.replace(/requireAuth()}/g, "x")}`, publicRouter)',
+      }),
+    ).toBeNull();
+  });
+
   it('checks auth middleware identifiers after route arguments, including removals', () => {
     for (const line of ['app.use("/api", authMiddleware)', 'app.use(authorizationMiddleware)']) {
       expect(rule.evaluate({ action: 'merge', files: ['src/middleware.ts'], diff: `@@ -1,1 +1,0 @@\n-${line}` })).toMatchObject({ outcome: 'block' });

@@ -457,7 +457,8 @@ function isAuthMiddlewareIdentifier(id: string): boolean {
  * - template-literal TEXT is stripped, while `${...}` interpolation
  *   expressions are RECURSIVELY scanned with this same function, so nested
  *   templates, nested strings, comments, and regex literals inside
- *   interpolations are handled identically to top-level code.
+ *   interpolations are handled identically to top-level code. The closing
+ *   `}` of each interpolation is located by {@link findInterpolationEnd}.
  */
 function scanCodeRegion(source: string, start: number, end: number): string {
   let out = '';
@@ -486,6 +487,7 @@ function scanCodeRegion(source: string, start: number, end: number): string {
         if (source[i] === '\\') i++;
         i++;
       }
+      if (i < end) i++;
       prev = ch;
       continue;
     }
@@ -498,22 +500,14 @@ function scanCodeRegion(source: string, start: number, end: number): string {
           continue;
         }
         if (source[i] === '$' && source[i + 1] === '{') {
-          let braceDepth = 1;
-          let j = i + 2;
-          while (j < end && braceDepth > 0) {
-            if (source[j] === '{') braceDepth++;
-            else if (source[j] === '}') {
-              braceDepth--;
-              if (braceDepth === 0) break;
-            }
-            j++;
-          }
+          const j = findInterpolationEnd(source, i + 2, end);
           out += ' ' + scanCodeRegion(source, i + 2, j);
           i = j + 1;
           continue;
         }
         i++;
       }
+      if (i < end && source[i] === '`') i++;
       prev = '`';
       continue;
     }
@@ -558,6 +552,144 @@ function scanCodeRegion(source: string, start: number, end: number): string {
  */
 function regexCanStartAfter(prev: string): boolean {
   return prev === '' || !/[\w$)\].]/.test(prev);
+}
+
+/**
+ * Index of the `}` that closes a `${...}` interpolation whose body starts at
+ * `start` (the first character after `${`). Returns `end` when the
+ * interpolation is unterminated (`end` defaults to `body.length`).
+ *
+ * `{` and `}` inside single/double-quoted strings, `//` and block comments,
+ * regex literals, and nested template literals do not affect the depth.
+ * Nested template `${...}` expressions are measured with this same function.
+ * A `/` starts a regex only when {@link regexCanStartAfter} allows it, and
+ * the literal must close on the same line with `[...]` classes and `\`
+ * escapes respected; otherwise the `/` is ordinary code. If that scan never
+ * finds a closer, a raw brace count is used so an unterminated regex cannot
+ * swallow the rest of the call.
+ */
+function findInterpolationEnd(body: string, start: number, end = body.length): number {
+  function findAware(): number {
+    /** Index just past a quoted string that opens at `from`, or `end` if unterminated. */
+    const endOfString = (from: number): number => {
+      const quote = body[from];
+      let i = from + 1;
+      while (i < end) {
+        if (body[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (body[i] === quote) return i + 1;
+        i++;
+      }
+      return end;
+    };
+
+    /**
+     * Index just past a template literal that opens at `from`. Braces in its
+     * static text are ignored; nested `${...}` interpolations are measured
+     * recursively. Strings inside the template are skipped so a `${` in quotes
+     * is not an interpolation.
+     */
+    const endOfTemplate = (from: number): number => {
+      let i = from + 1;
+      while (i < end && body[i] !== '`') {
+        if (body[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (body[i] === '"' || body[i] === "'") {
+          i = endOfString(i);
+          continue;
+        }
+        if (body[i] === '$' && body[i + 1] === '{') {
+          const close = findInterpolationEnd(body, i + 2, end);
+          i = close < end ? close + 1 : end;
+          continue;
+        }
+        i++;
+      }
+      return i < end ? i + 1 : end;
+    };
+
+    let depth = 1;
+    let prev = '';
+    let i = start;
+    while (i < end && depth > 0) {
+      const ch = body[i];
+      if (ch === '/' && body[i + 1] === '/') {
+        while (i < end && body[i] !== '\n') i++;
+        prev = '/';
+        continue;
+      }
+      if (ch === '/' && body[i + 1] === '*') {
+        i += 2;
+        while (i < end && !(body[i] === '*' && body[i + 1] === '/')) i++;
+        if (i < end) i += 2;
+        prev = '/';
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        i = endOfString(i);
+        prev = ch;
+        continue;
+      }
+      if (ch === '`') {
+        i = endOfTemplate(i);
+        prev = '`';
+        continue;
+      }
+      if (ch === '/' && body[i + 1] !== '/' && body[i + 1] !== '*' && regexCanStartAfter(prev)) {
+        let j = i + 1;
+        let inClass = false;
+        let closed = false;
+        while (j < end) {
+          const c = body[j];
+          if (c === '\n') break;
+          if (c === '\\') {
+            j += 2;
+            continue;
+          }
+          if (c === '[') inClass = true;
+          else if (c === ']') inClass = false;
+          else if (c === '/' && !inClass) {
+            closed = true;
+            break;
+          }
+          j++;
+        }
+        if (closed) {
+          i = j + 1;
+          while (i < end && /[A-Za-z]/.test(body[i])) i++;
+          prev = '/';
+          continue;
+        }
+      }
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) return i;
+      }
+      prev = ch;
+      i++;
+    }
+    return i > end ? end : i;
+  }
+  const aware = findAware();
+  if (aware < end && body[aware] === '}') return aware;
+  // The aware scan found no closer (for example an unterminated regex whose
+  // backtick looks like a nested template). Raw brace depth still closes on a
+  // later `}` so that text stays inside the interpolation and can match.
+  let depth = 1;
+  for (let i = start; i < end; i++) {
+    const ch = body[i];
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return end;
 }
 
 /**
@@ -616,16 +748,7 @@ function stripRegexLiterals(body: string): string {
         }
         if (body[j] === '\n') break;
         if (body[j] === '$' && body[j + 1] === '{') {
-          let braceDepth = 1;
-          let k = j + 2;
-          while (k < body.length && braceDepth > 0) {
-            if (body[k] === '{') braceDepth++;
-            else if (body[k] === '}') {
-              braceDepth--;
-              if (braceDepth === 0) break;
-            }
-            k++;
-          }
+          const k = findInterpolationEnd(body, j + 2);
           out += '${' + stripRegexLiterals(body.slice(j + 2, k)) + '}';
           j = k + 1;
           continue;
@@ -754,16 +877,7 @@ function extractBalancedCallArguments(body: string, openParenIndex: number): str
           continue;
         }
         if (body[i] === '$' && body[i + 1] === '{') {
-          let braceDepth = 1;
-          let j = i + 2;
-          while (j < body.length && braceDepth > 0) {
-            if (body[j] === '{') braceDepth++;
-            else if (body[j] === '}') {
-              braceDepth--;
-              if (braceDepth === 0) break;
-            }
-            j++;
-          }
+          const j = findInterpolationEnd(body, i + 2);
           args += ' ' + scanCodeRegion(body, i + 2, j);
           i = j + 1;
           continue;
@@ -994,7 +1108,7 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
             isStandaloneSignVerifyWithJwtToken(body) ||
             /(?:password|passwd)[^\n]*(?:hash|compare|verify)\s*\(|(?:hash|compare|verify)\s*\([^\n]*(?:password|passwd)/i.test(body) ||
             /\b(?:hasPermission|canAccess|authorize|isAuthorized|checkPermission|requireRole|hasRole)\s*\(/i.test(body) ||
-            /\b(?:csrf\w*|auth(?:\b|entication\w*|orization\w*|enticate\w*)|session\w*)\s*(?:\(|=>)/i.test(
+            /\b(?:csrf\w*|auth(?:\b|entication\w*|orization\w*|enticate\w*)|session\w*|requireAuth)\s*(?:\(|=>)/i.test(
               stripRegexLiterals(body),
             ) ||
             registersAuthMiddleware(body)) {
