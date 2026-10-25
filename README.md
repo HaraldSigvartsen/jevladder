@@ -706,12 +706,35 @@ changing the plugin so the host reloads its MCP server configuration.
 ### Contributing
 
 ```bash
-pnpm test                   # vitest
+pnpm run gate             # pre-push checks: vitest, then tsc --noEmit
+pnpm test                 # vitest
 pnpm run typecheck        # tsc --noEmit
 pnpm run build            # tsc → dist/
 pnpm run eval             # consistency eval (heuristic-aligned labels)
 pnpm run eval:independent # policy-labelled independent eval
 ```
+
+### Local gate before push
+
+Contributors and agents run the fast checks on the machine that is about to
+push. `pnpm run gate` runs `pnpm test` and `pnpm run typecheck` (the same pair
+the existing workflow runs). Optional evals stay opt-in.
+
+Install the git pre-push hook once per clone:
+
+```bash
+pnpm run hooks:install
+```
+
+That sets `core.hooksPath` to `.githooks` and marks the hook executable. After
+that, `git push` runs `scripts/local-gate` and Git rejects the push when the
+gate exits non-zero. Run the same checks on demand with `pnpm run gate`.
+
+Agents: on a fresh clone, run `pnpm install`, then `pnpm run hooks:install`
+once. Before pushing, run `pnpm run gate` (the hook runs it again). Run
+`pnpm run eval` and `pnpm run eval:independent` only when you intend to
+evaluate. Keep the existing GitHub Actions workflow as it is; use this gate
+for day-to-day checks.
 
 Regenerate the README terminal demo (requires [VHS](https://github.com/charmbracelet/vhs)):
 

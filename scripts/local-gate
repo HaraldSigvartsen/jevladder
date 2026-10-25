@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Fast checks for contributors and agents before push.
+# Same commands as .github/workflows/ci.yml: vitest, then tsc --noEmit.
+# Optional evals stay opt-in (`pnpm run eval`, `pnpm run eval:independent`).
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "local gate: pnpm is required (see packageManager in package.json)." >&2
+  exit 1
+fi
+
+if [[ ! -d node_modules ]]; then
+  echo "local gate: dependencies are missing. Run pnpm install in ${root}." >&2
+  exit 1
+fi
+
+pnpm test
+pnpm run typecheck
