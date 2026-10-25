@@ -450,6 +450,178 @@ function isAuthMiddlewareIdentifier(id: string): boolean {
 }
 
 /**
+ * Word parts of an identifier across camelCase, snake_case, SCREAMING_SNAKE,
+ * and dotted chains (`session.ttl`). `oauthDocs` stays `oauth` + `docs` —
+ * `auth` is not a part. `author` / `authority` stay one word.
+ */
+function identifierWordParts(identifier: string): string[] {
+  const splitCamel = identifier
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  return splitCamel
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part !== '')
+    .map((part) => part.toLowerCase());
+}
+
+/** Auth-family words. `author` and `authority` are not in this set; `oauth` is not `auth`. */
+const AUTH_FAMILY_WORD_RE =
+  /^(?:csrf|auth|authn|authz|authenticates?|authenticated|authentication|authorizes?|authorized|authorization|authorises?|authorised|authorisation)$/;
+
+/**
+ * Extra words that keep a `session…` binding a label or the browser storage
+ * API rather than session logic: `sessionName`, `sessionStorage`.
+ * `sessionStorage` UI reads (`sessionStorage.setItem(...)`) are not
+ * declarations and are not lifetime identifiers, so they do not block.
+ * A lifetime word still blocks (`sessionStorageTtl`, `SESSION_TTL_SECONDS`).
+ */
+const SESSION_LABEL_WORD_RE =
+  /^(?:name|names|label|labels|title|titles|text|copy|message|description|note|notes|color|colour|theme|style|draft|storage)$/;
+
+const LIFETIME_WORD_RE = /^(?:ttl|expires?|expiry|expiration|lifetime|maxage|timeouts?)$/;
+
+function hasLifetimeWord(parts: readonly string[]): boolean {
+  if (parts.some((part) => LIFETIME_WORD_RE.test(part))) return true;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (parts[i] === 'max' && parts[i + 1] === 'age') return true;
+  }
+  return false;
+}
+
+/**
+ * Session-family word parts. The plural `sessions` counts like `session`,
+ * so `sessionsTtl` and `SESSIONS_TTL_SECONDS` cannot dodge the checks by
+ * spelling the word in the plural.
+ */
+function isSessionWordPart(part: string): boolean {
+  return part === 'session' || part === 'sessions';
+}
+
+/** Token-family word parts; the plural `tokens` counts like `token`. */
+function isTokenWordPart(part: string): boolean {
+  return part === 'token' || part === 'tokens';
+}
+
+/** True when one identifier or dotted chain names a session/token lifetime. */
+function hasSessionOrTokenLifetime(code: string): boolean {
+  const chainRe = /[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*/g;
+  for (const match of code.matchAll(chainRe)) {
+    const parts = identifierWordParts(match[0]);
+    if (!parts.some((part) => isSessionWordPart(part) || isTokenWordPart(part))) continue;
+    if (hasLifetimeWord(parts)) return true;
+  }
+  return false;
+}
+
+/**
+ * Plural note: `sessions` counts like `session` here too, BUT a bare plural
+ * binding (`const sessions = useAnalytics()`, `const tokens = design(theme)`)
+ * stays allowed — the bare plural is a common analytics/UI word, while the
+ * bare singular (`const session = load()`) names session logic. Combined
+ * with any non-label part (`sessionsTtl`, `SessionsGuard`) the plural counts.
+ * `token`/`tokens` parts stay in `others` as non-label words, so a label word
+ * cannot exempt a session-token name (`sessionTokenName`, `sessionNameToken`).
+ */
+function isSensitiveDeclarationName(name: string): boolean {
+  const parts = identifierWordParts(name);
+  if (parts.some((part) => AUTH_FAMILY_WORD_RE.test(part))) return true;
+  const sessionParts = parts.filter(isSessionWordPart);
+  if (sessionParts.length === 0) return false;
+  const others = parts.filter((part) => !isSessionWordPart(part));
+  if (others.length === 0) return sessionParts.includes('session');
+  if (others.every((part) => SESSION_LABEL_WORD_RE.test(part))) return false;
+  return true;
+}
+
+function declaredNames(code: string): string[] {
+  const declRe =
+    /(?:^|[^\w$])(?:export\s+(?:default\s+)?)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\s*\*?\s+|const\s+|let\s+|var\s+|class\s+|interface\s+|type\s+|enum\s+)([A-Za-z_$][\w$]*)/g;
+  const names: string[] = [];
+  for (const match of code.matchAll(declRe)) {
+    if (match[1]) names.push(match[1]);
+  }
+  return names;
+}
+
+function lineDeclaresSensitiveName(code: string): boolean {
+  return declaredNames(code).some((name) => isSensitiveDeclarationName(name));
+}
+
+/**
+ * A full-line comment: `//`, a `#` comment, a single-line block comment that
+ * closes on the same line, a bare closing star-slash line, or a JSDoc
+ * continuation line starting with `*` followed by a space or tab.
+ * `#` counts as a comment only when the `#` is followed by whitespace, `!`
+ * (shebang), or end of line — a JS/TS private field such as
+ * `#sessionTtl = 3600` is code, is not skipped here, and is scanned.
+ * Block-comment state is NOT tracked across lines: a continuation line of a
+ * multi-line block comment that does not have one of these shapes (no
+ * leading star, or `*WORD` with no space after the star) is scanned like
+ * code and may still block — the safe direction.
+ * A line that still has code after the comment is not comment-only; later
+ * checks see that code.
+ */
+function isCommentOnlyBody(body: string): boolean {
+  const trimmed = body.trim();
+  if (trimmed === '') return true;
+  if (trimmed.startsWith('//')) return true;
+  if (trimmed.startsWith('#')) {
+    const next = trimmed[1];
+    return next === undefined || next === ' ' || next === '\t' || next === '!';
+  }
+  if (trimmed.startsWith('/*')) {
+    const close = trimmed.indexOf('*/');
+    if (close === -1) return true;
+    return trimmed.slice(close + 2).trim() === '';
+  }
+  if (trimmed.startsWith('*/') && trimmed.slice(2).trim() === '') return true;
+  if (trimmed.startsWith('*') && (trimmed.length === 1 || trimmed[1] === ' ' || trimmed[1] === '\t')) {
+    return true;
+  }
+  return false;
+}
+
+interface SensitiveDeclScope {
+  depth: number;
+  /** Brace depth of the open auth/session/csrf declaration body, if any. */
+  bodyDepth: number | null;
+  pendingBrace: boolean;
+}
+
+function freshSensitiveDeclScope(): SensitiveDeclScope {
+  return { depth: 0, bodyDepth: null, pendingBrace: false };
+}
+
+/**
+ * Track a declaration body that is visible in this hunk. A field or statement
+ * edit inside an auth, session, or csrf declaration still counts when the
+ * header is hunk context. Resets at each diff header and hunk marker because
+ * a later hunk does not repeat braces.
+ */
+function updateSensitiveDeclScope(scope: SensitiveDeclScope, code: string, opensSensitive: boolean): void {
+  const braceOnly = code.trim().replace(/[{} \t]/g, '') === '';
+  if (declaredNames(code).length > 0) {
+    scope.pendingBrace = opensSensitive && !code.includes('{');
+  }
+  for (const ch of code) {
+    if (ch === '{') {
+      scope.depth++;
+      // A `{` on its own line can continue `interface AuthUser` / `class CsrfGuard`.
+      // Any other `{` (for example `if (ready) {`) must not inherit that header.
+      const adopts = opensSensitive || (scope.pendingBrace && braceOnly);
+      if (scope.bodyDepth === null && adopts) {
+        scope.bodyDepth = scope.depth;
+        scope.pendingBrace = false;
+      }
+    } else if (ch === '}') {
+      scope.depth = Math.max(0, scope.depth - 1);
+      if (scope.bodyDepth !== null && scope.depth < scope.bodyDepth) scope.bodyDepth = null;
+    }
+  }
+  if (!opensSensitive && !braceOnly && code.trim() !== '') scope.pendingBrace = false;
+}
+
+/**
  * Scan `source[start, end)` with the same string/comment awareness used for
  * argument extraction, and return the surviving code text:
  * - string-literal contents (single/double quotes) are stripped,
@@ -1078,6 +1250,21 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
     },
   };
 
+  function lineHasLegacySensitiveOperation(body: string): boolean {
+    return (
+      /(?:session|token)\s*(?:\.\s*)?(?:expires?|expiry|expiration|lifetime|maxage|ttl)\s*(?:[:=]|\+=|-=)/i.test(body) ||
+      /(?:maxage|ttl)\s*[:=][^\n]*(?:session|token)/i.test(body) ||
+      /\b(?:jwt|jsonwebtoken)\s*\.\s*(?:sign|verify)\s*\(/i.test(body) ||
+      isStandaloneSignVerifyWithJwtToken(body) ||
+      /(?:password|passwd)[^\n]*(?:hash|compare|verify)\s*\(|(?:hash|compare|verify)\s*\([^\n]*(?:password|passwd)/i.test(body) ||
+      /\b(?:hasPermission|canAccess|authorize|isAuthorized|checkPermission|requireRole|hasRole)\s*\(/i.test(body) ||
+      /\b(?:csrf\w*|auth(?:\b|entication\w*|orization\w*|enticate\w*)|session\w*|requireAuth)\s*(?:\(|=>)/i.test(
+        stripRegexLiterals(body),
+      ) ||
+      registersAuthMiddleware(body)
+    );
+  }
+
   const sensitiveContent: Rule = {
     id: 'sensitive-content',
     evaluate: (input) => {
@@ -1089,35 +1276,44 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
       // with absent/unparseable headers treated as an ordinary source file.
       let oldFile: string | undefined;
       let newFile: string | undefined;
+      let declScope = freshSensitiveDeclScope();
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (line === undefined) continue;
-        if (line.startsWith('diff --git ')) {
-          const parsed = parseGitDiffHeader(line);
-          oldFile = parsed?.oldPath;
-          newFile = parsed?.newPath;
+        if (line.startsWith('diff --git ') || line.startsWith('@@')) {
+          if (line.startsWith('diff --git ')) {
+            const parsed = parseGitDiffHeader(line);
+            oldFile = parsed?.oldPath;
+            newFile = parsed?.newPath;
+          }
+          declScope = freshSensitiveDeclScope();
           continue;
         }
-        if (!isAddedDiffLine(line) && !isRemovedDiffLine(line)) continue;
+        const added = isAddedDiffLine(line);
+        const removed = isRemovedDiffLine(line);
+        const context = line.startsWith(' ');
+        if (!added && !removed && !context) continue;
         const body = line.slice(1);
-        const changedFile = isRemovedDiffLine(line) ? oldFile : newFile;
+        const changedFile = added ? newFile : removed ? oldFile : newFile === '/dev/null' ? oldFile : (newFile ?? oldFile);
         if (changedFile?.toLowerCase().endsWith('.md')) continue;
-        if (/(?:session|token)\s*(?:\.\s*)?(?:expires?|expiry|expiration|lifetime|maxage|ttl)\s*(?:[:=]|\+=|-=)/i.test(body) ||
-            /(?:maxage|ttl)\s*[:=][^\n]*(?:session|token)/i.test(body) ||
-            /\b(?:jwt|jsonwebtoken)\s*\.\s*(?:sign|verify)\s*\(/i.test(body) ||
-            isStandaloneSignVerifyWithJwtToken(body) ||
-            /(?:password|passwd)[^\n]*(?:hash|compare|verify)\s*\(|(?:hash|compare|verify)\s*\([^\n]*(?:password|passwd)/i.test(body) ||
-            /\b(?:hasPermission|canAccess|authorize|isAuthorized|checkPermission|requireRole|hasRole)\s*\(/i.test(body) ||
-            /\b(?:csrf\w*|auth(?:\b|entication\w*|orization\w*|enticate\w*)|session\w*|requireAuth)\s*(?:\(|=>)/i.test(
-              stripRegexLiterals(body),
-            ) ||
-            registersAuthMiddleware(body)) {
+        if (isCommentOnlyBody(body)) continue;
+        const code = scanCodeRegion(body, 0, body.length);
+        const opensSensitive = lineDeclaresSensitiveName(code);
+        const inSensitiveBody = declScope.bodyDepth !== null && declScope.depth >= declScope.bodyDepth;
+        const changed = added || removed;
+        if (
+          changed &&
+          (lineHasLegacySensitiveOperation(body) ||
+            (/[A-Za-z0-9]/.test(code) &&
+              (opensSensitive || hasSessionOrTokenLifetime(code) || inSensitiveBody)))
+        ) {
           return {
             outcome: 'block',
             reason: 'auth/session/security logic requires human review',
             evidence: `changed diff line ${i + 1} contains code-shaped sensitive logic`,
           };
         }
+        updateSensitiveDeclScope(declScope, code, opensSensitive);
       }
       return null;
     },

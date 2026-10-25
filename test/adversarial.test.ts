@@ -48,6 +48,27 @@ describe('adversarial public entry points', () => {
     }
   });
 
+  it('does not let comments, strings, or regex literals impersonate session lifetime or auth types', async () => {
+    const rule = makeMergeRules().find((entry) => entry.id === 'sensitive-content')!;
+    expect(rule.evaluate({ action: 'merge', diff: '+const pattern = /SESSION_TTL_SECONDS/;' })).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+const note = "export interface AuthUser { id: string }";' }),
+    ).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+// export const isSessionValid = (exp: number) => exp > 0;' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+sessionStorage.setItem("ui", "theme");' })).toBeNull();
+    const hiddenThenReal = [
+      '+const pattern = /SESSION_TTL_SECONDS/;',
+      '+export const isSessionValid = (exp: number) => exp > Date.now();',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: hiddenThenReal })).toMatchObject({ outcome: 'block' });
+    const gate = defineGate({ rules: makeMergeRules() });
+    const diff = safeDiff('src/types/identity.ts', '+export const getAuthUser = (id: string) => id;');
+    expect(
+      (await gate.decide({ action: 'merge', diff, files: ['src/types/identity.ts'], context: { testsPassed: true } }))
+        .ruleId,
+    ).toBe('sensitive-content');
+  });
+
   it('finds auth logic in neutral TypeScript utility files while ignoring docs prose', async () => {
     const gate = defineGate({ rules: makeMergeRules() });
     const authDiff = safeDiff('helpers/time.ts', '+export const sessionTtl = session.ttl = 900;');

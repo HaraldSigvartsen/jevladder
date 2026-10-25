@@ -1068,6 +1068,195 @@ describe('rule: sensitive-content', () => {
     }
   });
 
+  it('blocks session and token lifetime identifiers in common casings', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+export const SESSION_TTL_SECONDS = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '-export const SESSION_TTL_SECONDS = 3600;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const session_ttl_seconds = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const sessionTtl = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+config.token.expiry = 60;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const tokenExpiry = 60;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+session . maxAge = 15;' })).toMatchObject({
+      outcome: 'block',
+    });
+  });
+
+  it('counts plural session/token parts for the lifetime and declaration checks', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+export const sessionsTtl = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const SESSIONS_TTL_SECONDS = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const tokensExpiry = 60;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+config.tokens.expiry = 60;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export class SessionsGuard {}' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Plain analytics plurals stay allowed, including bare plural bindings.
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessions = useAnalytics();' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const tokens = design(theme)' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionsName = "draft";' })).toBeNull();
+  });
+
+  it('treats token parts as non-label words in session declaration names', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionTokenName = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionTokensTitle = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionTokenStorage = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+type SessionTokenName = string;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionNameToken = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionsToken = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionsTokens = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Bare plural bindings still fall through the empty-others check.
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessions = useAnalytics();' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const tokens = design(theme)' })).toBeNull();
+    // Label-only session names without token parts stay allowed.
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionName = "draft";' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionStorage = "ui";' })).toBeNull();
+  });
+
+  it('scans JS/TS private # fields instead of treating them as comments', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+  #sessionTtl = 3600;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+  #sessionTtl: number = 3600;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+class LoginService { #sessionTtl = 900 }' }),
+    ).toMatchObject({ outcome: 'block' });
+    // Real # comments (whitespace or ! after the hash, or a bare hash) still skip.
+    expect(rule.evaluate({ action: 'merge', diff: '+#!enforce session ttl = 60' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+#' })).toBeNull();
+  });
+
+  it('still scans block-comment continuation lines that are not star-shaped', () => {
+    const blockComment = [
+      '@@ -1,1 +1,3 @@',
+      '+/*',
+      '+interface AuthUser {',
+      '+*/',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: blockComment })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+*SESSION_TTL_SECONDS = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    // One-line block comments and star-space JSDoc lines still skip.
+    expect(rule.evaluate({ action: 'merge', diff: '+/* session ttl note on one line */' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+ * session lifetime is only mentioned in this note' })).toBeNull();
+  });
+
+  it('blocks auth, session, and csrf declarations, including type-only field edits', () => {
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+export const isSessionValid = (exp: number) => exp > Date.now();',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+export function validateSession(exp: number) { return exp > 0; }',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const getAuthUser = (id: string) => id;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export class CsrfGuard {}' })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+export type AuthSession = { id: string };' })).toMatchObject({
+      outcome: 'block',
+    });
+    const fieldOnly = [
+      '--- a/src/types/AuthUser.ts',
+      '+++ b/src/types/AuthUser.ts',
+      '@@ -1,3 +1,4 @@',
+      ' export interface AuthUser {',
+      '   id: string;',
+      '+  displayName: string;',
+      ' }',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: fieldOnly, files: ['src/types/AuthUser.ts'] })).toMatchObject({
+      outcome: 'block',
+    });
+    const splitBrace = [
+      '@@ -1,3 +1,4 @@',
+      ' export interface AuthUser',
+      ' {',
+      '+  displayName: string;',
+      ' }',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: splitBrace })).toMatchObject({ outcome: 'block' });
+  });
+
+  it('does not treat labels, browser storage, comments, docs, or author words as auth', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+export const authorName = "Ada";' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+export const authority = "editorial";' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+export const oauthDocs = "https://example.test/oauth";' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionName = "draft";' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+sessionStorage.setItem("theme", "dark");' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const ui = { sessionStorage: "theme-key" };' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+// session ttl = 7200 after the user closes the tab' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+# session ttl = 3600' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+ * session lifetime is only mentioned in this note' })).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+const label = "ok"; // SESSION_TTL_SECONDS = 7200' }),
+    ).toBeNull();
+    const authorField = [
+      '@@ -1,3 +1,4 @@',
+      ' export interface AuthorBio {',
+      '+  name: string;',
+      ' }',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: authorField })).toBeNull();
+    const sibling = [
+      '@@ -1,2 +1,3 @@',
+      ' export const sessionTtlSeconds = 3600;',
+      '+export const refreshWindowSeconds = 300;',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: sibling })).toBeNull();
+    const markdown = [
+      'diff --git a/docs/guide.md b/docs/guide.md',
+      '+export interface AuthUser { id: string }',
+      '+export const SESSION_TTL_SECONDS = 7200;',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: markdown })).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: 'diff --git a/src/types/AuthUser.ts b/src/types/AuthUser.ts',
+      }),
+    ).toBeNull();
+  });
+
   it('ignores prose mentions and generic code without sensitive operations', () => {
     expect(rule.evaluate({ action: 'merge', files: ['README.md'], diff: '+Password sessions are described here.' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', files: ['utils/text.ts'], diff: '+// password and session are concepts in this guide' })).toBeNull();
