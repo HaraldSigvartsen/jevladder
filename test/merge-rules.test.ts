@@ -1114,6 +1114,36 @@ describe('rule: sensitive-content', () => {
     expect(rule.evaluate({ action: 'merge', diff: '+const sessionsName = "draft";' })).toBeNull();
   });
 
+  it('treats token parts as non-label words in session declaration names', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionTokenName = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionTokensTitle = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionTokenStorage = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+type SessionTokenName = string;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionNameToken = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionsToken = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionsTokens = "jwt";' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Bare plural bindings still fall through the empty-others check.
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessions = useAnalytics();' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const tokens = design(theme)' })).toBeNull();
+    // Label-only session names without token parts stay allowed.
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionName = "draft";' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionStorage = "ui";' })).toBeNull();
+  });
+
   it('scans JS/TS private # fields instead of treating them as comments', () => {
     expect(rule.evaluate({ action: 'merge', diff: '+  #sessionTtl = 3600;' })).toMatchObject({
       outcome: 'block',

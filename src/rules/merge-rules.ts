@@ -519,13 +519,15 @@ function hasSessionOrTokenLifetime(code: string): boolean {
  * stays allowed — the bare plural is a common analytics/UI word, while the
  * bare singular (`const session = load()`) names session logic. Combined
  * with any non-label part (`sessionsTtl`, `SessionsGuard`) the plural counts.
+ * `token`/`tokens` parts stay in `others` as non-label words, so a label word
+ * cannot exempt a session-token name (`sessionTokenName`, `sessionNameToken`).
  */
 function isSensitiveDeclarationName(name: string): boolean {
   const parts = identifierWordParts(name);
   if (parts.some((part) => AUTH_FAMILY_WORD_RE.test(part))) return true;
   const sessionParts = parts.filter(isSessionWordPart);
   if (sessionParts.length === 0) return false;
-  const others = parts.filter((part) => !isSessionWordPart(part) && !isTokenWordPart(part));
+  const others = parts.filter((part) => !isSessionWordPart(part));
   if (others.length === 0) return sessionParts.includes('session');
   if (others.every((part) => SESSION_LABEL_WORD_RE.test(part))) return false;
   return true;
