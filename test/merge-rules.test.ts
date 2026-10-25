@@ -1217,6 +1217,59 @@ describe('rule: sensitive-content', () => {
     expect(rule.evaluate({ action: 'merge', diff: splitBrace })).toMatchObject({ outcome: 'block' });
   });
 
+  it('blocks auth, session, and csrf member declarations without a keyword', () => {
+    // Class method shorthand inside a class whose own name is neutral.
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+  validateSession(token: string) { return token.length > 0; }',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  async refreshAuthToken() {' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  static isSessionExpired(exp: number): boolean {' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  get sessionTtl() {' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+  private checkCsrf(req: unknown) {' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Object-literal / class-field members.
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  validateSession: (t) => t.exp > Date.now(),' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  isAuthed = () => !!this.user;' })).toMatchObject({
+      outcome: 'block',
+    });
+    const apiObject = [
+      '@@ -1,2 +1,3 @@',
+      ' export const api = {',
+      '+  refreshAuthToken() {',
+      '   },',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: apiObject })).toMatchObject({ outcome: 'block' });
+    // A removal is still a changed line.
+    expect(rule.evaluate({ action: 'merge', diff: '-  private checkCsrf(req: unknown) {' })).toMatchObject({
+      outcome: 'block',
+    });
+  });
+
+  it('does not treat call sites, labels, or mentions as member declarations', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+  authorName: string;' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  get authorBio() {' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  sessionName = "x";' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  if (validateSession(t)) {' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  result = foo.validateSession(x);' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  foo.validateSession(x);' })).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+ * validateSession verifies the bearer token before routing' }),
+    ).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+console.log("validateSession");' })).toBeNull();
+  });
+
   it('does not treat labels, browser storage, comments, docs, or author words as auth', () => {
     expect(rule.evaluate({ action: 'merge', diff: '+export const authorName = "Ada";' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+export const authority = "editorial";' })).toBeNull();

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Merge gate: `sensitive-content` also blocks auth/session/CSRF-named member declarations — class/object method shorthand (with `public`/`private`/`protected`/`static`/`readonly`/`override`/`async`/`get`/`set`/`*` modifiers) and `name:`/`name =` property members — using the same word-part logic as keyword declarations; call sites (`foo.validateSession(x)`, `if (validateSession(t))`), `==`/`=>` shapes, string literals, and comment mentions stay data.
 - Merge gate: find the end of `${...}` interpolations without counting `{` or `}` inside strings, comments, regex literals, or nested templates, so those braces cannot hide a later auth identifier or treat csrf/session regex text as code. `requireAuth()` is a call-shaped auth check.
 - Merge gate: strip regex literals inside `${...}` template interpolations for middleware argument scanning and call-shaped auth/session checks, matching top-level regex handling while preserving blocks for real auth identifiers and calls.
 - Contributors use pnpm (`packageManager`, `pnpm-lock.yaml`, CI); the package is still published to the npm registry and end users can install with npx/npm/pnpm as before.

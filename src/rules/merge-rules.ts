@@ -464,9 +464,12 @@ function identifierWordParts(identifier: string): string[] {
     .map((part) => part.toLowerCase());
 }
 
-/** Auth-family words. `author` and `authority` are not in this set; `oauth` is not `auth`. */
+/**
+ * Auth-family words. `author` and `authority` are not in this set; `oauth` is
+ * not `auth`; `authed` is the colloquial short form of authenticated.
+ */
 const AUTH_FAMILY_WORD_RE =
-  /^(?:csrf|auth|authn|authz|authenticates?|authenticated|authentication|authorizes?|authorized|authorization|authorises?|authorised|authorisation)$/;
+  /^(?:csrf|auth|authn|authz|authed|authenticates?|authenticated|authentication|authorizes?|authorized|authorization|authorises?|authorised|authorisation)$/;
 
 /**
  * Extra words that keep a `session…` binding a label or the browser storage
@@ -545,6 +548,72 @@ function declaredNames(code: string): string[] {
 
 function lineDeclaresSensitiveName(code: string): boolean {
   return declaredNames(code).some((name) => isSensitiveDeclarationName(name));
+}
+
+/**
+ * Head of a class/object member declaration line: optional member modifiers,
+ * an optional generator `*`, then the member name. The lookahead stops right
+ * before the `(` of a method shorthand or the `:`/`=` of a property member.
+ */
+const MEMBER_DECL_HEAD_RE =
+  /^\s*(?:(?:public|private|protected|static|readonly|override|abstract|declare|async|get|set)\s+)*\*?\s*([A-Za-z_$][\w$]*)\s*(?=[(:=])/;
+
+/**
+ * Keywords that can be followed by `(` at a line start but never name a
+ * member declaration: control-flow statements and `return`.
+ */
+const CONTROL_FLOW_KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch', 'return']);
+
+/** Index of the `)` that closes the `(` at `open` (depth-counted), or -1. */
+function findBalancedCloseParen(code: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * True when the line's LEADING identifier declares a class or object member
+ * whose name is sensitive under the SAME word-part logic as keyword
+ * declarations ({@link isSensitiveDeclarationName}): a method shorthand —
+ * optionally after `public`/`private`/`protected`/`static`/`readonly`/
+ * `override`/`abstract`/`declare`/`async`/`get`/`set`/`*` modifiers — whose
+ * argument list closes on the line and is followed by an optional return
+ * type and a body `{`, or a `name:` / `name =` property member (arrow,
+ * function, or value). Call sites are not declarations: `foo.validateSession(x)`
+ * does not start with the member name, a bare call statement has no body `{`
+ * after its closing parenthesis, `==`/`=>` after a name are comparison or
+ * arrow-parameter shapes, and control-flow keywords never name members.
+ * Runs on {@link scanCodeRegion} output, so string, comment, and regex
+ * literal contents are already stripped and stay data.
+ */
+function lineDeclaresSensitiveMemberName(code: string): boolean {
+  const head = code.match(MEMBER_DECL_HEAD_RE);
+  if (!head) return false;
+  const name = head[1]!;
+  if (CONTROL_FLOW_KEYWORDS.has(name)) return false;
+  if (!isSensitiveDeclarationName(name)) return false;
+  const at = (head.index ?? 0) + head[0].length;
+  const kind = code[at];
+  // `name:` — object-literal property, class field with a type, interface member.
+  if (kind === ':') return true;
+  // `name =` — class field / object property value; `==` and `=>` are not fields.
+  if (kind === '=') {
+    const next = code[at + 1];
+    return next !== '=' && next !== '>';
+  }
+  // Method shorthand: the argument list must close on this line and a body
+  // `{` (after an optional `: returnType` without a brace) must follow.
+  if (kind !== '(') return false;
+  const close = findBalancedCloseParen(code, at);
+  if (close === -1) return false;
+  return /^\s*(?::[^{]*)?\{/.test(code.slice(close + 1));
 }
 
 /**
@@ -1299,13 +1368,14 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
         if (isCommentOnlyBody(body)) continue;
         const code = scanCodeRegion(body, 0, body.length);
         const opensSensitive = lineDeclaresSensitiveName(code);
+        const declaresSensitiveMember = lineDeclaresSensitiveMemberName(code);
         const inSensitiveBody = declScope.bodyDepth !== null && declScope.depth >= declScope.bodyDepth;
         const changed = added || removed;
         if (
           changed &&
           (lineHasLegacySensitiveOperation(body) ||
             (/[A-Za-z0-9]/.test(code) &&
-              (opensSensitive || hasSessionOrTokenLifetime(code) || inSensitiveBody)))
+              (opensSensitive || declaresSensitiveMember || hasSessionOrTokenLifetime(code) || inSensitiveBody)))
         ) {
           return {
             outcome: 'block',

@@ -69,6 +69,22 @@ describe('adversarial public entry points', () => {
     ).toBe('sensitive-content');
   });
 
+  it('blocks member-shaped auth declarations but not call sites or string mentions', async () => {
+    const rule = makeMergeRules().find((entry) => entry.id === 'sensitive-content')!;
+    expect(rule.evaluate({ action: 'merge', diff: '+  async refreshAuthToken() {' })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  private checkCsrf(req: unknown) {' })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession: (t) => t.exp > Date.now(),' })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  if (validateSession(t)) {' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  foo.validateSession(x);' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  logger.info("validateSession");' })).toBeNull();
+    const gate = defineGate({ rules: makeMergeRules() });
+    const diff = safeDiff('src/api/client.ts', '+  isAuthed = () => !!this.user;');
+    expect(
+      (await gate.decide({ action: 'merge', diff, files: ['src/api/client.ts'], context: { testsPassed: true } }))
+        .ruleId,
+    ).toBe('sensitive-content');
+  });
+
   it('finds auth logic in neutral TypeScript utility files while ignoring docs prose', async () => {
     const gate = defineGate({ rules: makeMergeRules() });
     const authDiff = safeDiff('helpers/time.ts', '+export const sessionTtl = session.ttl = 900;');
