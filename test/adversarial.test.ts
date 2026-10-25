@@ -74,6 +74,9 @@ describe('adversarial public entry points', () => {
     expect(rule.evaluate({ action: 'merge', diff: '+  async refreshAuthToken() {' })).toMatchObject({ outcome: 'block' });
     expect(rule.evaluate({ action: 'merge', diff: '+  private checkCsrf(req: unknown) {' })).toMatchObject({ outcome: 'block' });
     expect(rule.evaluate({ action: 'merge', diff: '+  validateSession: (t) => t.exp > Date.now(),' })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession<T>(token: T) {' })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  abstract validateSession(token: string): boolean;' })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+<Panel validateSession={handleValidate} />' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+  if (validateSession(t)) {' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+  foo.validateSession(x);' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+  logger.info("validateSession");' })).toBeNull();
@@ -82,6 +85,24 @@ describe('adversarial public entry points', () => {
     expect(
       (await gate.decide({ action: 'merge', diff, files: ['src/api/client.ts'], context: { testsPassed: true } }))
         .ruleId,
+    ).toBe('sensitive-content');
+    // A member signature that is only hunk context still covers its body.
+    const bodyEditDiff = [
+      'diff --git a/src/api/client.ts b/src/api/client.ts',
+      '--- a/src/api/client.ts',
+      '+++ b/src/api/client.ts',
+      '@@ -1,3 +1,4 @@',
+      '   validateSession(token: string) {',
+      '+    return token === secret;',
+      '   }',
+    ].join('\n');
+    expect(
+      (await gate.decide({
+        action: 'merge',
+        diff: bodyEditDiff,
+        files: ['src/api/client.ts'],
+        context: { testsPassed: true },
+      })).ruleId,
     ).toBe('sensitive-content');
   });
 

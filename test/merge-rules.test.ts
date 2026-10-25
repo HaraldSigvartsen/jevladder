@@ -1257,6 +1257,124 @@ describe('rule: sensitive-content', () => {
     });
   });
 
+  it('blocks generic, optional, #private, accessor, decorated, shorthand, and signature member declarations', () => {
+    // Type parameters between the name and `(` (modifier form included).
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession<T>(token: T) {' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+  public async validateSession<T extends string>(token: T): Promise<boolean> {',
+      }),
+    ).toMatchObject({ outcome: 'block' });
+    // Optional-member `?` and definite-assignment `!` markers.
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession?(token: string) {' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+  session?: SessionState;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+  sessionStore!: Store;' })).toMatchObject({
+      outcome: 'block',
+    });
+    // `#`-private members and the `accessor` modifier.
+    expect(rule.evaluate({ action: 'merge', diff: '+  #validateSession() {' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+  #checkCsrf(req) {' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+  accessor sessionStore = store;' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Object/class shorthand and constructor parameter properties.
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession,' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  constructor(private readonly sessionStore: Store) {' }),
+    ).toMatchObject({ outcome: 'block' });
+    // Same-line decorators.
+    expect(rule.evaluate({ action: 'merge', diff: '+  @Public() validateSession() {' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Abstract / interface signatures that end in `;` on this line.
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  abstract validateSession(token: string): boolean;' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  validateSession(token: string): Promise<boolean>;' }),
+    ).toMatchObject({ outcome: 'block' });
+    // A `{` inside the return type is part of the type, not the body; the
+    // signature still blocks on its own.
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  validateSession(token: string): Foo<{ id: string }>;' }),
+    ).toMatchObject({ outcome: 'block' });
+    // Function-valued property members keep blocking, including `function`
+    // values and `async` arrows.
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+  validateSession: function (t: string) { return true; },' }),
+    ).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+  isAuthed = async () => !!this.user;' })).toMatchObject({
+      outcome: 'block',
+    });
+  });
+
+  it('blocks body edits under a member signature that is only hunk context', () => {
+    const memberBodyEdit = [
+      '@@ -1,3 +1,4 @@',
+      '   validateSession(token: string) {',
+      '+    return token === secret;',
+      '   }',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: memberBodyEdit })).toMatchObject({ outcome: 'block' });
+    // The keyword-declaration form of the same hunk (existing behavior).
+    const keywordBodyEdit = [
+      '@@ -1,3 +1,4 @@',
+      '   function validateSession(token: string) {',
+      '+    return token === secret;',
+      '   }',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: keywordBodyEdit })).toMatchObject({ outcome: 'block' });
+    // A neutral method signature does not open a sensitive body scope.
+    const neutralBodyEdit = [
+      '@@ -1,3 +1,4 @@',
+      '   formatName(raw: string) {',
+      '+    return raw.trim();',
+      '   }',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: neutralBodyEdit })).toBeNull();
+  });
+
+  it('does not treat JSX props, value entries, renames, or reassignments as member declarations', () => {
+    // JSX props pass values.
+    expect(rule.evaluate({ action: 'merge', diff: '+<Panel validateSession={handleValidate} />' })).toBeNull();
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+<Panel csrfToken={token} session={user.session} />' }),
+    ).toBeNull();
+    expect(
+      rule.evaluate({
+        action: 'merge',
+        diff: '+<Panel authorization={headers.authorization} isAuthed={user != null} />',
+      }),
+    ).toBeNull();
+    // Object entries / header keys passing plain values.
+    expect(rule.evaluate({ action: 'merge', diff: '+  authorization: `Bearer ${token}`,' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  session: req.session,' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  auth: false,' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  csrfToken: form.csrfToken,' })).toBeNull();
+    // Destructuring renames and plain reassignments.
+    expect(rule.evaluate({ action: 'merge', diff: '+  session: current,' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  session = await store.read(id);' })).toBeNull();
+    // Call-site shapes, including explicitly instantiated generic calls.
+    expect(rule.evaluate({ action: 'merge', diff: '+  withSession((req) => {' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession(token);' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession<string>(token);' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  validateSession(a) ? {} : {}' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+  return validateSession(t);' })).toBeNull();
+  });
+
   it('does not treat call sites, labels, or mentions as member declarations', () => {
     expect(rule.evaluate({ action: 'merge', diff: '+  authorName: string;' })).toBeNull();
     expect(rule.evaluate({ action: 'merge', diff: '+  get authorBio() {' })).toBeNull();

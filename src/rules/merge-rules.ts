@@ -551,12 +551,26 @@ function lineDeclaresSensitiveName(code: string): boolean {
 }
 
 /**
- * Head of a class/object member declaration line: optional member modifiers,
- * an optional generator `*`, then the member name. The lookahead stops right
- * before the `(` of a method shorthand or the `:`/`=` of a property member.
+ * Modifiers that can precede a class or object member name. A line carrying
+ * any of them — or a decorator, a `#` private marker, or a `?`/`!` member
+ * marker — is unambiguously a member declaration, so the `name:`/`name =`
+ * arms of {@link lineDeclaresSensitiveMemberName} block regardless of the
+ * value shape.
  */
-const MEMBER_DECL_HEAD_RE =
-  /^\s*(?:(?:public|private|protected|static|readonly|override|abstract|declare|async|get|set)\s+)*\*?\s*([A-Za-z_$][\w$]*)\s*(?=[(:=])/;
+const MEMBER_MODIFIERS = new Set([
+  'public',
+  'private',
+  'protected',
+  'static',
+  'readonly',
+  'override',
+  'abstract',
+  'declare',
+  'async',
+  'get',
+  'set',
+  'accessor',
+]);
 
 /**
  * Keywords that can be followed by `(` at a line start but never name a
@@ -578,42 +592,236 @@ function findBalancedCloseParen(code: string, open: number): number {
   return -1;
 }
 
+/** Index just past the whitespace starting at `from`. */
+function skipWs(code: string, from: number): number {
+  let i = from;
+  while (i < code.length && (code[i] === ' ' || code[i] === '\t')) i++;
+  return i;
+}
+
+/**
+ * Index just past the `>` that closes the type-parameter group `<` at `open`
+ * (depth-counted), or -1 when it does not close on the line. A `=>` arrow
+ * token inside the group never counts as a closing `>`.
+ */
+function findAngleGroupEnd(code: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === '=' && code[i + 1] === '>') {
+      i++;
+      continue;
+    }
+    if (code[i] === '<') depth++;
+    else if (code[i] === '>') {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Walk an optional return type after a closed argument list and report
+ * whether the declaration closes on this line: the first `{` at nesting
+ * depth 0 is the method BODY (a `{` inside `<…>`, `(…)`, `[…]`, or `{…}` in
+ * the return type is part of the type, not the body), and a `;`/`,` at
+ * depth 0 ends an abstract/interface signature. `=>` never counts as `>`.
+ */
+function methodTailClosesDeclaration(code: string, from: number): boolean {
+  let angle = 0;
+  let curly = 0;
+  let paren = 0;
+  let bracket = 0;
+  for (let i = from; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '=' && code[i + 1] === '>') {
+      i++;
+      continue;
+    }
+    if (ch === '<') angle++;
+    else if (ch === '>') {
+      if (angle > 0) angle--;
+    } else if (ch === '{') {
+      if (angle === 0 && paren === 0 && bracket === 0) return true;
+      curly++;
+    } else if (ch === '}') {
+      if (curly > 0) curly--;
+    } else if (ch === '(') paren++;
+    else if (ch === ')') {
+      if (paren > 0) paren--;
+    } else if (ch === '[') bracket++;
+    else if (ch === ']') {
+      if (bracket > 0) bracket--;
+    } else if (
+      (ch === ';' || ch === ',') &&
+      angle === 0 &&
+      curly === 0 &&
+      paren === 0 &&
+      bracket === 0
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * `name:` / `name =` property members block when the value IS a function or
+ * arrow — `(t) => …`, `async (t) => …`, `x => …`, `function …`,
+ * `async function …`. Plain values do not: JSX props (`name={…}`), object
+ * entries passing a value (`session: req.session`, `auth: false`), header
+ * keys (`authorization: \`Bearer ${token}\``), destructuring renames
+ * (`session: current`), and plain reassignments (`session = await …`) are
+ * value plumbing, not declarations of auth/session logic.
+ */
+function memberValueIsFunctionOrArrow(code: string, from: number): boolean {
+  let i = skipWs(code, from);
+  if (/^(?:async\s+)?function\b/.test(code.slice(i))) return true;
+  const asyncMatch = /^async\b/.exec(code.slice(i));
+  if (asyncMatch) i = skipWs(code, i + asyncMatch[0].length);
+  if (code[i] === '(') {
+    const close = findBalancedCloseParen(code, i);
+    if (close === -1) return false;
+    const after = skipWs(code, close + 1);
+    return code[after] === '=' && code[after + 1] === '>';
+  }
+  return /^[A-Za-z_$][\w$]*\s*=>/.test(code.slice(i));
+}
+
 /**
  * True when the line's LEADING identifier declares a class or object member
  * whose name is sensitive under the SAME word-part logic as keyword
- * declarations ({@link isSensitiveDeclarationName}): a method shorthand —
- * optionally after `public`/`private`/`protected`/`static`/`readonly`/
- * `override`/`abstract`/`declare`/`async`/`get`/`set`/`*` modifiers — whose
- * argument list closes on the line and is followed by an optional return
- * type and a body `{`, or a `name:` / `name =` property member (arrow,
- * function, or value). Call sites are not declarations: `foo.validateSession(x)`
- * does not start with the member name, a bare call statement has no body `{`
- * after its closing parenthesis, `==`/`=>` after a name are comparison or
- * arrow-parameter shapes, and control-flow keywords never name members.
+ * declarations ({@link isSensitiveDeclarationName}). Recognized shapes:
+ *
+ * - a method shorthand — optionally after decorators (`@Public()`),
+ *   `public`/`private`/`protected`/`static`/`readonly`/`override`/
+ *   `abstract`/`declare`/`async`/`get`/`set`/`accessor`/`*` modifiers, a
+ *   leading `#`, `<T>` type parameters, and a `?`/`!` member marker — whose
+ *   argument list closes on the line and whose tail is a body `{` (after an
+ *   optional return type whose braces stay part of the type) or a
+ *   `;`/`,`-terminated abstract/interface signature;
+ * - a `name:` / `name =` property member whose value is a function or
+ *   arrow, or any property member carrying a decorator, modifier, `#`, `?`,
+ *   or `!` marker (`session?: SessionState;`, `accessor sessionStore = …`);
+ * - object/class shorthand (`validateSession,`) and uninitialized fields;
+ * - `constructor(...)` parameter properties
+ *   (`constructor(private readonly sessionStore: Store) {`).
+ *
+ * Call sites are not declarations: `foo.validateSession(x)` does not start
+ * with the member name; a bare call statement `validateSession(token);` has
+ * no modifiers, no `#`/`?`/`!` marker, and no type annotation in its
+ * arguments, so it stays a call; `validateSession(a) ? {} : {}`,
+ * `withSession((req) => {`, and `return validateSession(t);` never reach a
+ * declaration tail; `==`/`=>` after a name are comparison or arrow-parameter
+ * shapes; and control-flow keywords never name members. A member signature
+ * whose parentheses or tail do not close on the line is not reassembled.
  * Runs on {@link scanCodeRegion} output, so string, comment, and regex
  * literal contents are already stripped and stay data.
  */
 function lineDeclaresSensitiveMemberName(code: string): boolean {
-  const head = code.match(MEMBER_DECL_HEAD_RE);
-  if (!head) return false;
-  const name = head[1]!;
-  if (CONTROL_FLOW_KEYWORDS.has(name)) return false;
-  if (!isSensitiveDeclarationName(name)) return false;
-  const at = (head.index ?? 0) + head[0].length;
-  const kind = code[at];
-  // `name:` — object-literal property, class field with a type, interface member.
-  if (kind === ':') return true;
-  // `name =` — class field / object property value; `==` and `=>` are not fields.
-  if (kind === '=') {
-    const next = code[at + 1];
-    return next !== '=' && next !== '>';
+  let i = skipWs(code, 0);
+  let marked = false;
+
+  // Decorators: @Dotted.Name<T>(args), zero or more, before the member.
+  while (code[i] === '@') {
+    marked = true;
+    i = skipWs(code, i + 1);
+    const id = /^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*/.exec(code.slice(i));
+    if (!id) return false;
+    i = skipWs(code, i + id[0].length);
+    if (code[i] === '<') {
+      const end = findAngleGroupEnd(code, i);
+      if (end === -1) return false;
+      i = skipWs(code, end);
+    }
+    if (code[i] === '(') {
+      const close = findBalancedCloseParen(code, i);
+      if (close === -1) return false;
+      i = skipWs(code, close + 1);
+    }
   }
-  // Method shorthand: the argument list must close on this line and a body
-  // `{` (after an optional `: returnType` without a brace) must follow.
+
+  // Member modifiers, then an optional generator `*`.
+  for (;;) {
+    const word = /^[A-Za-z_$][\w$]*/.exec(code.slice(i));
+    if (!word || !MEMBER_MODIFIERS.has(word[0])) break;
+    marked = true;
+    i = skipWs(code, i + word[0].length);
+  }
+  if (code[i] === '*') {
+    marked = true;
+    i = skipWs(code, i + 1);
+  }
+  if (code[i] === '#') {
+    marked = true;
+    i++;
+  }
+
+  const nameMatch = /^[A-Za-z_$][\w$]*/.exec(code.slice(i));
+  if (!nameMatch) return false;
+  const name = nameMatch[0];
+  i = skipWs(code, i + name.length);
+
+  // Optional type parameters between the name and the member sigil.
+  if (code[i] === '<') {
+    const end = findAngleGroupEnd(code, i);
+    if (end === -1) return false;
+    i = skipWs(code, end);
+  }
+  // Optional `?` (optional member) / `!` (definite assignment); `?.` is a call.
+  if ((code[i] === '?' || code[i] === '!') && !(code[i] === '?' && code[i + 1] === '.')) {
+    marked = true;
+    i = skipWs(code, i + 1);
+  }
+
+  if (CONTROL_FLOW_KEYWORDS.has(name)) return false;
+
+  // Parameter properties: `constructor(private readonly sessionStore: Store)`.
+  // The member name itself is never sensitive; the parameter properties name
+  // the injected fields, so they carry the sensitivity check.
+  if (name === 'constructor') {
+    if (code[i] !== '(') return false;
+    const close = findBalancedCloseParen(code, i);
+    if (close === -1) return false;
+    const params = code.slice(i + 1, close);
+    const paramRe = /(?:^|[^\w$])(?:(?:public|private|protected|readonly)\s+)+([A-Za-z_$][\w$]*)/g;
+    let m: RegExpExecArray | null;
+    while ((m = paramRe.exec(params)) !== null) {
+      if (isSensitiveDeclarationName(m[1]!)) return true;
+    }
+    return false;
+  }
+
+  if (!isSensitiveDeclarationName(name)) return false;
+
+  const kind = code[i];
+  // Object/class shorthand (`validateSession,`) and uninitialized fields.
+  if (kind === undefined || kind === ',' || kind === ';') return true;
+  if (kind === ':') {
+    return marked || memberValueIsFunctionOrArrow(code, i + 1);
+  }
+  if (kind === '=') {
+    // `==` and `=>` are comparison / arrow-parameter shapes, not fields.
+    if (code[i + 1] === '=' || code[i + 1] === '>') return false;
+    return marked || memberValueIsFunctionOrArrow(code, i + 1);
+  }
   if (kind !== '(') return false;
-  const close = findBalancedCloseParen(code, at);
+
+  // Method shorthand: the argument list must close on this line and the
+  // tail must close the declaration (body `{` or `;`/`,` signature).
+  const close = findBalancedCloseParen(code, i);
   if (close === -1) return false;
-  return /^\s*(?::[^{]*)?\{/.test(code.slice(close + 1));
+  const params = code.slice(i + 1, close);
+  const tail = skipWs(code, close + 1);
+  if (code[tail] === ':') return methodTailClosesDeclaration(code, tail + 1);
+  if (code[tail] === '{') return true;
+  if (code[tail] === ';' || code[tail] === ',') {
+    // `name(args);` is a call statement; it is a signature only when the
+    // arguments carry type annotations (declaration-only syntax) or a
+    // declaration marker (modifier/`#`/`?`/`!`/decorator) was consumed.
+    return marked || params.includes(':');
+  }
+  return false;
 }
 
 /**
@@ -664,8 +872,10 @@ function freshSensitiveDeclScope(): SensitiveDeclScope {
 /**
  * Track a declaration body that is visible in this hunk. A field or statement
  * edit inside an auth, session, or csrf declaration still counts when the
- * header is hunk context. Resets at each diff header and hunk marker because
- * a later hunk does not repeat braces.
+ * header is hunk context — for keyword declarations AND for member
+ * declarations (a method shorthand or function-valued property member whose
+ * body `{` opens on the signature line). Resets at each diff header and hunk
+ * marker because a later hunk does not repeat braces.
  */
 function updateSensitiveDeclScope(scope: SensitiveDeclScope, code: string, opensSensitive: boolean): void {
   const braceOnly = code.trim().replace(/[{} \t]/g, '') === '';
@@ -1383,7 +1593,7 @@ export function makeMergeRules(config: MergeRulesConfig = {}): Rule[] {
             evidence: `changed diff line ${i + 1} contains code-shaped sensitive logic`,
           };
         }
-        updateSensitiveDeclScope(declScope, code, opensSensitive);
+        updateSensitiveDeclScope(declScope, code, opensSensitive || declaresSensitiveMember);
       }
       return null;
     },
