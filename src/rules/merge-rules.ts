@@ -488,23 +488,46 @@ function hasLifetimeWord(parts: readonly string[]): boolean {
   return false;
 }
 
+/**
+ * Session-family word parts. The plural `sessions` counts like `session`,
+ * so `sessionsTtl` and `SESSIONS_TTL_SECONDS` cannot dodge the checks by
+ * spelling the word in the plural.
+ */
+function isSessionWordPart(part: string): boolean {
+  return part === 'session' || part === 'sessions';
+}
+
+/** Token-family word parts; the plural `tokens` counts like `token`. */
+function isTokenWordPart(part: string): boolean {
+  return part === 'token' || part === 'tokens';
+}
+
 /** True when one identifier or dotted chain names a session/token lifetime. */
 function hasSessionOrTokenLifetime(code: string): boolean {
   const chainRe = /[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*/g;
   for (const match of code.matchAll(chainRe)) {
     const parts = identifierWordParts(match[0]);
-    if (!parts.some((part) => part === 'session' || part === 'token')) continue;
+    if (!parts.some((part) => isSessionWordPart(part) || isTokenWordPart(part))) continue;
     if (hasLifetimeWord(parts)) return true;
   }
   return false;
 }
 
+/**
+ * Plural note: `sessions` counts like `session` here too, BUT a bare plural
+ * binding (`const sessions = useAnalytics()`, `const tokens = design(theme)`)
+ * stays allowed — the bare plural is a common analytics/UI word, while the
+ * bare singular (`const session = load()`) names session logic. Combined
+ * with any non-label part (`sessionsTtl`, `SessionsGuard`) the plural counts.
+ */
 function isSensitiveDeclarationName(name: string): boolean {
   const parts = identifierWordParts(name);
   if (parts.some((part) => AUTH_FAMILY_WORD_RE.test(part))) return true;
-  if (!parts.includes('session')) return false;
-  const others = parts.filter((part) => part !== 'session');
-  if (others.length > 0 && others.every((part) => SESSION_LABEL_WORD_RE.test(part))) return false;
+  const sessionParts = parts.filter(isSessionWordPart);
+  if (sessionParts.length === 0) return false;
+  const others = parts.filter((part) => !isSessionWordPart(part) && !isTokenWordPart(part));
+  if (others.length === 0) return sessionParts.includes('session');
+  if (others.every((part) => SESSION_LABEL_WORD_RE.test(part))) return false;
   return true;
 }
 
@@ -523,14 +546,27 @@ function lineDeclaresSensitiveName(code: string): boolean {
 }
 
 /**
- * A full-line comment: `//`, `#`, a block comment, or a JSDoc star continuation.
+ * A full-line comment: `//`, a `#` comment, a single-line block comment that
+ * closes on the same line, a bare closing star-slash line, or a JSDoc
+ * continuation line starting with `*` followed by a space or tab.
+ * `#` counts as a comment only when the `#` is followed by whitespace, `!`
+ * (shebang), or end of line — a JS/TS private field such as
+ * `#sessionTtl = 3600` is code, is not skipped here, and is scanned.
+ * Block-comment state is NOT tracked across lines: a continuation line of a
+ * multi-line block comment that does not have one of these shapes (no
+ * leading star, or `*WORD` with no space after the star) is scanned like
+ * code and may still block — the safe direction.
  * A line that still has code after the comment is not comment-only; later
  * checks see that code.
  */
 function isCommentOnlyBody(body: string): boolean {
   const trimmed = body.trim();
   if (trimmed === '') return true;
-  if (trimmed.startsWith('//') || trimmed.startsWith('#')) return true;
+  if (trimmed.startsWith('//')) return true;
+  if (trimmed.startsWith('#')) {
+    const next = trimmed[1];
+    return next === undefined || next === ' ' || next === '\t' || next === '!';
+  }
   if (trimmed.startsWith('/*')) {
     const close = trimmed.indexOf('*/');
     if (close === -1) return true;

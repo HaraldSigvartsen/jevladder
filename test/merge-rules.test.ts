@@ -1092,6 +1092,59 @@ describe('rule: sensitive-content', () => {
     });
   });
 
+  it('counts plural session/token parts for the lifetime and declaration checks', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+export const sessionsTtl = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const SESSIONS_TTL_SECONDS = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export const tokensExpiry = 60;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+config.tokens.expiry = 60;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+export class SessionsGuard {}' })).toMatchObject({
+      outcome: 'block',
+    });
+    // Plain analytics plurals stay allowed, including bare plural bindings.
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessions = useAnalytics();' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const tokens = design(theme)' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+const sessionsName = "draft";' })).toBeNull();
+  });
+
+  it('scans JS/TS private # fields instead of treating them as comments', () => {
+    expect(rule.evaluate({ action: 'merge', diff: '+  #sessionTtl = 3600;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(rule.evaluate({ action: 'merge', diff: '+  #sessionTtl: number = 3600;' })).toMatchObject({
+      outcome: 'block',
+    });
+    expect(
+      rule.evaluate({ action: 'merge', diff: '+class LoginService { #sessionTtl = 900 }' }),
+    ).toMatchObject({ outcome: 'block' });
+    // Real # comments (whitespace or ! after the hash, or a bare hash) still skip.
+    expect(rule.evaluate({ action: 'merge', diff: '+#!enforce session ttl = 60' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+#' })).toBeNull();
+  });
+
+  it('still scans block-comment continuation lines that are not star-shaped', () => {
+    const blockComment = [
+      '@@ -1,1 +1,3 @@',
+      '+/*',
+      '+interface AuthUser {',
+      '+*/',
+    ].join('\n');
+    expect(rule.evaluate({ action: 'merge', diff: blockComment })).toMatchObject({ outcome: 'block' });
+    expect(rule.evaluate({ action: 'merge', diff: '+*SESSION_TTL_SECONDS = 7200;' })).toMatchObject({
+      outcome: 'block',
+    });
+    // One-line block comments and star-space JSDoc lines still skip.
+    expect(rule.evaluate({ action: 'merge', diff: '+/* session ttl note on one line */' })).toBeNull();
+    expect(rule.evaluate({ action: 'merge', diff: '+ * session lifetime is only mentioned in this note' })).toBeNull();
+  });
+
   it('blocks auth, session, and csrf declarations, including type-only field edits', () => {
     expect(
       rule.evaluate({
