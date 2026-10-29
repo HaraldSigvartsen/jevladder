@@ -45,6 +45,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "gate": "bash scripts/local-gate",
+    "hooks:install": "git config core.hooksPath .githooks && chmod +x .githooks/pre-push scripts/local-gate",
     "eval": "pnpm run build && node dist/eval/run.js",
     "eval:independent": "pnpm run build && node dist/eval/independent/run.js"
   },

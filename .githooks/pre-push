@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Rejects the push when the local gate fails.
+# Install once per clone: pnpm run hooks:install
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+echo "local gate: pnpm run gate"
+# Detach stdin so test tools cannot consume the pre-push ref list.
+pnpm run gate </dev/null
