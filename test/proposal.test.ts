@@ -23,6 +23,7 @@ const OLD = '2026-10-01T12:00:00.000Z';
 const tempDirs: string[] = [];
 
 afterEach(() => {
+  vi.useRealTimers();
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop() as string, { recursive: true, force: true });
   }
@@ -178,11 +179,14 @@ describe('config proposal pull request', () => {
   });
 
   it('propose --open asks a human and rejects --merge', async () => {
+    // The fixture log carries fixed timestamps (IN_WINDOW) while the CLI reads
+    // wall-clock new Date(); pin Date so the 7-day window can never rot this test.
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
     const dir = mkdtempSync(join(tmpdir(), 'jevladder-propose-open-'));
     tempDirs.push(dir);
     const log = join(dir, 'decisions.jsonl');
     writeFileSync(log, reviewLog(), 'utf8');
-    const expected = configProposalPullRequest(buildConfigProposal(reviewLog(), new Date()), new Date());
+    const expected = configProposalPullRequest(buildConfigProposal(reviewLog(), NOW), NOW);
     const opened: string[] = [];
     const { out, io } = capture();
     const code = await runCli(['propose', '--log', log, '--open'], io, {
