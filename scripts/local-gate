@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fast checks for contributors and agents before push.
-# Same commands as .github/workflows/ci.yml: vitest, then tsc --noEmit.
+# Runs `pnpm run check` (vitest, then tsc --noEmit), the same as .github/workflows/ci.yml.
 # Optional evals stay opt-in (`pnpm run eval`, `pnpm run eval:independent`).
 set -euo pipefail
 
@@ -17,5 +17,4 @@ if [[ ! -d node_modules ]]; then
   exit 1
 fi
 
-pnpm test
-pnpm run typecheck
+pnpm run check
