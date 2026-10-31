@@ -717,8 +717,9 @@ pnpm run eval:independent # policy-labelled independent eval
 ### Local gate before push
 
 Contributors and agents run the fast checks on the machine that is about to
-push. `pnpm run gate` runs `pnpm test` and `pnpm run typecheck` (the same pair
-the existing workflow runs). Optional evals stay opt-in.
+push. `pnpm run gate` runs `pnpm run check` (`pnpm test`, then
+`pnpm run typecheck`). GitHub Actions runs the same `pnpm run check` on pull
+requests only. Optional evals stay opt-in.
 
 Install the git pre-push hook once per clone:
 
@@ -733,8 +734,7 @@ gate exits non-zero. Run the same checks on demand with `pnpm run gate`.
 Agents: on a fresh clone, run `pnpm install`, then `pnpm run hooks:install`
 once. Before pushing, run `pnpm run gate` (the hook runs it again). Run
 `pnpm run eval` and `pnpm run eval:independent` only when you intend to
-evaluate. Keep the existing GitHub Actions workflow as it is; use this gate
-for day-to-day checks.
+evaluate. Use this gate for day-to-day checks rather than pushing to see CI.
 
 Regenerate the README terminal demo (requires [VHS](https://github.com/charmbracelet/vhs)):
 
